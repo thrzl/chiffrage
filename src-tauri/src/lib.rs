@@ -18,38 +18,6 @@ struct AppState {
 }
 
 #[tauri::command]
-fn generate_keypair(id: String, state: tauri::State<Mutex<AppState>>, app: tauri::AppHandle) {
-    let mut state = state.lock().unwrap();
-    let vault = state.vault.as_mut().expect("failed to load vault");
-    let keypair = crypt::generate_key();
-    let password = prompt_password(app);
-    vault.put_secret(format!("priv:{}", id), keypair.private_key, &password);
-    vault.put_secret(
-        format!("pub:{}", id),
-        SecretString::from(keypair.public_key),
-        &password,
-    );
-    state.index.insert(
-        format!("pub:{}", id),
-        serde_cbor::to_vec(&KeyMetadata {
-            name: format!("pub:{}", id),
-            key_type: store::KeyType::Public,
-            date_created: std::time::SystemTime::now(),
-        })
-        .expect("failed to serialize key metadata"),
-    );
-    state.index.insert(
-        format!("priv:{}", id),
-        serde_cbor::to_vec(&KeyMetadata {
-            name: format!("priv:{}", id),
-            key_type: store::KeyType::Public,
-            date_created: std::time::SystemTime::now(),
-        })
-        .expect("failed to serialize key metadata"),
-    );
-}
-
-#[tauri::command]
 fn is_first_open(state: tauri::State<Mutex<AppState>>) -> bool {
     return state.lock().unwrap().first_open;
 }
@@ -77,40 +45,6 @@ fn prompt_password(app: tauri::AppHandle) -> SecretString {
     return SecretString::from("miracle baby");
 }
 
-#[tauri::command]
-fn unlock_vault(password: String, state: tauri::State<Mutex<AppState>>) -> Result<(), String> {
-    let mut state = state.lock().unwrap();
-    let vault_location = dirs::data_dir()
-        .expect("could not find app data directory")
-        .join("chiffrage/vault.cb");
-    let vault_load = store::Vault::load_vault(vault_location.to_str().unwrap()).unwrap_or(
-        store::Vault::create_vault(
-            vault_location.to_str().unwrap(),
-            &secrecy::SecretString::from(password),
-        ),
-    );
-    state.vault = Some(vault_load);
-    Ok(())
-}
-
-#[tauri::command]
-fn fetch_keys(state: tauri::State<Mutex<AppState>>) -> Vec<store::KeyMetadata> {
-    let state = state.lock().unwrap();
-    let index = &state.index;
-
-    let items: Vec<store::KeyMetadata> = index
-        .iter()
-        .map(|entry| match entry {
-            Ok(data) => Some(serde_cbor::from_slice::<store::KeyMetadata>(&data.1).unwrap()),
-            Err(_) => None,
-        })
-        .filter(|entry| entry.is_some())
-        .map(|entry| entry.unwrap())
-        .collect();
-
-    return items;
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let first_open = !dirs::data_dir()
@@ -127,9 +61,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             greet,
-            fetch_keys,
+            store::fetch_keys,
+            store::unlock_vault,
             is_first_open,
-            unlock_vault,
             generate_keypair,
             crypt::encrypt_text
         ])

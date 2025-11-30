@@ -1,6 +1,8 @@
 // higher-level age functions to be called from the frontend
 
+mod commands;
 use age::x25519::{Identity, Recipient};
+pub use commands::*;
 use secrecy::{ExposeSecret, SecretString};
 use std::io::{BufReader, Write};
 use std::path::Path;

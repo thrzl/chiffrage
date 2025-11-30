@@ -2,6 +2,8 @@
 // use the Vault struct to interface with it
 // you can open (or create) a vault with:
 // Vault::load_vault()
+mod commands;
+pub use commands::*;
 
 use std::{collections::HashMap, fs, path::PathBuf, str::FromStr};
 
