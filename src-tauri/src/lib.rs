@@ -103,6 +103,7 @@ pub fn run() {
     let index = db.open_tree("keys").expect("failed to open sled tree");
     println!("first open: {:?}", first_open);
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             greet,

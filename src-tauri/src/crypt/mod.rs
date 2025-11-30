@@ -1,9 +1,8 @@
 // higher-level age functions to be called from the frontend
 
 use age::x25519::{Identity, Recipient};
-use age::Encryptor;
 use secrecy::{ExposeSecret, SecretString};
-use std::io::{Read, Write};
+use std::io::Write;
 
 pub struct Keypair {
     pub private_key: SecretString,
@@ -19,7 +18,9 @@ pub fn generate_key() -> Keypair {
 }
 
 #[tauri::command]
-pub fn encrypt_text(public_keys: Vec<String>, text: String) -> Vec<u8> {
+pub fn encrypt_file(public_keys: Vec<String>, bytes: &[u8]) -> Vec<u8> {}
+
+pub fn encrypt_bytes(public_keys: Vec<String>, bytes: &[u8]) -> Vec<u8> {
     // TODO need to make error handling not be terrible here. you dont want to encrypt something to nobody
     let recipients = public_keys
         .iter()
@@ -30,15 +31,23 @@ pub fn encrypt_text(public_keys: Vec<String>, text: String) -> Vec<u8> {
         })
         .filter_map(|recipient: Result<Recipient, _>| recipient.ok())
         .collect::<Vec<Recipient>>();
+
     let encryptor =
         age::Encryptor::with_recipients(recipients.iter().map(|recipient| recipient as _))
             .expect("encryptor initialization failed");
-    let mut encrypted_text = vec![];
-    let mut writer = encryptor
-        .wrap_output(&mut encrypted_text)
-        .expect("failed to initialize writer");
-    writer.write_all(text.as_bytes());
-    writer.finish();
 
-    return encrypted_text;
+    let mut encrypted_output = vec![];
+    let mut writer = encryptor
+        .wrap_output(&mut encrypted_output)
+        .expect("failed to initialize writer");
+
+    writer.write_all(bytes).expect("failed to write bytes");
+    writer.finish().expect("failed to write final chunk");
+
+    return encrypted_output;
+}
+
+#[tauri::command]
+pub fn encrypt_text(public_keys: Vec<String>, text: String) -> Vec<u8> {
+    return encrypt_bytes(public_keys, text.as_bytes());
 }
