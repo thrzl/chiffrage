@@ -2,7 +2,12 @@
 mod crypt;
 mod store;
 use secrecy::SecretString;
-use std::sync::Mutex;
+use std::{
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
+use tauri::{Manager, WebviewUrl};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
 use crate::store::KeyMetadata;
 
@@ -13,14 +18,16 @@ struct AppState {
 }
 
 #[tauri::command]
-fn generate_keypair(id: String, state: tauri::State<Mutex<AppState>>) {
+fn generate_keypair(id: String, state: tauri::State<Mutex<AppState>>, app: tauri::AppHandle) {
     let mut state = state.lock().unwrap();
     let vault = state.vault.as_mut().expect("failed to load vault");
     let keypair = crypt::generate_key();
-    vault.put_secret(format!("priv:{}", id), keypair.private_key);
+    let password = prompt_password(app);
+    vault.put_secret(format!("priv:{}", id), keypair.private_key, &password);
     vault.put_secret(
         format!("pub:{}", id),
         SecretString::from(keypair.public_key),
+        &password,
     );
     state.index.insert(
         format!("pub:{}", id),
@@ -50,6 +57,24 @@ fn is_first_open(state: tauri::State<Mutex<AppState>>) -> bool {
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+fn prompt_password(app: tauri::AppHandle) -> SecretString {
+    let answer = app
+        .dialog()
+        .message("Tauri is Awesome")
+        .title("Tauri is Awesome")
+        .blocking_show();
+    tauri::WebviewWindowBuilder::new(
+        &app,
+        "vault-unlock",
+        WebviewUrl::App(PathBuf::from("prompt.html")),
+    )
+    .always_on_top(true)
+    .title("unlock vault")
+    .build()
+    .expect("should have opened idk whats wrong");
+    return SecretString::from("miracle baby");
 }
 
 #[tauri::command]

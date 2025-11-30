@@ -52,12 +52,15 @@ pub struct VaultFile {
 pub struct Vault {
     file: VaultFile,
     path: PathBuf,
-    key: SecretBox<[u8; 32]>,
 }
 
 impl Vault {
-    fn decrypt_secret(&self, encrypted_secret: &EncryptedSecret) -> Result<SecretString, String> {
-        let mut cipher = XChaCha20Poly1305::new(self.key.expose_secret().into());
+    fn decrypt_secret(
+        &self,
+        encrypted_secret: &EncryptedSecret,
+        key: &SecretBox<[u8; 32]>,
+    ) -> Result<SecretString, String> {
+        let mut cipher = XChaCha20Poly1305::new(key.expose_secret().into());
         let nonce = XNonce::from_slice(&encrypted_secret.nonce);
 
         let decrypted_bytes = cipher.decrypt(nonce, encrypted_secret.ciphertext.as_ref());
@@ -68,6 +71,10 @@ impl Vault {
         return Ok(SecretString::from(
             String::from_utf8(decrypted_bytes.unwrap()).expect("failed to decode as utf-8"),
         ));
+    }
+
+    pub fn derive_key(&self, password: &SecretString) -> SecretBox<[u8; 32]> {
+        return derive_key(password, &self.file.salt);
     }
 
     pub fn list_keys(&self) -> Vec<&String> {
@@ -88,17 +95,21 @@ impl Vault {
         }
     }
 
-    pub fn load_secret(&self, id: String) -> Option<Result<SecretString, String>> {
+    pub fn load_secret(
+        &self,
+        id: String,
+        key: &SecretBox<[u8; 32]>,
+    ) -> Option<Result<SecretString, String>> {
         let encrypted_secret = self.file.secrets.get(&id);
         if let Some(secret) = encrypted_secret {
-            return Some(self.decrypt_secret(secret));
+            return Some(self.decrypt_secret(secret, key));
         } else {
             return None;
         }
     }
 
-    pub fn put_secret(&mut self, id: String, secret: SecretString) {
-        let encrypted_secret = Vault::encrypt_secret(&self.key, secret);
+    pub fn put_secret(&mut self, id: String, secret: SecretString, password: &SecretString) {
+        let encrypted_secret = Vault::encrypt_secret(&self.derive_key(password), secret);
         self.file.secrets.insert(id, encrypted_secret);
         self.save_vault(&self.file);
     }
@@ -114,18 +125,20 @@ impl Vault {
             let vault = Vault {
                 file: vault_file,
                 path: PathBuf::from_str(path).expect("invalid path"),
-                key,
             };
 
-            let hello = vault.decrypt_secret(&vault.file.hello);
-            if hello.is_ok() {
-                let raw_hello = hello.unwrap().expose_secret().to_string();
-                if raw_hello != "hello" {
-                    return Err("authentication failed".to_string());
-                }
-            } else {
-                return Err("authentication failed".to_string());
-            };
+            // let hello = vault.decrypt_secret(&vault.file.hello);
+            // if hello.is_ok() {
+            //     let raw_hello = hello.unwrap().expose_secret().to_string();
+            //     if raw_hello != "hello" {
+            //         return Err("authentication failed".to_string());
+            //     }
+            // } else {
+            //     return Err("authentication failed".to_string());
+            // };
+            //
+            // ! shouldn't be doing this here. this should go in the actual
+            // ! decryption check logic
             Ok(vault)
         } else {
             let mut salt = [0u8; 16];
@@ -141,7 +154,6 @@ impl Vault {
             Ok(Vault {
                 file: vault_file,
                 path: PathBuf::from_str(path).expect("invalid path"),
-                key,
             })
         }
     }

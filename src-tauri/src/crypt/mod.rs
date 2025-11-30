@@ -2,7 +2,8 @@
 
 use age::x25519::{Identity, Recipient};
 use secrecy::{ExposeSecret, SecretString};
-use std::io::Write;
+use std::io::{BufReader, Write};
+use std::path::Path;
 
 pub struct Keypair {
     pub private_key: SecretString,
@@ -18,7 +19,9 @@ pub fn generate_key() -> Keypair {
 }
 
 #[tauri::command]
-pub fn encrypt_file(public_keys: Vec<String>, bytes: &[u8]) -> Vec<u8> {}
+pub fn encrypt_file(public_keys: Vec<String>, file_path: &Path) -> Vec<u8> {
+    todo!()
+}
 
 pub fn encrypt_bytes(public_keys: Vec<String>, bytes: &[u8]) -> Vec<u8> {
     // TODO need to make error handling not be terrible here. you dont want to encrypt something to nobody

@@ -15,10 +15,10 @@
     async function generate_key(event: Event) {
         event.preventDefault();
         // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-        key = (await invoke("encrypt_text", { public_keys:  })) as {
-            public_key: string;
-            private_key: string;
-        };
+        // key = (await invoke("encrypt_text", { public_keys:  })) as {
+        //     public_key: string;
+        //     private_key: string;
+        // };
         console.log("generated keys");
         emit("update-keys");
     }
