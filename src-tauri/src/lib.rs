@@ -80,21 +80,16 @@ fn prompt_password(app: tauri::AppHandle) -> SecretString {
 #[tauri::command]
 fn unlock_vault(password: String, state: tauri::State<Mutex<AppState>>) -> Result<(), String> {
     let mut state = state.lock().unwrap();
-    let vault_load = store::Vault::load_vault(
-        dirs::data_dir()
-            .expect("could not find app data directory")
-            .join("chiffrage/vault.cb")
-            .to_str()
-            .unwrap(),
-        &secrecy::SecretString::from(password),
+    let vault_location = dirs::data_dir()
+        .expect("could not find app data directory")
+        .join("chiffrage/vault.cb");
+    let vault_load = store::Vault::load_vault(vault_location.to_str().unwrap()).unwrap_or(
+        store::Vault::create_vault(
+            vault_location.to_str().unwrap(),
+            &secrecy::SecretString::from(password),
+        ),
     );
-    match vault_load {
-        Ok(vault) => {
-            println!("{:?}", &vault.list_keys());
-            state.vault = Some(vault);
-        }
-        Err(value) => return Err(value),
-    };
+    state.vault = Some(vault_load);
     Ok(())
 }
 

@@ -114,47 +114,47 @@ impl Vault {
         self.save_vault(&self.file);
     }
 
-    pub fn load_vault(path: &str, password: &SecretString) -> Result<Self, String> {
-        if std::path::Path::new(path).exists() {
-            let data = fs::read(path).expect("could not read vault");
-            let vault_file: VaultFile =
-                serde_cbor::from_slice(&data).expect("could not parse vault");
+    pub fn load_vault(path: &str) -> Result<Self, String> {
+        if !std::path::Path::new(path).exists() {
+            return Err("vault does not exist".to_string());
+        }
+        let data = fs::read(path).expect("could not read vault");
+        let vault_file: VaultFile = serde_cbor::from_slice(&data).expect("could not parse vault");
 
-            let key = derive_key(password, &vault_file.salt);
+        let vault = Vault {
+            file: vault_file,
+            path: PathBuf::from_str(path).expect("invalid path"),
+        };
 
-            let vault = Vault {
-                file: vault_file,
-                path: PathBuf::from_str(path).expect("invalid path"),
-            };
+        // let hello = vault.decrypt_secret(&vault.file.hello);
+        // if hello.is_ok() {
+        //     let raw_hello = hello.unwrap().expose_secret().to_string();
+        //     if raw_hello != "hello" {
+        //         return Err("authentication failed".to_string());
+        //     }
+        // } else {
+        //     return Err("authentication failed".to_string());
+        // };
+        //
+        // ! shouldn't be doing this here. this should go in the actual
+        // ! decryption check logic
+        Ok(vault)
+    }
 
-            // let hello = vault.decrypt_secret(&vault.file.hello);
-            // if hello.is_ok() {
-            //     let raw_hello = hello.unwrap().expose_secret().to_string();
-            //     if raw_hello != "hello" {
-            //         return Err("authentication failed".to_string());
-            //     }
-            // } else {
-            //     return Err("authentication failed".to_string());
-            // };
-            //
-            // ! shouldn't be doing this here. this should go in the actual
-            // ! decryption check logic
-            Ok(vault)
-        } else {
-            let mut salt = [0u8; 16];
-            OsRng.fill_bytes(&mut salt);
+    pub fn create_vault(path: &str, password: &SecretString) -> Vault {
+        let mut salt = [0u8; 16];
+        OsRng.fill_bytes(&mut salt);
 
-            let key = derive_key(password, &salt);
+        let key = derive_key(password, &salt);
 
-            let vault_file = VaultFile {
-                salt: salt.to_vec(),
-                hello: Vault::encrypt_secret(&key, SecretString::from("hello")),
-                secrets: HashMap::new(),
-            };
-            Ok(Vault {
-                file: vault_file,
-                path: PathBuf::from_str(path).expect("invalid path"),
-            })
+        let vault_file = VaultFile {
+            salt: salt.to_vec(),
+            hello: Vault::encrypt_secret(&key, SecretString::from("hello")),
+            secrets: HashMap::new(),
+        };
+        Vault {
+            file: vault_file,
+            path: PathBuf::from_str(path).expect("invalid path"),
         }
     }
 
