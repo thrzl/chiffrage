@@ -10,10 +10,8 @@ use chacha20poly1305::{
     aead::{AeadMut, OsRng},
     AeadCore, KeyInit, XChaCha20Poly1305, XNonce,
 };
-use secrecy::{CloneableSecret, ExposeSecret, SecretBox, SecretString};
+use secrecy::{ExposeSecret, SecretBox, SecretString};
 use serde::{Deserialize, Serialize};
-use thiserror;
-use time::OffsetDateTime;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum KeyType {
@@ -28,16 +26,12 @@ pub struct KeyMetadata {
     pub date_created: std::time::SystemTime,
 }
 
-// impl KeyMetadata {
-//     pub fn serialize(&self) -> Result<Vec<u8>, serde_cbor::Error> {
-//         serde_cbor::ser::to_vec(self)
-//     }
-// }
-
 pub fn derive_key(password: &SecretString, salt: &[u8]) -> SecretBox<[u8; 32]> {
     let argon2 = Argon2::default();
     let mut key = [0u8; 32];
-    argon2.hash_password_into(password.expose_secret().as_bytes(), salt, &mut key);
+    argon2
+        .hash_password_into(password.expose_secret().as_bytes(), salt, &mut key)
+        .expect("failed to hash password into key");
 
     SecretBox::new(Box::new(key))
 }
