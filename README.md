@@ -11,6 +11,9 @@ huge work in progress. nothing is set right now, not even database format/struct
 - [ ] age backend in tauri
 - [ ] complete frontend
 - [ ] implement key management
+    - [x] keypair generation
+    - [ ] metadata editor + notes
+    - [ ] key exoprt
 - [ ] automated builds
 
 *\*may be modified to use tauri's built-in store instead of sled*
