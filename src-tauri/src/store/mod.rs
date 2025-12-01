@@ -7,13 +7,15 @@ pub use commands::*;
 
 use std::{collections::HashMap, fs, path::PathBuf, str::FromStr};
 
+use crate::set_timeout;
 use argon2::{password_hash::rand_core::RngCore, Argon2};
 use chacha20poly1305::{
     aead::{AeadMut, OsRng},
     AeadCore, KeyInit, XChaCha20Poly1305, XNonce,
 };
-use secrecy::{ExposeSecret, SecretBox, SecretString};
+use secrecy::{zeroize::Zeroize, ExposeSecret, SecretBox, SecretString};
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex}; // how terrifying
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum KeyType {
@@ -54,6 +56,7 @@ pub struct VaultFile {
 pub struct Vault {
     file: VaultFile,
     path: PathBuf,
+    key: Arc<Mutex<Option<SecretString>>>,
 }
 
 impl Vault {
@@ -110,6 +113,18 @@ impl Vault {
         }
     }
 
+    pub fn authenticate(&self, password: SecretString) {
+        // it works, i think!
+        let key_handle = Arc::clone(&self.key);
+        *key_handle.lock().unwrap() = Some(password);
+        set_timeout(5 * 1000, move || {
+            let mut key_mut = key_handle.lock().unwrap();
+            if let Some(mut k) = key_mut.take() {
+                k.zeroize();
+            }
+        });
+    }
+
     pub fn put_secret(&mut self, id: String, secret: SecretString, password: &SecretString) {
         let encrypted_secret = Vault::encrypt_secret(&self.derive_key(password), secret);
         self.file.secrets.insert(id, encrypted_secret);
@@ -126,6 +141,7 @@ impl Vault {
         let vault = Vault {
             file: vault_file,
             path: PathBuf::from_str(path).expect("invalid path"),
+            key: Arc::new(Mutex::new(None)),
         };
 
         // let hello = vault.decrypt_secret(&vault.file.hello);
@@ -157,6 +173,7 @@ impl Vault {
         Vault {
             file: vault_file,
             path: PathBuf::from_str(path).expect("invalid path"),
+            key: Arc::new(Mutex::new(None)),
         }
     }
 
