@@ -1,15 +1,11 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod crypt;
 mod store;
+use dialog::DialogBox;
 use secrecy::SecretString;
-use std::{
-    path::{Path, PathBuf},
-    sync::Mutex,
-};
-use tauri::{Manager, WebviewUrl};
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
-
-use crate::store::KeyMetadata;
+use std::sync::Mutex;
+use tauri::{webview::InvokeRequest, WebviewEvent, WebviewUrl, WindowEvent};
+use tauri_plugin_dialog::DialogExt;
 
 struct AppState {
     vault: Option<store::Vault>,
@@ -28,21 +24,26 @@ fn greet(name: &str) -> String {
 }
 
 fn prompt_password(app: tauri::AppHandle) -> SecretString {
-    let answer = app
-        .dialog()
-        .message("Tauri is Awesome")
-        .title("Tauri is Awesome")
-        .blocking_show();
-    tauri::WebviewWindowBuilder::new(
-        &app,
-        "vault-unlock",
-        WebviewUrl::App(PathBuf::from("prompt.html")),
-    )
-    .always_on_top(true)
-    .title("unlock vault")
-    .build()
-    .expect("should have opened idk whats wrong");
-    return SecretString::from("miracle baby");
+    // let answer = app
+    //     .dialog()
+    //     .message("Tauri is Awesome")
+    //     .title("Tauri is Awesome")
+    //     .blocking_show();
+    // tauri::WebviewWindowBuilder::new(
+    //     &app,
+    //     "vault-unlock",
+    //     WebviewUrl::App(PathBuf::from("prompt.html")),
+    // )
+    // .always_on_top(true)
+    // .title("unlock vault")
+    // .build()
+    // .expect("should have opened idk whats wrong");
+    let pass = dialog::Password::new("enter your vault password")
+        .title("vault auth")
+        .show()
+        .expect("couldn't ask for password")
+        .unwrap_or("".to_string());
+    return SecretString::from(pass);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -61,11 +62,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             greet,
-            store::fetch_keys,
-            store::unlock_vault,
             is_first_open,
-            generate_keypair,
-            crypt::encrypt_text
+            store::fetch_keys,
+            store::load_vault,
+            store::create_vault,
+            store::vault_exists,
+            crypt::generate_keypair,
+            crypt::encrypt_text,
         ])
         .manage(Mutex::new(AppState {
             vault: None,

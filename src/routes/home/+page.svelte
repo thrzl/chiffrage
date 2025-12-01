@@ -1,6 +1,7 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
     import { listen } from "@tauri-apps/api/event";
+    import { openWindow } from "$lib/main";
 
     type Key = {
         id: string;
@@ -19,22 +20,6 @@
         greetMsg = await invoke("greet", { name });
     }
 
-    import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-
-    function openWindow(window: string) {
-        const win = new WebviewWindow(window, {
-            url: window, // or correct relative path
-            width: 500,
-            height: 600,
-        });
-
-        win.once("tauri://created", () => {
-            console.log("New window created!");
-        });
-        win.once("tauri://error", (e) => {
-            console.error("Failed to create window", e);
-        });
-    }
     let keysFetch: Promise<Key[]> = $state(invoke("fetch_keys"));
     listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
 </script>

@@ -2,15 +2,6 @@
     import { invoke } from "@tauri-apps/api/core";
     import { onMount } from "svelte";
 
-    onMount(async () => {
-        if (await invoke("vault_exists")) {
-            await invoke("load_vault");
-            window.location.href = "/home";
-        } else {
-            window.location.href = "/create-vault";
-        }
-    });
-
     type Key = {
         id: string;
         name: string;
@@ -22,15 +13,17 @@
 
     let error = $state("");
 
-    async function unlockVault(event: Event) {
+    async function createVault(event: Event) {
         event.preventDefault();
         if (!passwordInput) {
             error = "password input field could not be found";
             return;
         }
-        error = await invoke("unlock_vault", { password: passwordInput.value });
+        error = await invoke("create_vault", { password: passwordInput.value });
         if (!error) {
-            passwordInput.value = "";
+            passwordInput.value =
+                "don't read the password please that would not be nice and i really don't think you should do that";
+            await invoke("load_vault");
             window.location.href = "/home";
         }
     }
@@ -39,5 +32,9 @@
 </script>
 
 <main class="container">
-    <p>welcome back :P</p>
+    <p>welcome :P</p>
+    <p>let's make a vault to store your private keys!</p>
+    <h1>choose a password</h1>
+    <input bind:this={passwordInput} type="password" />
+    <button onclick={createVault}>create</button>
 </main>
