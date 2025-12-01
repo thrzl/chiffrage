@@ -4,8 +4,19 @@ mod store;
 use dialog::DialogBox;
 use secrecy::SecretString;
 use std::sync::Mutex;
-use tauri::{webview::InvokeRequest, WebviewEvent, WebviewUrl, WindowEvent};
-use tauri_plugin_dialog::DialogExt;
+use std::thread;
+use std::time::Duration;
+
+// im ngl idk what im doin
+pub fn set_timeout<F>(delay_ms: u64, f: F)
+where
+    F: FnOnce() + Send + 'static,
+{
+    thread::spawn(move || {
+        thread::sleep(Duration::from_millis(delay_ms));
+        f();
+    });
+}
 
 struct AppState {
     vault: Option<store::Vault>,
