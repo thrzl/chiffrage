@@ -5,17 +5,15 @@
 mod commands;
 pub use commands::*;
 
-use crate::set_timeout;
 use argon2::{password_hash::rand_core::RngCore, Argon2};
 use chacha20poly1305::{
     aead::{AeadMut, OsRng},
     AeadCore, KeyInit, XChaCha20Poly1305, XNonce,
 };
-use core::clone::Clone;
-use secrecy::{zeroize::Zeroize, CloneableSecret, ExposeSecret, SecretBox, SecretString};
+
+use secrecy::{ExposeSecret, SecretBox, SecretString};
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
-use std::{collections::HashMap, fs, ops::Deref, path::PathBuf, str::FromStr}; // how terrifying
+use std::{collections::HashMap, fs, path::PathBuf, str::FromStr}; // how terrifying
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum KeyType {
@@ -74,14 +72,6 @@ impl Vault {
         ));
     }
 
-    pub fn derive_key(&self, password: &SecretString) -> SecretBox<[u8; 32]> {
-        return derive_key(password, &self.file.salt);
-    }
-
-    pub fn list_keys(&self) -> Vec<&String> {
-        self.file.secrets.iter().map(|secret| secret.0).collect()
-    }
-
     fn encrypt_secret(key: &SecretBox<[u8; 32]>, secret: SecretString) -> EncryptedSecret {
         let mut cipher = XChaCha20Poly1305::new(key.expose_secret().into());
         let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
@@ -96,6 +86,7 @@ impl Vault {
         }
     }
 
+    #[allow(dead_code)] // shhhh we got it bro
     pub fn load_secret(&self, id: String) -> Option<Result<SecretString, String>> {
         let encrypted_secret = self.file.secrets.get(&id);
         if let Some(secret) = encrypted_secret {

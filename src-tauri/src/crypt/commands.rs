@@ -5,11 +5,7 @@ use secrecy::SecretString;
 use std::sync::Mutex;
 
 #[tauri::command]
-pub fn generate_keypair(
-    id: String,
-    state: tauri::State<Mutex<AppState>>,
-    app: tauri::AppHandle,
-) -> Result<(), String> {
+pub fn generate_keypair(id: String, state: tauri::State<Mutex<AppState>>) -> Result<(), String> {
     let mut state = state.lock().unwrap();
     let vault = state.vault.as_mut().expect("failed to load vault");
     let keypair = crypt::generate_key();

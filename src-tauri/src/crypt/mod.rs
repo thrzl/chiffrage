@@ -4,7 +4,7 @@ mod commands;
 use age::x25519::{Identity, Recipient};
 pub use commands::*;
 use secrecy::{ExposeSecret, SecretString};
-use std::io::{BufReader, Write};
+use std::io::Write;
 use std::path::Path;
 
 pub struct Keypair {
