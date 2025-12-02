@@ -5,17 +5,17 @@
 mod commands;
 pub use commands::*;
 
-use std::{collections::HashMap, fs, path::PathBuf, str::FromStr};
-
 use crate::set_timeout;
 use argon2::{password_hash::rand_core::RngCore, Argon2};
 use chacha20poly1305::{
     aead::{AeadMut, OsRng},
     AeadCore, KeyInit, XChaCha20Poly1305, XNonce,
 };
-use secrecy::{zeroize::Zeroize, ExposeSecret, SecretBox, SecretString};
+use core::clone::Clone;
+use secrecy::{zeroize::Zeroize, CloneableSecret, ExposeSecret, SecretBox, SecretString};
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex}; // how terrifying
+use std::sync::{Arc, Mutex};
+use std::{collections::HashMap, fs, ops::Deref, path::PathBuf, str::FromStr}; // how terrifying
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum KeyType {
@@ -56,15 +56,25 @@ pub struct VaultFile {
 pub struct Vault {
     file: VaultFile,
     path: PathBuf,
-    key: Arc<Mutex<Option<SecretString>>>,
+    key: Arc<Mutex<Option<SecretBox<[u8; 32]>>>>,
 }
 
 impl Vault {
-    fn decrypt_secret(
-        &self,
-        encrypted_secret: &EncryptedSecret,
-        key: &SecretBox<[u8; 32]>,
-    ) -> Result<SecretString, String> {
+    fn get_key(&self) -> Result<SecretBox<[u8; 32]>, String> {
+        // if you know about memory and something is bad here
+        // please open an issue
+        // i'm doing my best lol
+        let key_arc = Arc::clone(&self.key);
+        let key_option = key_arc.lock().expect("failed to get lock on key");
+        let Some(ref key) = *key_option else {
+            // genuinely wtf is going on
+            return Err("is not authenticated".to_string());
+        };
+        let cloned_key = SecretBox::from(Box::new(*key.expose_secret())); // can you tell im just typing stuff
+        return Ok(cloned_key); // should be okay? since it zeroes when it goes out of scope
+    }
+    fn decrypt_secret(&self, encrypted_secret: &EncryptedSecret) -> Result<SecretString, String> {
+        let key = self.get_key()?;
         let mut cipher = XChaCha20Poly1305::new(key.expose_secret().into());
         let nonce = XNonce::from_slice(&encrypted_secret.nonce);
 
@@ -100,14 +110,10 @@ impl Vault {
         }
     }
 
-    pub fn load_secret(
-        &self,
-        id: String,
-        key: &SecretBox<[u8; 32]>,
-    ) -> Option<Result<SecretString, String>> {
+    pub fn load_secret(&self, id: String) -> Option<Result<SecretString, String>> {
         let encrypted_secret = self.file.secrets.get(&id);
         if let Some(secret) = encrypted_secret {
-            return Some(self.decrypt_secret(secret, key));
+            return Some(self.decrypt_secret(secret));
         } else {
             return None;
         }
@@ -116,7 +122,9 @@ impl Vault {
     pub fn authenticate(&self, password: SecretString) {
         // it works, i think!
         let key_handle = Arc::clone(&self.key);
-        *key_handle.lock().unwrap() = Some(password);
+        *key_handle.lock().unwrap() = Some(derive_key(&password, &self.file.salt));
+        // only hold key for like 5 seconds.
+        // should be enough for an insert or to get a single key
         set_timeout(5 * 1000, move || {
             let mut key_mut = key_handle.lock().unwrap();
             if let Some(mut k) = key_mut.take() {
@@ -125,10 +133,12 @@ impl Vault {
         });
     }
 
-    pub fn put_secret(&mut self, id: String, secret: SecretString, password: &SecretString) {
-        let encrypted_secret = Vault::encrypt_secret(&self.derive_key(password), secret);
+    pub fn put_secret(&mut self, id: String, secret: SecretString) -> Result<(), String> {
+        let key = self.get_key()?;
+        let encrypted_secret = Vault::encrypt_secret(&key, secret);
         self.file.secrets.insert(id, encrypted_secret);
         self.save_vault(&self.file);
+        Ok(())
     }
 
     pub fn load_vault(path: &str) -> Result<Self, String> {

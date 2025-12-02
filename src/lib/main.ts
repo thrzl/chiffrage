@@ -15,6 +15,6 @@ export function openWindow(window: string) {
   });
 }
 
-export function promptPassword(callback: (password: string) => any) {
-  openWindow();
+export function authenticate() {
+  openWindow("authenticate");
 }

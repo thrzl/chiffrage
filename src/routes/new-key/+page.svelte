@@ -1,6 +1,7 @@
 <script lang="ts">
+    import { authenticate } from "$lib/main";
     import { invoke } from "@tauri-apps/api/core";
-    import { emit } from "@tauri-apps/api/event";
+    import { emit, listen } from "@tauri-apps/api/event";
 
     type Key = {
         id: string;
@@ -13,10 +14,13 @@
 
     async function generate_key(event: Event) {
         event.preventDefault();
-        // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-        key = await invoke("generate_keypair", { id: name });
-        console.log("generated keys");
-        emit("update-keys");
+        // Learn more about Tauri commands at https://tauri.app/d,evelop/calling-rust/
+        authenticate();
+        const unlisten = await listen("auth-complete", async () => {
+            let key = await invoke("generate_keypair", { id: name });
+            console.log("generated keys");
+            emit("update-keys");
+        });
     }
     const keysFetch: Promise<Key[]> = invoke("fetch_keys");
     // console.log(`keys: ${await invoke("keys")}`);
