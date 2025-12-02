@@ -21,9 +21,9 @@
         }
         error = await invoke("create_vault", { password: passwordInput.value });
         if (!error) {
+            await invoke("load_vault", { password: passwordInput.value });
             passwordInput.value =
                 "don't read the password please that would not be nice and i really don't think you should do that";
-            await invoke("load_vault");
             window.location.href = "/home";
         }
     }

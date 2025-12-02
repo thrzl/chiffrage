@@ -12,23 +12,15 @@ pub fn vault_exists() -> bool {
 }
 
 #[tauri::command]
-pub fn authenticate(state: tauri::State<Mutex<AppState>>, password: String) -> Result<(), String> {
-    let secret = SecretString::from(password);
-    let state = state.lock().unwrap();
-    let Some(vault) = state.vault.as_ref() else {
-        return Err("vault not loaded".to_string());
-    };
-    vault.authenticate(secret);
-    return Ok(());
-}
-
-#[tauri::command]
-pub fn load_vault(state: tauri::State<Mutex<AppState>>) -> Result<(), String> {
+pub fn load_vault(state: tauri::State<Mutex<AppState>>, password: String) -> Result<(), String> {
     let mut state = state.lock().unwrap();
     let vault_location = dirs::data_dir()
         .expect("could not find app data directory")
         .join("chiffrage/vault.cb");
-    let vault_load = Vault::load_vault(vault_location.to_str().unwrap());
+    let vault_load = Vault::load_vault(
+        vault_location.to_str().unwrap(),
+        SecretString::from(password),
+    );
     if let Err(error) = vault_load {
         return Err(error);
     }

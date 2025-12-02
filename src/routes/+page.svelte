@@ -4,8 +4,17 @@
 
     onMount(async () => {
         if (await invoke("vault_exists")) {
-            await invoke("load_vault");
-            window.location.href = "/home";
+            (
+                document.querySelector("input") as HTMLInputElement
+            ).addEventListener("keypress", async (event) => {
+                const error = await invoke("load_vault", {
+                    password: (
+                        document.querySelector("input") as HTMLInputElement
+                    ).value,
+                });
+                if (error) return console.log(error);
+                window.location.href = "/home";
+            });
         } else {
             window.location.href = "/create-vault";
         }
@@ -40,4 +49,5 @@
 
 <main class="container">
     <p>welcome back :P</p>
+    <input type="password" placeholder="enter your vault password" />
 </main>

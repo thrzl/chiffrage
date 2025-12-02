@@ -56,26 +56,12 @@ pub struct VaultFile {
 pub struct Vault {
     file: VaultFile,
     path: PathBuf,
-    key: Arc<Mutex<Option<SecretBox<[u8; 32]>>>>,
+    key: SecretBox<[u8; 32]>,
 }
 
 impl Vault {
-    fn get_key(&self) -> Result<SecretBox<[u8; 32]>, String> {
-        // if you know about memory and something is bad here
-        // please open an issue
-        // i'm doing my best lol
-        let key_arc = Arc::clone(&self.key);
-        let key_option = key_arc.lock().expect("failed to get lock on key");
-        let Some(ref key) = *key_option else {
-            // genuinely wtf is going on
-            return Err("is not authenticated".to_string());
-        };
-        let cloned_key = SecretBox::from(Box::new(*key.expose_secret())); // can you tell im just typing stuff
-        return Ok(cloned_key); // should be okay? since it zeroes when it goes out of scope
-    }
     fn decrypt_secret(&self, encrypted_secret: &EncryptedSecret) -> Result<SecretString, String> {
-        let key = self.get_key()?;
-        let mut cipher = XChaCha20Poly1305::new(key.expose_secret().into());
+        let mut cipher = XChaCha20Poly1305::new(self.key.expose_secret().into());
         let nonce = XNonce::from_slice(&encrypted_secret.nonce);
 
         let decrypted_bytes = cipher.decrypt(nonce, encrypted_secret.ciphertext.as_ref());
@@ -119,53 +105,37 @@ impl Vault {
         }
     }
 
-    pub fn authenticate(&self, password: SecretString) {
-        // it works, i think!
-        let key_handle = Arc::clone(&self.key);
-        *key_handle.lock().unwrap() = Some(derive_key(&password, &self.file.salt));
-        // only hold key for like 5 seconds.
-        // should be enough for an insert or to get a single key
-        set_timeout(5 * 1000, move || {
-            let mut key_mut = key_handle.lock().unwrap();
-            if let Some(mut k) = key_mut.take() {
-                k.zeroize();
-            }
-        });
-    }
-
     pub fn put_secret(&mut self, id: String, secret: SecretString) -> Result<(), String> {
-        let key = self.get_key()?;
-        let encrypted_secret = Vault::encrypt_secret(&key, secret);
+        let encrypted_secret = Vault::encrypt_secret(&self.key, secret);
         self.file.secrets.insert(id, encrypted_secret);
         self.save_vault(&self.file);
         Ok(())
     }
 
-    pub fn load_vault(path: &str) -> Result<Self, String> {
+    pub fn load_vault(path: &str, password: SecretString) -> Result<Self, String> {
         if !std::path::Path::new(path).exists() {
             return Err("vault does not exist".to_string());
         }
         let data = fs::read(path).expect("could not read vault");
         let vault_file: VaultFile = serde_cbor::from_slice(&data).expect("could not parse vault");
+        let key = derive_key(&password, &vault_file.salt);
 
         let vault = Vault {
             file: vault_file,
             path: PathBuf::from_str(path).expect("invalid path"),
-            key: Arc::new(Mutex::new(None)),
+            key,
         };
 
-        // let hello = vault.decrypt_secret(&vault.file.hello);
-        // if hello.is_ok() {
-        //     let raw_hello = hello.unwrap().expose_secret().to_string();
-        //     if raw_hello != "hello" {
-        //         return Err("authentication failed".to_string());
-        //     }
-        // } else {
-        //     return Err("authentication failed".to_string());
-        // };
-        //
-        // ! shouldn't be doing this here. this should go in the actual
-        // ! decryption check logic
+        let hello = vault.decrypt_secret(&vault.file.hello);
+        if hello.is_ok() {
+            let raw_hello = hello.unwrap().expose_secret().to_string();
+            if raw_hello != "hello" {
+                return Err("authentication failed".to_string());
+            }
+        } else {
+            return Err("authentication failed".to_string());
+        };
+
         Ok(vault)
     }
 
@@ -183,7 +153,7 @@ impl Vault {
         Vault {
             file: vault_file,
             path: PathBuf::from_str(path).expect("invalid path"),
-            key: Arc::new(Mutex::new(None)),
+            key,
         }
     }
 

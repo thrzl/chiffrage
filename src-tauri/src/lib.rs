@@ -74,7 +74,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             is_first_open,
-            store::authenticate,
             store::fetch_keys,
             store::load_vault,
             store::create_vault,
