@@ -1,28 +1,34 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
-    import { onMount } from "svelte";
+    import { zxcvbn, zxcvbnOptions } from "@zxcvbn-ts/core";
+    import * as zxcvbnCommonPackage from "@zxcvbn-ts/language-common";
+    import * as zxcvbnEnPackage from "@zxcvbn-ts/language-en";
 
-    type Key = {
-        id: string;
-        name: string;
-        key_type: "public" | "private";
-        date_created: Date;
+    const options = {
+        translations: zxcvbnEnPackage.translations,
+        graphs: zxcvbnCommonPackage.adjacencyGraphs,
+        dictionary: {
+            ...zxcvbnCommonPackage.dictionary,
+            ...zxcvbnEnPackage.dictionary,
+        },
     };
 
-    let passwordInput: HTMLInputElement | null = null;
+    zxcvbnOptions.setOptions(options);
+
+    let password: string = $state("");
 
     let error = $state("");
 
     async function createVault(event: Event) {
         event.preventDefault();
-        if (!passwordInput) {
+        if (!password) {
             error = "password input field could not be found";
             return;
         }
-        error = await invoke("create_vault", { password: passwordInput.value });
+        error = await invoke("create_vault", { password: password });
         if (!error) {
-            await invoke("load_vault", { password: passwordInput.value });
-            passwordInput.value =
+            await invoke("load_vault", { password: password });
+            password =
                 "don't read the password please that would not be nice and i really don't think you should do that";
             window.location.href = "/home";
         }
@@ -35,6 +41,13 @@
     <p>welcome :P</p>
     <p>let's make a vault to store your private keys!</p>
     <h1>choose a password</h1>
-    <input bind:this={passwordInput} type="password" />
+    <input bind:value={password} type="password" />
+    <div
+        style={`background-color: green; width: ${Math.min(zxcvbn(password).crackTimesSeconds.offlineSlowHashing1e4PerSecond / 31_536_000, 1) * 100}%; height: 10px`}
+    ></div>
+    <p>
+        will take {zxcvbn(password).crackTimesDisplay
+            .offlineSlowHashing1e4PerSecond} to crack
+    </p>
     <button onclick={createVault}>create</button>
 </main>
