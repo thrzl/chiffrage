@@ -8,12 +8,12 @@ huge work in progress. nothing is set right now, not even database format/struct
 
 ## todo
 - [x] secure storage backend in tauri*
-- [ ] age backend in tauri
+- [x] age backend in tauri
 - [ ] complete frontend
 - [ ] implement key management
     - [x] keypair generation
     - [ ] metadata editor + notes
-    - [ ] key exoprt
+    - [ ] key export
 - [ ] automated builds
 
 *\*may be modified to use tauri's built-in store instead of sled*
