@@ -21,13 +21,13 @@ pub fn generate_key() -> Keypair {
     };
 }
 
-pub fn encrypt_file(public_keys: Vec<String>, file_path: PathBuf) -> Result<(), String> {
+pub fn encrypt_file(public_keys: Vec<String>, file_path: PathBuf) -> Result<PathBuf, String> {
     let file = File::open(&file_path).expect("failed to open file");
     let mut reader = BufReader::new(file);
 
     let mut encrypted_output = file_path.clone();
     encrypted_output.add_extension("age");
-    let output = File::create(encrypted_output).expect("failed to get handle on output file");
+    let output = File::create(&encrypted_output).expect("failed to get handle on output file");
     let mut file_writer = BufWriter::new(output);
 
     let encryptor = age::Encryptor::with_recipients(
@@ -52,7 +52,7 @@ pub fn encrypt_file(public_keys: Vec<String>, file_path: PathBuf) -> Result<(), 
     }
 
     writer.finish().expect("failed to write final chunk");
-    Ok(())
+    Ok(encrypted_output)
 }
 
 pub fn keys_to_recipients(public_keys: Vec<String>) -> Vec<Recipient> {

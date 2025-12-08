@@ -6,6 +6,7 @@ use secrecy::{ExposeSecret, SecretString};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_opener::reveal_item_in_dir;
 
 #[tauri::command]
 pub fn encrypt_file_cmd(
@@ -30,13 +31,15 @@ pub fn encrypt_file_cmd(
     println!("{:?}", key_contents);
     app_handle.dialog().file().pick_file(|file| {
         let file_path = file.expect("user did not pick a file");
-        crypt::encrypt_file(
+        let output_path = crypt::encrypt_file(
             key_contents,
             file_path
+                .clone()
                 .into_path()
                 .expect("failed to get file as PathBuf"),
         )
         .expect("failed to encrypt file");
+        reveal_item_in_dir(output_path.as_path()).expect("failed to reveal item");
     })
     // let file_path = Dialog::file().blocking_pick_file();
 }
