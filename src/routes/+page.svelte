@@ -7,6 +7,7 @@
             (
                 document.querySelector("input") as HTMLInputElement
             ).addEventListener("keypress", async (event) => {
+                if (event.key !== "Enter") return;
                 const error = await invoke("load_vault", {
                     password: (
                         document.querySelector("input") as HTMLInputElement
