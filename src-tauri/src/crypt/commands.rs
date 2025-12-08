@@ -23,16 +23,38 @@ pub fn encrypt_file_cmd(
             vault
                 .load_secret(key.to_owned())
                 .unwrap()
-                .unwrap()
                 .expose_secret()
                 .to_string() // what a mess
         })
         .collect::<Vec<String>>();
-    println!("{:?}", key_contents);
     app_handle.dialog().file().pick_file(|file| {
         let file_path = file.expect("user did not pick a file");
         let output_path = crypt::encrypt_file(
             key_contents,
+            file_path
+                .clone()
+                .into_path()
+                .expect("failed to get file as PathBuf"),
+        )
+        .expect("failed to encrypt file");
+        reveal_item_in_dir(output_path.as_path()).expect("failed to reveal item");
+    })
+    // let file_path = Dialog::file().blocking_pick_file();
+}
+
+#[tauri::command]
+pub fn decrypt_file_cmd(
+    private_key: String,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<Mutex<AppState>>,
+) {
+    let state = state.lock().expect("failed to get lock on state");
+    let vault = state.vault.as_ref().expect("vault not initialized");
+    let key_content = vault.load_secret(private_key).unwrap().clone();
+    app_handle.dialog().file().pick_file(move |file| {
+        let file_path = file.expect("user did not pick a file");
+        let output_path = crypt::decrypt_file(
+            key_content.expose_secret().to_string(),
             file_path
                 .clone()
                 .into_path()

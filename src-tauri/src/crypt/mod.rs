@@ -2,11 +2,13 @@
 
 mod commands;
 use age::x25519::{Identity, Recipient};
+use age::Decryptor;
 pub use commands::*;
 use secrecy::{ExposeSecret, SecretString};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
+use std::str::FromStr;
 
 pub struct Keypair {
     pub private_key: SecretString,
@@ -53,6 +55,38 @@ pub fn encrypt_file(public_keys: Vec<String>, file_path: PathBuf) -> Result<Path
 
     writer.finish().expect("failed to write final chunk");
     Ok(encrypted_output)
+}
+
+pub fn decrypt_file(private_key: String, file_path: PathBuf) -> Result<PathBuf, String> {
+    let file = File::open(&file_path).expect("failed to open file");
+    let decryptor =
+        Decryptor::new_buffered(BufReader::new(file)).expect("failed to initialize decryptor");
+
+    let decrypted_output = file_path.with_extension("");
+    let output = File::create(&decrypted_output).expect("failed to get handle on output file");
+    let mut file_writer = BufWriter::new(output);
+
+    let mut decrypted_reader = decryptor
+        .decrypt(std::iter::once(
+            &age::x25519::Identity::from_str(private_key.as_str()).unwrap() as &dyn age::Identity,
+        ))
+        .expect("failed to decrypt contents");
+
+    let mut buffer = [0u8; 8_192]; // 8 kb buffer
+
+    loop {
+        let n = decrypted_reader
+            .read(&mut buffer)
+            .expect("failed to read file");
+        if n == 0 {
+            break;
+        }
+        file_writer
+            .write_all(&buffer[..n])
+            .expect("failed to write"); // only write the new bytes
+    }
+
+    Ok(decrypted_output)
 }
 
 pub fn keys_to_recipients(public_keys: Vec<String>) -> Vec<Recipient> {

@@ -87,10 +87,13 @@ impl Vault {
     }
 
     #[allow(dead_code)] // shhhh we got it bro
-    pub fn load_secret(&self, id: String) -> Option<Result<SecretString, String>> {
+    pub fn load_secret(&self, id: String) -> Option<SecretString> {
         let encrypted_secret = self.file.secrets.get(&id);
         if let Some(secret) = encrypted_secret {
-            return Some(self.decrypt_secret(secret));
+            return Some(
+                self.decrypt_secret(secret)
+                    .expect("failed to decrypt secret"),
+            );
         } else {
             return None;
         }
