@@ -56,6 +56,7 @@ pub fn run() {
             crypt::generate_keypair,
             crypt::encrypt_text,
             crypt::encrypt_file_cmd,
+            crypt::decrypt_file_cmd
         ])
         .manage(Mutex::new(AppState {
             vault: None,

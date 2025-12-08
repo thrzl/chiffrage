@@ -1,78 +1,47 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
-    import { listen } from "@tauri-apps/api/event";
-    import { openWindow } from "$lib/main";
 
     type Key = {
         id: string;
         name: string;
         key_type: "public" | "private";
-        date_created: { secs_since_epoch: number };
+        date_created: Date;
     };
 
     let name = $state("");
+    let key = $state("");
     let greetMsg = $state("");
 
     async function greet(event: Event) {
         event.preventDefault();
         // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-        console.log(`keys: ${await invoke("fetch_keys")}`);
-        greetMsg = await invoke("greet", { name });
-    }
 
+        greetMsg = await invoke("decrypt_file_cmd", { privateKey: key });
+    }
     let keysFetch: Promise<Key[]> = $state(invoke("fetch_keys"));
-    listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
+    // listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
 </script>
 
 <main class="container">
-    <h1>chiffrage</h1>
-    <nav>
-        <button onclick={() => openWindow("produce-age")}>encrypt</button>
-        <button onclick={() => openWindow("consume-age")}>decrypt</button>
-        <button onclick={() => openWindow("new-key")}>new key</button>
-    </nav>
+    <h1>decrypt file</h1>
 
-    <div class="row">
-        <a href="https://vite.dev" target="_blank">
-            <img src="/vite.svg" class="logo vite" alt="Vite Logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-            <img src="/tauri.svg" class="logo tauri" alt="Tauri Logo" />
-        </a>
-        <a href="https://svelte.dev" target="_blank">
-            <img
-                src="/svelte.svg"
-                class="logo svelte-kit"
-                alt="SvelteKit Logo"
-            />
-        </a>
-    </div>
-    <p>Click on the Tauri, Vite, and SvelteKit logos to learn more.</p>
-
-    <table style="text-align: left; margin: 0 2rem">
-        <thead>
-            <tr>
-                <th>id</th>
-                <th>pub</th>
-                <th>last used</th>
-            </tr>
-        </thead>
-        <tbody>
-            {#await keysFetch then keys}
-                {#each keys as key}
-                    <tr>
-                        <th>{key.name}</th>
-                        <th>idk bro</th>
-                        <th
-                            >{new Date(
-                                key.date_created.secs_since_epoch * 1000,
-                            )}</th
-                        ></tr
-                    >
-                {/each}
+    <form class="row" onsubmit={greet}>
+        <select bind:value={key}>
+            {#await keysFetch}
+                <option value="no-key" disabled>loading keys</option>
+            {:then keys}
+                {#if keys}
+                    {#each keys.filter((key) => key.name.split(":", 1)[0] === "priv") as key}
+                        <option value={key.name}>{key.name}</option>
+                    {/each}
+                {:else}
+                    <option value="no-key" disabled>no keys!</option>
+                {/if}
             {/await}
-        </tbody>
-    </table>
+        </select>
+        <button type="submit" onclick={greet}>choose file</button>
+    </form>
+    <p>{greetMsg}</p>
 </main>
 
 <style>
