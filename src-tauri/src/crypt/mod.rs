@@ -4,8 +4,9 @@ mod commands;
 use age::x25519::{Identity, Recipient};
 pub use commands::*;
 use secrecy::{ExposeSecret, SecretString};
-use std::io::Write;
-use std::path::Path;
+use std::fs::File;
+use std::io::{BufReader, BufWriter, Read, Write};
+use std::path::PathBuf;
 
 pub struct Keypair {
     pub private_key: SecretString,
@@ -20,9 +21,50 @@ pub fn generate_key() -> Keypair {
     };
 }
 
-#[tauri::command]
-pub fn encrypt_file(public_keys: Vec<String>, file_path: &Path) -> Vec<u8> {
-    todo!()
+pub fn encrypt_file(public_keys: Vec<String>, file_path: PathBuf) -> Result<(), String> {
+    let file = File::open(&file_path).expect("failed to open file");
+    let mut reader = BufReader::new(file);
+
+    let mut encrypted_output = file_path.clone();
+    encrypted_output.add_extension("age");
+    let output = File::create(encrypted_output).expect("failed to get handle on output file");
+    let mut file_writer = BufWriter::new(output);
+
+    let encryptor = age::Encryptor::with_recipients(
+        keys_to_recipients(public_keys)
+            .iter()
+            .map(|recipient| recipient as _),
+    )
+    .expect("encryptor initialization failed");
+
+    let mut writer = encryptor
+        .wrap_output(&mut file_writer)
+        .expect("failed to initialize writer");
+
+    let mut buffer = [0u8; 8_192]; // 8 kb buffer
+
+    loop {
+        let n = reader.read(&mut buffer).expect("failed to read file");
+        if n == 0 {
+            break;
+        }
+        writer.write_all(&buffer[..n]).expect("failed to write"); // only write the new bytes
+    }
+
+    writer.finish().expect("failed to write final chunk");
+    Ok(())
+}
+
+pub fn keys_to_recipients(public_keys: Vec<String>) -> Vec<Recipient> {
+    return public_keys
+        .iter()
+        .map(|key| -> Result<Recipient, String> {
+            Ok(key
+                .parse::<Recipient>()
+                .expect(&format!("could not parse recipient from key: {}", key)))
+        })
+        .filter_map(|recipient: Result<Recipient, _>| recipient.ok())
+        .collect::<Vec<Recipient>>();
 }
 
 pub fn encrypt_bytes(public_keys: Vec<String>, bytes: &[u8]) -> Vec<u8> {

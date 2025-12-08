@@ -9,12 +9,14 @@
     };
 
     let name = $state("");
+    let key = $state("");
     let greetMsg = $state("");
 
     async function greet(event: Event) {
         event.preventDefault();
         // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-        greetMsg = await invoke("encrypt_text", { text: name });
+
+        greetMsg = await invoke("encrypt_file_cmd", { publicKeys: [key] });
     }
     let keysFetch: Promise<Key[]> = $state(invoke("fetch_keys"));
     // listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
@@ -24,12 +26,12 @@
     <h1>encrypt + sign</h1>
 
     <form class="row" onsubmit={greet}>
-        <select>
+        <select bind:value={key}>
             {#await keysFetch}
                 <option value="no-key" disabled>loading keys</option>
             {:then keys}
                 {#if keys}
-                    {#each keys.filter((key) => key.name.split(":", 1)[0] === "priv") as key}
+                    {#each keys.filter((key) => key.name.split(":", 1)[0] === "pub") as key}
                         <option value={key.name}>{key.name}</option>
                     {/each}
                 {:else}
@@ -37,12 +39,7 @@
                 {/if}
             {/await}
         </select>
-        <textarea
-            id="greet-input"
-            placeholder="Enter a name..."
-            bind:value={name}
-        />
-        <button type="submit">Greet</button>
+        <button type="submit" onclick={greet}>choose file</button>
     </form>
     <p>{greetMsg}</p>
 </main>

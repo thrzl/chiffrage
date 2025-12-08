@@ -1,4 +1,5 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+#![feature(path_add_extension)]
 mod crypt;
 mod store;
 use std::sync::Mutex;
@@ -54,6 +55,7 @@ pub fn run() {
             store::vault_exists,
             crypt::generate_keypair,
             crypt::encrypt_text,
+            crypt::encrypt_file_cmd,
         ])
         .manage(Mutex::new(AppState {
             vault: None,

@@ -1,8 +1,45 @@
 use crate::crypt;
-use crate::store::{KeyMetadata, KeyType};
+use crate::store::{fetch_keys, KeyMetadata, KeyType};
 use crate::AppState;
-use secrecy::SecretString;
+use chacha20poly1305::aead::Key;
+use secrecy::{ExposeSecret, SecretString};
+use std::collections::HashMap;
 use std::sync::Mutex;
+use tauri_plugin_dialog::DialogExt;
+
+#[tauri::command]
+pub fn encrypt_file_cmd(
+    public_keys: Vec<String>,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<Mutex<AppState>>,
+) {
+    let state = state.lock().expect("failed to get lock on state");
+    let vault = state.vault.as_ref().expect("vault not initialized");
+
+    let key_contents = public_keys
+        .iter()
+        .map(|key| {
+            vault
+                .load_secret(key.to_owned())
+                .unwrap()
+                .unwrap()
+                .expose_secret()
+                .to_string() // what a mess
+        })
+        .collect::<Vec<String>>();
+    println!("{:?}", key_contents);
+    app_handle.dialog().file().pick_file(|file| {
+        let file_path = file.expect("user did not pick a file");
+        crypt::encrypt_file(
+            key_contents,
+            file_path
+                .into_path()
+                .expect("failed to get file as PathBuf"),
+        )
+        .expect("failed to encrypt file");
+    })
+    // let file_path = Dialog::file().blocking_pick_file();
+}
 
 #[tauri::command]
 pub fn generate_keypair(id: String, state: tauri::State<Mutex<AppState>>) -> Result<(), String> {
