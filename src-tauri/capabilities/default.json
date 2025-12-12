@@ -2,11 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window",
-  "windows": [
-    "main",
-    "new-key",
-    "authenticate"
-  ],
+  "windows": ["main", "new-key", "authenticate", "produce-age"],
   "permissions": [
     "core:default",
     "opener:default",
@@ -14,6 +10,7 @@
     "stronghold:default",
     "core:event:allow-emit",
     "dialog:default",
-    "store:default"
+    "store:default",
+    "dialog:allow-open"
   ]
 }

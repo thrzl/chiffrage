@@ -60,10 +60,12 @@ dependencies = [
  "bech32",
  "chacha20poly1305",
  "cookie-factory",
+ "futures",
  "hmac",
  "i18n-embed",
  "i18n-embed-fl",
  "lazy_static",
+ "memchr",
  "nom",
  "pin-project",
  "rand 0.8.5",
@@ -704,6 +706,8 @@ dependencies = [
  "chacha20poly1305",
  "dialog",
  "dirs 6.0.0",
+ "futures-io",
+ "futures-util",
  "secrecy",
  "serde",
  "serde_cbor",
@@ -716,6 +720,7 @@ dependencies = [
  "tauri-plugin-store",
  "tauri-plugin-stronghold",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -5534,6 +5539,7 @@ checksum = "2efa149fe76073d6e8fd97ef4f4eca7b67f599660115591483572e406e165594"
 dependencies = [
  "bytes",
  "futures-core",
+ "futures-io",
  "futures-sink",
  "pin-project-lite",
  "tokio",

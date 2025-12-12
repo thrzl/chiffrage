@@ -23,7 +23,7 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sled = "0.34.7"
-age = "0.11.1"
+age = { version = "0.11.1", features = ["async"] }
 dirs = "6.0.0"
 tauri-plugin-stronghold = "2"
 secrecy = "0.10.3"
@@ -34,3 +34,6 @@ tauri-plugin-dialog = "2"
 dialog = "0.3.0"
 tauri-plugin-store = "2"
 tokio = "1.48.0"
+futures-io = "0.3.31"
+tokio-util = { version = "0.7.17", features = ["compat"] }
+futures-util = "0.3.31"
