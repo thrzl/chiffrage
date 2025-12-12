@@ -1,10 +1,8 @@
 use crate::crypt;
 use crate::store::{KeyMetadata, KeyType};
 use crate::AppState;
-use chacha20poly1305::aead::Key;
 use secrecy::{ExposeSecret, SecretString};
 use serde_json::json;
-use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::reveal_item_in_dir;

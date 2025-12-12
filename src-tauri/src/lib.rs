@@ -5,8 +5,9 @@ mod store;
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
+use tauri::Manager;
 
-use tauri_plugin_store::{Store, StoreExt};
+use tauri_plugin_store::StoreExt;
 
 // im ngl idk what im doin
 pub fn set_timeout<F>(delay_ms: u64, f: F)
@@ -22,7 +23,6 @@ where
 struct AppState {
     vault: Option<store::Vault>,
     first_open: bool,
-    index: sled::Tree,
 }
 
 #[tauri::command]
@@ -37,14 +37,6 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let first_open = !dirs::data_dir()
-        .expect("could not find app data directory")
-        .join("chiffrage/vault.cb")
-        .exists();
-    let db = sled::open(dirs::data_dir().unwrap().join("chiffrage/data.sled"))
-        .expect("failed to open sled metadata store");
-    let index = db.open_tree("keys").expect("failed to open sled tree");
-    println!("first open: {:?}", first_open);
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
@@ -61,16 +53,16 @@ pub fn run() {
             crypt::encrypt_file_cmd,
             crypt::decrypt_file_cmd
         ])
-        .manage(Mutex::new(AppState {
-            vault: None,
-            index,
-            first_open,
-        }))
         .setup(|app| {
             let store = app
                 .store_builder("index.json")
                 .auto_save(Duration::from_millis(100))
                 .build()?;
+            let first_open = !app.path().app_data_dir()?.join("vault.cb").exists();
+            app.manage(Mutex::new(AppState {
+                vault: None,
+                first_open,
+            }));
             Ok(())
         })
         .run(tauri::generate_context!())
