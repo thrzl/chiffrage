@@ -6,6 +6,8 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
+use tauri_plugin_store::{Store, StoreExt};
+
 // im ngl idk what im doin
 pub fn set_timeout<F>(delay_ms: u64, f: F)
 where
@@ -44,6 +46,7 @@ pub fn run() {
     let index = db.open_tree("keys").expect("failed to open sled tree");
     println!("first open: {:?}", first_open);
     tauri::Builder::default()
+        .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
@@ -63,6 +66,13 @@ pub fn run() {
             index,
             first_open,
         }))
+        .setup(|app| {
+            let store = app
+                .store_builder("index.json")
+                .auto_save(Duration::from_millis(100))
+                .build()?;
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

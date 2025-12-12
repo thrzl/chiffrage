@@ -2,6 +2,7 @@ use crate::store::{KeyMetadata, Vault};
 use crate::AppState;
 use secrecy::SecretString;
 use std::sync::Mutex;
+use tauri_plugin_store::StoreExt;
 
 #[tauri::command]
 pub fn vault_exists() -> bool {
@@ -42,18 +43,16 @@ pub fn create_vault(password: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn fetch_keys(state: tauri::State<Mutex<AppState>>) -> Vec<KeyMetadata> {
-    let state = state.lock().unwrap();
-    let index = &state.index;
+pub fn fetch_keys(app_handle: tauri::AppHandle) -> Vec<KeyMetadata> {
+    let index = app_handle.store("index.json").expect("failed to get store");
 
     let items: Vec<KeyMetadata> = index
+        .values()
         .iter()
-        .map(|entry| match entry {
-            Ok(data) => Some(serde_cbor::from_slice::<KeyMetadata>(&data.1).unwrap()),
-            Err(_) => None,
+        .map(|value| {
+            serde_json::from_value::<KeyMetadata>(value.clone())
+                .expect("failed to deserialize data")
         })
-        .filter(|entry| entry.is_some())
-        .map(|entry| entry.unwrap())
         .collect();
 
     return items;

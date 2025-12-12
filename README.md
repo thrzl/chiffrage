@@ -7,7 +7,7 @@ built with tauri and sveltekit
 huge work in progress. nothing is set right now, not even database format/structure. should not be relied on in its current state.
 
 ## todo
-- [x] secure storage backend in tauri*
+- [x] secure storage backend in tauri
 - [x] age backend in tauri
 - [ ] complete frontend
 - [ ] implement key management
@@ -15,8 +15,6 @@ huge work in progress. nothing is set right now, not even database format/struct
     - [ ] metadata editor + notes
     - [ ] key export
 - [ ] automated builds
-
-*\*may be modified to use tauri's built-in store instead of sled*
 
 ## contributing
 all contributions welcome! please open an issue mentioning what you intend to change before submitting a pull request.
@@ -34,11 +32,11 @@ bun run tauri build
 
 ## under the hood
 
-all data is serialized with CBOR (perhaps i'll switch to something else or simply use JSON)
+all data is serialized with JSON
 
 ### rust backend
 
-keys are stored in an index via [sled](https://docs.rs/sled/latest/sled/) (perhaps i'll use tauri's builtin store soon?). key metadata looks like this:
+keys are stored in an index via [tauri store](https://v2.tauri.app/plugin/store/). key metadata looks like this:
 
 ```rust
 pub enum KeyType {

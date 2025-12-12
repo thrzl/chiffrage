@@ -1,12 +1,14 @@
 use crate::crypt;
-use crate::store::{fetch_keys, KeyMetadata, KeyType};
+use crate::store::{KeyMetadata, KeyType};
 use crate::AppState;
 use chacha20poly1305::aead::Key;
 use secrecy::{ExposeSecret, SecretString};
+use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::reveal_item_in_dir;
+use tauri_plugin_store::StoreExt;
 
 #[tauri::command]
 pub fn encrypt_file_cmd(
@@ -67,7 +69,11 @@ pub fn decrypt_file_cmd(
 }
 
 #[tauri::command]
-pub fn generate_keypair(id: String, state: tauri::State<Mutex<AppState>>) -> Result<(), String> {
+pub fn generate_keypair(
+    id: String,
+    state: tauri::State<Mutex<AppState>>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
     let mut state = state.lock().unwrap();
     let vault = state.vault.as_mut().expect("failed to load vault");
     let keypair = crypt::generate_key();
@@ -76,29 +82,24 @@ pub fn generate_keypair(id: String, state: tauri::State<Mutex<AppState>>) -> Res
         format!("pub:{}", id),
         SecretString::from(keypair.public_key),
     )?;
-    state
-        .index
-        .insert(
-            format!("pub:{}", id),
-            serde_cbor::to_vec(&KeyMetadata {
-                name: format!("pub:{}", id),
-                key_type: KeyType::Public,
-                date_created: std::time::SystemTime::now(),
-            })
-            .expect("failed to serialize key metadata"),
-        )
-        .expect("failed to insert pulic key");
-    state
-        .index
-        .insert(
-            format!("priv:{}", id),
-            serde_cbor::to_vec(&KeyMetadata {
-                name: format!("priv:{}", id),
-                key_type: KeyType::Public,
-                date_created: std::time::SystemTime::now(),
-            })
-            .expect("failed to serialize key metadata"),
-        )
-        .expect("failed to insert private key");
+    let index = app_handle
+        .store("index.json")
+        .expect("failed to open key index");
+    index.set(
+        format!("pub:{}", id),
+        json!(&KeyMetadata {
+            name: format!("pub:{}", id),
+            key_type: KeyType::Public,
+            date_created: std::time::SystemTime::now(),
+        }),
+    );
+    index.set(
+        format!("priv:{}", id),
+        json!(&KeyMetadata {
+            name: format!("priv:{}", id),
+            key_type: KeyType::Public,
+            date_created: std::time::SystemTime::now(),
+        }),
+    );
     Ok(())
 }
