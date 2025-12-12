@@ -30,7 +30,7 @@ pub fn load_vault(state: tauri::State<Mutex<AppState>>, password: String) -> Res
 }
 
 #[tauri::command]
-pub fn create_vault(password: String) -> Result<(), String> {
+pub async fn create_vault(password: String) -> Result<(), String> {
     let password = SecretString::from(password);
     let vault_path = dirs::data_dir()
         .expect("could not find app data directory")
@@ -38,7 +38,7 @@ pub fn create_vault(password: String) -> Result<(), String> {
 
     let vault_location = vault_path.to_str().unwrap();
     let vault = Vault::create_vault(vault_location, &password);
-    vault.save_vault(&vault.file);
+    vault.save_vault();
     Ok(())
 }
 

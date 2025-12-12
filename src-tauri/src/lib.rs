@@ -2,6 +2,7 @@
 #![feature(path_add_extension)]
 mod crypt;
 mod store;
+use serde::Serialize;
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
@@ -23,6 +24,17 @@ where
 struct AppState {
     vault: Option<store::Vault>,
     first_open: bool,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    tag = "event",
+    content = "data"
+)]
+enum FileProcessingEvent {
+    Progress { percent: usize },
 }
 
 #[tauri::command]

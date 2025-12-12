@@ -5,7 +5,7 @@ use age::x25519::{Identity, Recipient};
 use age::Decryptor;
 pub use commands::*;
 use secrecy::{ExposeSecret, SecretString};
-use std::fs::File;
+use std::fs::{metadata, File};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -23,7 +23,11 @@ pub fn generate_key() -> Keypair {
     };
 }
 
-pub fn encrypt_file(public_keys: Vec<String>, file_path: PathBuf) -> Result<PathBuf, String> {
+pub fn encrypt_file(
+    public_keys: Vec<String>,
+    file_path: PathBuf,
+    progress: tauri::ipc::Channel<f64>,
+) -> Result<PathBuf, String> {
     let file = File::open(&file_path).expect("failed to open file");
     let mut reader = BufReader::new(file);
 
@@ -43,7 +47,9 @@ pub fn encrypt_file(public_keys: Vec<String>, file_path: PathBuf) -> Result<Path
         .wrap_output(&mut file_writer)
         .expect("failed to initialize writer");
 
-    let mut buffer = [0u8; 8_192]; // 8 kb buffer
+    let mut buffer = vec![0u8; 1024 * 1024 * 4]; // 4 MB buffer
+    let total_byte_size = metadata(file_path).unwrap().len() as f64;
+    let mut read_byte_size = 0 as f64;
 
     loop {
         let n = reader.read(&mut buffer).expect("failed to read file");
@@ -51,6 +57,8 @@ pub fn encrypt_file(public_keys: Vec<String>, file_path: PathBuf) -> Result<Path
             break;
         }
         writer.write_all(&buffer[..n]).expect("failed to write"); // only write the new bytes
+        read_byte_size += n as f64;
+        let _ = progress.send(read_byte_size / total_byte_size); // this is not a critical function
     }
 
     writer.finish().expect("failed to write final chunk");

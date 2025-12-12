@@ -102,7 +102,6 @@ impl Vault {
     pub fn put_secret(&mut self, id: String, secret: SecretString) -> Result<(), String> {
         let encrypted_secret = Vault::encrypt_secret(&self.key, secret);
         self.file.secrets.insert(id, encrypted_secret);
-        self.save_vault(&self.file);
         Ok(())
     }
 
@@ -151,8 +150,13 @@ impl Vault {
         }
     }
 
-    fn save_vault(&self, vault_file: &VaultFile) {
-        let data = serde_cbor::to_vec(vault_file).expect("failed to serialize vault");
-        fs::write(&self.path, data).expect("failed to write vault to disk");
+    pub fn save_vault(&self) {
+        let data = serde_cbor::to_vec(&self.file).expect("failed to serialize vault");
+        let path = self.path.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::fs::write(path, data)
+                .await
+                .expect("failed to write vault to disk");
+        });
     }
 }

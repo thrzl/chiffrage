@@ -9,11 +9,12 @@ use tauri_plugin_opener::reveal_item_in_dir;
 use tauri_plugin_store::StoreExt;
 
 #[tauri::command]
-pub fn encrypt_file_cmd(
+pub async fn encrypt_file_cmd(
     public_keys: Vec<String>,
     app_handle: tauri::AppHandle,
-    state: tauri::State<Mutex<AppState>>,
-) {
+    state: tauri::State<'_, Mutex<AppState>>,
+    reader: tauri::ipc::Channel<f64>,
+) -> Result<(), ()> {
     let state = state.lock().expect("failed to get lock on state");
     let vault = state.vault.as_ref().expect("vault not initialized");
 
@@ -35,19 +36,21 @@ pub fn encrypt_file_cmd(
                 .clone()
                 .into_path()
                 .expect("failed to get file as PathBuf"),
+            reader,
         )
         .expect("failed to encrypt file");
         reveal_item_in_dir(output_path.as_path()).expect("failed to reveal item");
-    })
+    });
+    Ok(())
     // let file_path = Dialog::file().blocking_pick_file();
 }
 
 #[tauri::command]
-pub fn decrypt_file_cmd(
+pub async fn decrypt_file_cmd(
     private_key: String,
     app_handle: tauri::AppHandle,
-    state: tauri::State<Mutex<AppState>>,
-) {
+    state: tauri::State<'_, Mutex<AppState>>,
+) -> Result<(), ()> {
     let state = state.lock().expect("failed to get lock on state");
     let vault = state.vault.as_ref().expect("vault not initialized");
     let key_content = vault.load_secret(private_key).unwrap().clone();
@@ -62,14 +65,14 @@ pub fn decrypt_file_cmd(
         )
         .expect("failed to encrypt file");
         reveal_item_in_dir(output_path.as_path()).expect("failed to reveal item");
-    })
-    // let file_path = Dialog::file().blocking_pick_file();
+    });
+    Ok(())
 }
 
 #[tauri::command]
-pub fn generate_keypair(
+pub async fn generate_keypair(
     id: String,
-    state: tauri::State<Mutex<AppState>>,
+    state: tauri::State<'_, Mutex<AppState>>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let mut state = state.lock().unwrap();
@@ -80,6 +83,7 @@ pub fn generate_keypair(
         format!("pub:{}", id),
         SecretString::from(keypair.public_key),
     )?;
+    vault.save_vault();
     let index = app_handle
         .store("index.json")
         .expect("failed to open key index");

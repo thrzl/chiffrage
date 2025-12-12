@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { invoke } from "@tauri-apps/api/core";
+    import { invoke, Channel } from "@tauri-apps/api/core";
 
     type Key = {
         id: string;
@@ -9,14 +9,22 @@
     };
 
     let name = $state("");
+    let progress = $state(0);
     let key = $state("");
     let greetMsg = $state("");
 
     async function greet(event: Event) {
         event.preventDefault();
         // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-
-        greetMsg = await invoke("encrypt_file_cmd", { publicKeys: [key] });
+        progress = 0;
+        const channel = new Channel<number>();
+        channel.onmessage = (message) => {
+            progress = message;
+        };
+        greetMsg = await invoke("encrypt_file_cmd", {
+            publicKeys: [key],
+            reader: channel,
+        });
     }
     let keysFetch: Promise<Key[]> = $state(invoke("fetch_keys"));
     // listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
@@ -41,6 +49,10 @@
         </select>
         <button type="submit" onclick={greet}>choose file</button>
     </form>
+    <div
+        style="background-color: green; height: 10px"
+        style:width={`${progress * 100}%`}
+    ></div>
     <p>{greetMsg}</p>
 </main>
 
