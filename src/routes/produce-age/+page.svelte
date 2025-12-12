@@ -63,6 +63,8 @@
         <button onclick={chooseFile}
             >{file.split("/").slice(-1) || "choose file"}</button
         >
+        <input type="checkbox" value="armor" id="armor" name="armor" />
+        <label for="armor">armor</label>
         <button
             onclick={encryptFile}
             style:width="75%"
