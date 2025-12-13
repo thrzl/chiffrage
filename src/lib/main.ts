@@ -2,7 +2,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 export type Key = {
   name: string;
-  key_type: "public" | "private";
+  key_type: "Public" | "Private";
   date_created: { secs_since_epoch: number };
   contents: {
     public: String;

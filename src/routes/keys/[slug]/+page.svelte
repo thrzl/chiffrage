@@ -3,15 +3,10 @@
     import { listen } from "@tauri-apps/api/event";
     import { openWindow } from "$lib/main";
     import type { PageProps } from "./$types";
+    import type { Key } from "$lib/main";
 
     const { data }: PageProps = $props();
     const slug = data.slug;
-    type Key = {
-        id: string;
-        name: string;
-        key_type: "public" | "private";
-        date_created: { secs_since_epoch: number };
-    };
 
     let name = $state("");
     let greetMsg = $state("");
@@ -34,34 +29,27 @@
     let keysFetch: Key[] = $state(await invoke("fetch_keys"));
     listen("update-keys", async () => (keysFetch = await invoke("fetch_keys")));
 
-    let keyMatches = filter_keys(keysFetch);
-
-    let privateKey = keyMatches.find((key) => key.name.startsWith("priv:"));
-    let publicKey = keyMatches.find((key) => key.name.startsWith("pub:"))!;
-    let general: Key = {
-        id: publicKey.name.split(":").slice(-1)[0],
-        name: publicKey.name.split(":").slice(-1)[0],
-        date_created: publicKey.date_created,
-        key_type: "public",
-    };
+    let keyMatches = filter_keys(keysFetch)[0];
+    console.log(keyMatches);
 </script>
 
 <main class="container">
     <h1>key info</h1>
-    <h2>{general.name}</h2>
-    <p>has private key? {privateKey ? "yes" : "no"}</p>
+    <h2>{keyMatches.name}</h2>
+    <p>has private key? {keyMatches.key_type === "Private" ? "yes" : "no"}</p>
     <nav>
         <button onclick={() => openWindow("produce-age", "encrypt")}
             >encrypt</button
         >
-        {#if privateKey}<button
+        {#if keyMatches.key_type === "Private"}<button
                 onclick={() => openWindow("consume-age", "decrypt")}
                 >decrypt</button
             >{/if}
         <button onclick={() => openWindow("new-key", "new key")}>new key</button
         >
         <button
-            onclick={() => openWindow(`keys/${general.name}/export`, "export")}
+            onclick={() =>
+                openWindow(`keys/${keyMatches.name}/export`, "export")}
             >export</button
         >
     </nav>

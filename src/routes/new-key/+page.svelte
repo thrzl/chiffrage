@@ -23,7 +23,7 @@
         }
         error = "";
         // Learn more about Tauri commands at https://tauri.app/d,evelop/calling-rust/
-        await invoke("generate_keypair", { id: name.trim() });
+        await invoke("generate_keypair", { name: name.trim() });
         emit("update-keys");
         await tauriWindow.close();
     }
