@@ -13,7 +13,8 @@ huge work in progress. nothing is set right now, not even database format/struct
 - [ ] implement key management
     - [x] keypair generation
     - [ ] metadata editor + notes
-    - [ ] key export
+    - [x] key export
+    - [ ] key import
 - [ ] automated builds
 
 ## contributing
