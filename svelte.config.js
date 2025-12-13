@@ -13,8 +13,10 @@ const config = {
       fallback: "index.html",
     }),
   },
-  experimental: {
-    async: true,
+  compilerOptions: {
+    experimental: {
+      async: true,
+    },
   },
 };
 

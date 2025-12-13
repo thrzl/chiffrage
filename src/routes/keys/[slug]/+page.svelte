@@ -2,7 +2,10 @@
     import { invoke } from "@tauri-apps/api/core";
     import { listen } from "@tauri-apps/api/event";
     import { openWindow } from "$lib/main";
+    import type { PageProps } from "./$types";
 
+    const { data }: PageProps = $props();
+    const slug = data.slug;
     type Key = {
         id: string;
         name: string;
@@ -20,63 +23,38 @@
         greetMsg = await invoke("greet", { name });
     }
 
-    let keysFetch: Promise<Key[]> = $state(invoke("fetch_keys"));
-    listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
+    function filter_keys(keys: Key[]) {
+        return keys.filter((key) => {
+            return (
+                key.name.split(":").slice(-1)[0] ===
+                slug.split(":").slice(-1)[0]
+            );
+        });
+    }
+    let keysFetch: Key[] = $state(await invoke("fetch_keys"));
+    listen("update-keys", async () => (keysFetch = await invoke("fetch_keys")));
+
+    let keyMatches = filter_keys(keysFetch);
+    console.log(`key matches: ${keyMatches}`);
+    let privateKey = keyMatches.find((key) => key.name.startsWith("priv:"));
+    let publicKey = keyMatches.find((key) => key.name.startsWith("pub:"))!;
+    let general: Key = {
+        id: publicKey.name.split(":").slice(-1)[0],
+        name: publicKey.name.split(":").slice(-1)[0],
+        date_created: publicKey.date_created,
+        key_type: "public",
+    };
 </script>
 
 <main class="container">
-    <h1>chiffrage</h1>
+    <h1>key info</h1>
+    <h2>{general.name}</h2>
+    <p>has private key? {privateKey ? "yes" : "no"}</p>
     <nav>
         <button onclick={() => openWindow("produce-age")}>encrypt</button>
         <button onclick={() => openWindow("consume-age")}>decrypt</button>
         <button onclick={() => openWindow("new-key")}>new key</button>
     </nav>
-
-    <div class="row">
-        <a href="https://vite.dev" target="_blank">
-            <img src="/vite.svg" class="logo vite" alt="Vite Logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-            <img src="/tauri.svg" class="logo tauri" alt="Tauri Logo" />
-        </a>
-        <a href="https://svelte.dev" target="_blank">
-            <img
-                src="/svelte.svg"
-                class="logo svelte-kit"
-                alt="SvelteKit Logo"
-            />
-        </a>
-    </div>
-    <p>Click on the Tauri, Vite, and SvelteKit logos to learn more.</p>
-
-    <table style="text-align: left; margin: 0 2rem">
-        <thead>
-            <tr>
-                <th>id</th>
-                <th>pub</th>
-                <th>last used</th>
-            </tr>
-        </thead>
-        <tbody>
-            {#await keysFetch then keys}
-                {#each keys as key}
-                    <tr
-                        onclick={() => {
-                            openWindow(`/keys/${key.name}`);
-                        }}
-                    >
-                        <th>{key.name}</th>
-                        <th>idk bro</th>
-                        <th
-                            >{new Date(
-                                key.date_created.secs_since_epoch * 1000,
-                            )}</th
-                        ></tr
-                    >
-                {/each}
-            {/await}
-        </tbody>
-    </table>
 </main>
 
 <style>
