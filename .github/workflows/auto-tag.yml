@@ -17,9 +17,6 @@ jobs:
         with:
           fetch-depth: 0 # ensure full history so tags are available
 
-      - name: setup v
-        uses: vlang/setup-v@v1.4
-
       - name: fetch tags
         run: git fetch --tags --prune
 
@@ -27,8 +24,6 @@ jobs:
         id: get-tag
         run:
           | # much inspiration from github.com/imputnet/helium/.github/workflows/release-and-tag.yml
-          v version.v
-
           LATEST_TAG=$(git describe --tags --abbrev=0)
           echo "Checking out $LATEST_TAG"
           git checkout "tags/$LATEST_TAG" -b release-$LATEST_TAG
