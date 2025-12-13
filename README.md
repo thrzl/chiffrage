@@ -4,7 +4,14 @@ a desktop UI for [age](https://github.com/FiloSottile/age) encryption.
 
 built with tauri and sveltekit
 
-huge work in progress. nothing is set right now, not even database format/structure. should not be relied on in its current state.
+## note on mac usage
+
+i don't have a developer license, so it'll complain that the app is damaged or something when you try to run it
+
+to get around this, you need to run this once:
+```sh
+xattr -c /Applications/chiffrage.app
+```
 
 ## todo
 - [x] secure storage backend in tauri
