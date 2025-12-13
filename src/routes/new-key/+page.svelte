@@ -23,7 +23,7 @@
         }
         error = "";
         // Learn more about Tauri commands at https://tauri.app/d,evelop/calling-rust/
-        await invoke("generate_keypair", { id: name });
+        await invoke("generate_keypair", { id: name.trim() });
         emit("update-keys");
         await tauriWindow.close();
     }
@@ -38,7 +38,7 @@
         let path = await open({ directory: false, multiple: false });
         if (!path) return;
 
-        console.log(await invoke("import_key", { name, path }));
+        console.log(await invoke("import_key", { name: name.trim(), path }));
         console.log("imported key");
         emit("update-keys");
         await tauriWindow.close();
