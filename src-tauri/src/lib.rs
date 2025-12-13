@@ -49,7 +49,9 @@ pub fn run() {
             crypto::encrypt_file_cmd,
             crypto::decrypt_file_cmd,
             store::export_key,
-            store::import_key
+            store::import_key,
+            store::delete_key,
+            store::fetch_key
         ])
         .setup(|app| {
             let app_data_dir = app

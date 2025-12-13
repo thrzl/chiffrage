@@ -114,6 +114,10 @@ impl Vault {
         KeyMetadata::from_keypair(name, KeyPair { public, private })
     }
 
+    pub fn delete_key(&mut self, name: String) {
+        let _ = self.file.secrets.remove(&name);
+    }
+
     pub fn generate_key(&self, name: String) -> KeyMetadata {
         let identity = Identity::generate();
         let keypair = KeyPair {

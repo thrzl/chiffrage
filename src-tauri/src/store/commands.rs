@@ -73,6 +73,30 @@ pub fn fetch_keys(state: tauri::State<Mutex<AppState>>) -> Vec<KeyMetadata> {
 }
 
 #[tauri::command]
+pub fn fetch_key(name: String, state: tauri::State<Mutex<AppState>>) -> Option<KeyMetadata> {
+    let state = state
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    let vault_handle = state.vault.as_ref().expect("vault not initialized");
+    let vault = vault_handle.lock().unwrap();
+    vault.get_key(name).cloned()
+}
+
+#[tauri::command]
+pub fn delete_key(name: String, state: tauri::State<'_, Mutex<AppState>>) -> Result<(), String> {
+    let state = state
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    let vault_handle = state.vault.as_ref().expect("vault not initialized");
+    let mut vault = vault_handle.lock().unwrap();
+    vault.delete_key(name);
+    vault.save_vault();
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn export_key(
     key: String,
     path: String,
