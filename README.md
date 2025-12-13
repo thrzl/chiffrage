@@ -15,7 +15,10 @@ huge work in progress. nothing is set right now, not even database format/struct
     - [ ] metadata editor + notes
     - [x] key export
     - [x] key import
-- [ ] automated builds
+- [ ] encrypt folders
+- [ ] encrypt multiple files
+- [ ] password encryption
+- [x] automated builds
 
 ## contributing
 all contributions welcome! please open an issue mentioning what you intend to change before submitting a pull request.
