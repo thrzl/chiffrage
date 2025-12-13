@@ -1,6 +1,6 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #![feature(path_add_extension)]
-mod crypt;
+mod crypto;
 mod store;
 use serde::Serialize;
 use std::sync::{Arc, Mutex};
@@ -60,10 +60,10 @@ pub fn run() {
             store::load_vault,
             store::create_vault,
             store::vault_exists,
-            crypt::generate_keypair,
-            crypt::encrypt_text,
-            crypt::encrypt_file_cmd,
-            crypt::decrypt_file_cmd,
+            crypto::generate_keypair,
+            crypto::encrypt_text,
+            crypto::encrypt_file_cmd,
+            crypto::decrypt_file_cmd,
             store::export_key,
             store::import_key
         ])

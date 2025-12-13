@@ -1,4 +1,4 @@
-use crate::crypt;
+use crate::crypto;
 use crate::store::{KeyMetadata, KeyType};
 use crate::AppState;
 use secrecy::{ExposeSecret, SecretString};
@@ -34,7 +34,7 @@ pub async fn encrypt_file_cmd(
             .collect::<Vec<String>>()
     };
     let path = PathBuf::from(file);
-    let output_path = crypt::encrypt_file(key_contents, path, reader)
+    let output_path = crypto::encrypt_file(key_contents, path, reader)
         .await
         .expect("failed to encrypt file");
     reveal_item_in_dir(output_path.as_path()).expect("failed to reveal item");
@@ -59,7 +59,7 @@ pub async fn decrypt_file_cmd(
         vault.load_secret(private_key).unwrap().clone()
     };
     let output_path =
-        crypt::decrypt_file(key_content.expose_secret().to_string(), PathBuf::from(file))
+        crypto::decrypt_file(key_content.expose_secret().to_string(), PathBuf::from(file))
             .await
             .expect("failed to encrypt file");
     reveal_item_in_dir(output_path.as_path()).expect("failed to reveal item");
@@ -81,7 +81,7 @@ pub async fn generate_keypair(
             Ok(vault) => vault,
             Err(poisoned) => poisoned.into_inner(),
         };
-        let keypair = crypt::generate_key();
+        let keypair = crypto::generate_key();
         vault.put_secret(format!("priv:{}", id), keypair.private_key)?;
         vault.put_secret(
             format!("pub:{}", id),
