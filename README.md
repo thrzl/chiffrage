@@ -33,11 +33,11 @@ bun run tauri build
 
 ## under the hood
 
-all data is serialized with JSON
+all data is serialized with CBOR
 
 ### rust backend
 
-keys are stored in an index via [tauri store](https://v2.tauri.app/plugin/store/). key metadata looks like this:
+keys are stored in a database. key metadata looks like this:
 
 ```rust
 pub enum KeyType {
