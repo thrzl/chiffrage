@@ -3,6 +3,7 @@
 // you can open (or create) a vault with:
 // Vault::load_vault()
 mod commands;
+use age::x25519::{Identity, Recipient};
 pub use commands::*;
 
 use argon2::{password_hash::rand_core::RngCore, Argon2};
@@ -13,7 +14,7 @@ use chacha20poly1305::{
 
 use secrecy::{ExposeSecret, SecretBox, SecretString};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs, io::Write, path::PathBuf, str::FromStr}; // how terrifying
+use std::{collections::HashMap, fs, io::Write, path::PathBuf, str::FromStr, time::SystemTime}; // how terrifying
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum KeyType {
@@ -25,7 +26,17 @@ pub enum KeyType {
 pub struct KeyMetadata {
     pub name: String,
     pub key_type: KeyType,
-    pub date_created: std::time::SystemTime,
+    pub date_created: SystemTime,
+}
+
+impl KeyMetadata {
+    pub fn new(name: String, key_type: KeyType) -> KeyMetadata {
+        KeyMetadata {
+            name,
+            key_type,
+            date_created: SystemTime::now(),
+        }
+    }
 }
 
 pub fn derive_key(password: &SecretString, salt: &[u8]) -> SecretBox<[u8; 32]> {

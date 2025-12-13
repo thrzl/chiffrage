@@ -2,6 +2,7 @@
     import { invoke } from "@tauri-apps/api/core";
     import { emit } from "@tauri-apps/api/event";
     import { open } from "@tauri-apps/plugin-dialog";
+    import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
     type Key = {
         id: string;
@@ -11,22 +12,36 @@
     };
 
     let name = $state("");
+    let error = $state("");
+    const tauriWindow = getCurrentWebviewWindow();
 
     async function generate_key(event: Event) {
         event.preventDefault();
+        if (!name) {
+            error = "no name set!";
+            return;
+        }
+        error = "";
         // Learn more about Tauri commands at https://tauri.app/d,evelop/calling-rust/
         await invoke("generate_keypair", { id: name });
-        console.log("generated keys");
         emit("update-keys");
+        await tauriWindow.close();
     }
     async function import_key(event: Event) {
         event.preventDefault();
 
+        if (!name) {
+            error = "no name set!";
+            return;
+        }
+        error = "";
         let path = await open({ directory: false, multiple: false });
         if (!path) return;
 
-        await invoke("import_key", { name, path });
+        console.log(await invoke("import_key", { name, path }));
+        console.log("imported key");
         emit("update-keys");
+        await tauriWindow.close();
     }
     const keysFetch: Promise<Key[]> = invoke("fetch_keys");
     // console.log(`keys: ${await invoke("keys")}`);
@@ -35,10 +50,13 @@
 <main class="container">
     <h1>encrypt + sign</h1>
 
-    <input bind:value={name} placeholder="key name" />
-    <button onclick={generate_key}>generate keypair</button>
-    <p>or...</p>
-    <button onclick={import_key}>import key</button>
+    <form>
+        <input bind:value={name} placeholder="key name" required />
+        <button onclick={generate_key}>generate keypair</button>
+        <p>or...</p>
+        <button onclick={import_key}>import key</button>
+    </form>
+    <p style:color="red">{error}</p>
 </main>
 
 <style>
