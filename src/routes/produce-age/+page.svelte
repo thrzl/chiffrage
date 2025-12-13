@@ -1,13 +1,7 @@
 <script lang="ts">
     import { invoke, Channel } from "@tauri-apps/api/core";
     import { open } from "@tauri-apps/plugin-dialog";
-
-    type Key = {
-        id: string;
-        name: string;
-        key_type: "public" | "private";
-        date_created: Date;
-    };
+    import type { Key } from "$lib/main";
 
     let name = $state("");
     let progress = $state(0);
@@ -46,13 +40,11 @@
     <form onsubmit={chooseFile}>
         <select bind:value={key}>
             {#await keysFetch}
-                <option value="no-key" disabled>loading keys</option>
+                <option value="" disabled selected>loading keys</option>
             {:then keys}
-                <option value="no-key" disabled style:color="black"
-                    >choose a key</option
-                >
+                <option value="" disabled selected>choose a key</option>
                 {#if keys}
-                    {#each keys.filter((key) => key.name.split(":", 1)[0] === "pub") as key}
+                    {#each keys as key}
                         <option value={key.name}>{key.name}</option>
                     {/each}
                 {:else}
