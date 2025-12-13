@@ -21,11 +21,9 @@
 <main class="container">
     <h1>chiffrage</h1>
     <nav>
-        <button onclick={() => openWindow("produce-age", "encrypt")}
-            >encrypt</button
+        <button onclick={() => openWindow("encrypt", "encrypt")}>encrypt</button
         >
-        <button onclick={() => openWindow("consume-age", "decrypt")}
-            >decrypt</button
+        <button onclick={() => openWindow("decrypt", "decrypt")}>decrypt</button
         >
         <button onclick={() => openWindow("new-key", "new key")}>new key</button
         >

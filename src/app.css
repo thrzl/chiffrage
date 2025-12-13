@@ -1,3 +1,10 @@
+* {
+    box-sizing: border-box;
+}
+form {
+    display: block;
+}
+
 nav {
     flex-flow: row wrap;
 }
