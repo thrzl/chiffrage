@@ -38,7 +38,7 @@
 </script>
 
 <main class="container">
-    <p>welcome back :P</p>
+    <p>welcome back</p>
     <input type="password" placeholder="enter your vault password" />
     <button type="submit" onclick={unlockVault}>unlock vault</button>
     <p style:color="red">{error}</p>

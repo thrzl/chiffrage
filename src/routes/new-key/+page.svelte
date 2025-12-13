@@ -15,12 +15,20 @@
     let error = $state("");
     const tauriWindow = getCurrentWebviewWindow();
 
-    async function generate_key(event: Event) {
-        event.preventDefault();
+    function getName() {
         if (!name) {
             error = "no name set!";
             return;
         }
+        if (!name.match(/^[a-zA-Z0-9]+$/)) {
+            error = "name may only consist of alphanumeric characters";
+            return;
+        }
+        return name;
+    }
+    async function generate_key(event: Event) {
+        event.preventDefault();
+        if (!getName()) return;
         error = "";
         // Learn more about Tauri commands at https://tauri.app/d,evelop/calling-rust/
         await invoke("generate_keypair", { name: name.trim() });
@@ -29,11 +37,7 @@
     }
     async function import_key(event: Event) {
         event.preventDefault();
-
-        if (!name) {
-            error = "no name set!";
-            return;
-        }
+        if (!getName()) return;
         error = "";
         let path = await open({ directory: false, multiple: false });
         if (!path) return;
@@ -48,7 +52,7 @@
 </script>
 
 <main class="container">
-    <h1>encrypt + sign</h1>
+    <h1>add a key</h1>
 
     <form>
         <input bind:value={name} placeholder="key name" required />

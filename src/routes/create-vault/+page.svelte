@@ -38,16 +38,15 @@
 </script>
 
 <main class="container">
-    <p>welcome :P</p>
-    <p>let's make a vault to store your private keys!</p>
+    <p>welcome, let's make a vault to store your keys!</p>
     <h1>choose a password</h1>
     <input bind:value={password} type="password" />
     <div
         style={`background-color: green; width: ${Math.min(zxcvbn(password).crackTimesSeconds.offlineSlowHashing1e4PerSecond / 31_536_000, 1) * 100}%; height: 10px`}
     ></div>
-    <p>
-        will take {zxcvbn(password).crackTimesDisplay
-            .offlineSlowHashing1e4PerSecond} to crack
-    </p>
-    <button onclick={createVault}>create</button>
+    {#if password}<p>
+            will take {zxcvbn(password).crackTimesDisplay
+                .offlineSlowHashing1e4PerSecond} to crack
+        </p>{/if}
+    <button onclick={createVault} disabled={password === ""}>create</button>
 </main>
