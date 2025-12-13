@@ -1,12 +1,9 @@
 use crate::crypto;
-use crate::store::{KeyMetadata, KeyType};
 use crate::AppState;
-use secrecy::{ExposeSecret, SecretString};
-use serde_json::json;
+use secrecy::ExposeSecret;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri_plugin_opener::reveal_item_in_dir;
-use tauri_plugin_store::StoreExt;
 
 #[tauri::command]
 pub async fn encrypt_file_cmd(
@@ -26,10 +23,11 @@ pub async fn encrypt_file_cmd(
             .iter()
             .map(|key| {
                 vault
-                    .load_secret(key.to_owned())
+                    .get_key(key.to_owned())
                     .unwrap()
-                    .expose_secret()
-                    .to_string() // what a mess
+                    .contents
+                    .public
+                    .clone()
             })
             .collect::<Vec<String>>()
     };
@@ -56,7 +54,11 @@ pub async fn decrypt_file_cmd(
             Ok(vault) => vault,
             Err(poisoned) => poisoned.into_inner(),
         };
-        vault.load_secret(private_key).unwrap().clone()
+        let key_content = vault.get_key(private_key).unwrap();
+        vault
+            .decrypt_secret(&key_content.contents.private.as_ref().unwrap())
+            .unwrap()
+            .clone()
     };
     let output_path =
         crypto::decrypt_file(key_content.expose_secret().to_string(), PathBuf::from(file))
@@ -68,9 +70,8 @@ pub async fn decrypt_file_cmd(
 
 #[tauri::command]
 pub async fn generate_keypair(
-    id: String,
+    name: String,
     state: tauri::State<'_, Mutex<AppState>>,
-    app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let vault_handle = {
         let state = state.lock().unwrap();
@@ -81,12 +82,8 @@ pub async fn generate_keypair(
             Ok(vault) => vault,
             Err(poisoned) => poisoned.into_inner(),
         };
-        let keypair = crypto::generate_key();
-        vault.put_secret(format!("priv:{}", id), keypair.private_key)?;
-        vault.put_secret(
-            format!("pub:{}", id),
-            SecretString::from(keypair.public_key),
-        )?;
+        let keypair = vault.generate_key(name);
+        vault.put_key(keypair)?;
     }
     tauri::async_runtime::spawn_blocking(move || {
         let vault = match vault_handle.lock() {
@@ -95,25 +92,5 @@ pub async fn generate_keypair(
         };
         vault.save_vault();
     });
-
-    let index = app_handle
-        .store("index.json")
-        .expect("failed to open key index");
-    index.set(
-        format!("pub:{}", id),
-        json!(&KeyMetadata {
-            name: format!("pub:{}", id),
-            key_type: KeyType::Public,
-            date_created: std::time::SystemTime::now(),
-        }),
-    );
-    index.set(
-        format!("priv:{}", id),
-        json!(&KeyMetadata {
-            name: format!("priv:{}", id),
-            key_type: KeyType::Public,
-            date_created: std::time::SystemTime::now(),
-        }),
-    );
     Ok(())
 }

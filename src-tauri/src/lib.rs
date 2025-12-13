@@ -2,13 +2,10 @@
 #![feature(path_add_extension)]
 mod crypto;
 mod store;
-use serde::Serialize;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use tauri::Manager;
-
-use tauri_plugin_store::StoreExt;
 
 // im ngl idk what im doin
 pub fn set_timeout<F>(delay_ms: u64, f: F)
@@ -24,17 +21,6 @@ where
 struct AppState {
     vault: Option<Arc<Mutex<store::Vault>>>,
     first_open: bool,
-}
-
-#[derive(Clone, Serialize)]
-#[serde(
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase",
-    tag = "event",
-    content = "data"
-)]
-enum FileProcessingEvent {
-    Progress { percent: usize },
 }
 
 #[tauri::command]
@@ -68,10 +54,6 @@ pub fn run() {
             store::import_key
         ])
         .setup(|app| {
-            let store = app
-                .store_builder("index.json")
-                .auto_save(Duration::from_millis(100))
-                .build()?;
             let app_data_dir = app
                 .path()
                 .app_data_dir()

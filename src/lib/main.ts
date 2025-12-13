@@ -1,5 +1,15 @@
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
+export type Key = {
+  name: string;
+  key_type: "public" | "private";
+  date_created: { secs_since_epoch: number };
+  contents: {
+    public: String;
+    private: String | null;
+  };
+};
+
 export function openWindow(window: string, title: string) {
   const win = new WebviewWindow(window, {
     title,

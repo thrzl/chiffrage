@@ -2,13 +2,6 @@
     import { invoke } from "@tauri-apps/api/core";
     import { onMount } from "svelte";
 
-    type Key = {
-        id: string;
-        name: string;
-        key_type: "public" | "private";
-        date_created: Date;
-    };
-
     let passwordInput: HTMLInputElement | null = null;
 
     let error = $state("");

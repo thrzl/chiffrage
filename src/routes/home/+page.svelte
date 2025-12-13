@@ -2,13 +2,7 @@
     import { invoke } from "@tauri-apps/api/core";
     import { listen } from "@tauri-apps/api/event";
     import { openWindow } from "$lib/main";
-
-    type Key = {
-        id: string;
-        name: string;
-        key_type: "public" | "private";
-        date_created: { secs_since_epoch: number };
-    };
+    import type { Key } from "$lib/main";
 
     let name = $state("");
     let greetMsg = $state("");

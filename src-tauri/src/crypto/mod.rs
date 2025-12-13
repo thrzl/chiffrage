@@ -1,29 +1,15 @@
 // higher-level age functions to be called from the frontend
 
 mod commands;
-use age::x25519::{Identity, Recipient};
+use age::x25519::Recipient;
 use age::Decryptor;
 pub use commands::*;
 use futures_util::{AsyncReadExt as FuturesReadExt, AsyncWriteExt as FuturesWriteExt};
-use secrecy::{ExposeSecret, SecretString};
 use std::path::PathBuf;
 use std::str::FromStr;
 use tokio::fs::{metadata, File};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
-
-pub struct Keypair {
-    pub private_key: SecretString,
-    pub public_key: String,
-}
-
-pub fn generate_key() -> Keypair {
-    let key = Identity::generate();
-    return Keypair {
-        private_key: SecretString::from(key.to_string().expose_secret().to_string()),
-        public_key: key.to_public().to_string(),
-    };
-}
 
 pub async fn encrypt_file(
     public_keys: Vec<String>,

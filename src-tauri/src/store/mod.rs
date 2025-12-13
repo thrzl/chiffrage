@@ -14,29 +14,67 @@ use chacha20poly1305::{
 
 use secrecy::{ExposeSecret, SecretBox, SecretString};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs, io::Write, path::PathBuf, str::FromStr, time::SystemTime}; // how terrifying
+use std::{collections::HashMap, fs, path::PathBuf, str::FromStr, time::SystemTime};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum KeyType {
     Public,
     Private,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KeyMetadata {
     pub name: String,
     pub key_type: KeyType,
     pub date_created: SystemTime,
+    pub contents: KeyPair,
 }
 
 impl KeyMetadata {
-    pub fn new(name: String, key_type: KeyType) -> KeyMetadata {
+    pub fn from_keypair(name: String, keypair: KeyPair) -> KeyMetadata {
+        let key_type = match keypair.private {
+            Some(_) => KeyType::Private,
+            None => KeyType::Public,
+        };
         KeyMetadata {
             name,
             key_type,
             date_created: SystemTime::now(),
+            contents: keypair,
         }
     }
+
+    pub fn redact(&mut self) {
+        self.contents.redact();
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct KeyPair {
+    pub public: String,
+    pub private: Option<EncryptedSecret>,
+}
+
+impl KeyPair {
+    #[allow(dead_code)]
+    pub fn redact(&mut self) {
+        self.private = None
+    }
+}
+
+impl From<Recipient> for KeyPair {
+    fn from(recipient: Recipient) -> KeyPair {
+        KeyPair {
+            public: recipient.to_string(),
+            private: None,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct EncryptedSecret {
+    nonce: Vec<u8>,
+    ciphertext: Vec<u8>,
 }
 
 pub fn derive_key(password: &SecretString, salt: &[u8]) -> SecretBox<[u8; 32]> {
@@ -50,16 +88,10 @@ pub fn derive_key(password: &SecretString, salt: &[u8]) -> SecretBox<[u8; 32]> {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct EncryptedSecret {
-    nonce: Vec<u8>,
-    ciphertext: Vec<u8>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
 pub struct VaultFile {
     salt: Vec<u8>,
     hello: EncryptedSecret,
-    secrets: HashMap<String, EncryptedSecret>,
+    secrets: HashMap<String, KeyMetadata>,
 }
 
 pub struct Vault {
@@ -69,7 +101,40 @@ pub struct Vault {
 }
 
 impl Vault {
-    fn decrypt_secret(&self, encrypted_secret: &EncryptedSecret) -> Result<SecretString, String> {
+    pub fn new_key(
+        &self,
+        name: String,
+        public: String,
+        private: Option<SecretString>,
+    ) -> KeyMetadata {
+        let private = match private {
+            Some(private_key) => Some(Vault::encrypt_secret(&self.key, private_key)),
+            None => None,
+        };
+        KeyMetadata::from_keypair(name, KeyPair { public, private })
+    }
+
+    pub fn generate_key(&self, name: String) -> KeyMetadata {
+        let identity = Identity::generate();
+        let keypair = KeyPair {
+            public: identity.to_public().to_string(),
+            private: Some(Vault::encrypt_secret(
+                &self.key,
+                SecretString::from(identity.to_string()),
+            )),
+        };
+        KeyMetadata {
+            name,
+            key_type: KeyType::Private,
+            date_created: SystemTime::now(),
+            contents: keypair,
+        }
+    }
+
+    pub fn decrypt_secret(
+        &self,
+        encrypted_secret: &EncryptedSecret,
+    ) -> Result<SecretString, String> {
         let mut cipher = XChaCha20Poly1305::new(self.key.expose_secret().into());
         let nonce = XNonce::from_slice(&encrypted_secret.nonce);
 
@@ -97,22 +162,12 @@ impl Vault {
         }
     }
 
-    #[allow(dead_code)] // shhhh we got it bro
-    pub fn load_secret(&self, id: String) -> Option<SecretString> {
-        let encrypted_secret = self.file.secrets.get(&id);
-        if let Some(secret) = encrypted_secret {
-            return Some(
-                self.decrypt_secret(secret)
-                    .expect("failed to decrypt secret"),
-            );
-        } else {
-            return None;
-        }
+    pub fn get_key(&self, name: String) -> Option<&KeyMetadata> {
+        self.file.secrets.get(&name)
     }
 
-    pub fn put_secret(&mut self, id: String, secret: SecretString) -> Result<(), String> {
-        let encrypted_secret = Vault::encrypt_secret(&self.key, secret);
-        self.file.secrets.insert(id, encrypted_secret);
+    pub fn put_key(&mut self, key: KeyMetadata) -> Result<(), String> {
+        self.file.secrets.insert(key.name.clone(), key);
         Ok(())
     }
 
