@@ -14,7 +14,7 @@ huge work in progress. nothing is set right now, not even database format/struct
     - [x] keypair generation
     - [ ] metadata editor + notes
     - [x] key export
-    - [ ] key import
+    - [x] key import
 - [ ] automated builds
 
 ## contributing
@@ -48,7 +48,18 @@ pub enum KeyType {
 pub struct KeyMetadata {
     pub name: String,
     pub key_type: KeyType,
-    pub date_created: std::time::SystemTime,
+    pub date_created: SystemTime,
+    pub contents: KeyPair,
+}
+
+pub struct KeyPair {
+    pub public: String,
+    pub private: Option<EncryptedSecret>,
+}
+
+pub struct EncryptedSecret {
+    nonce: Vec<u8>,
+    ciphertext: Vec<u8>,
 }
 ```
 
@@ -58,12 +69,44 @@ the private key database uses XChaCha20Poly1350 to encrypt the keys. it's struct
   "salt": "<128-bit salt>",
   "hello": "dummy encrypted value",
   "secrets": {
-    "key name": {
-      "nonce": "...",
-      "ciphertext": "..."
+    "private_key": {
+      "contents": {
+        "private": {
+          "nonce": "...",
+          "ciphertext": "..."
+        },
+        "public": "..."
+      },
+      "key_type": "Private",
+      "date_created": "..."
+    },
+    "public_key": {
+      "contents": {
+        "private": null,
+        "public": "..."
+      },
+      "key_type": "Public",
+      "date_created": "..."
     }
   }
 }
+```
+
+key type in typescript (this is in the rust too, but json/ts are more readable):
+
+```ts
+export type Key = {
+  name: string;
+  key_type: "public" | "private";
+  date_created: { secs_since_epoch: number }; // pretty sure there's also millis_since_epoch
+  contents: {
+    public: String;
+    private: {
+      nonce: number[];
+      ciphertext: number[];
+    } | null;
+  };
+};
 ```
 
 the `hello` entry is used to authenticate the user. the decrypted value is always `"hello"` and is checked during vault unlock.

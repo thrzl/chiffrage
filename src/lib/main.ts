@@ -6,7 +6,10 @@ export type Key = {
   date_created: { secs_since_epoch: number };
   contents: {
     public: String;
-    private: String | null;
+    private: {
+      nonce: number[];
+      ciphertext: number[];
+    } | null;
   };
 };
 

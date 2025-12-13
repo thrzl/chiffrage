@@ -1,0 +1,25 @@
+{
+  "salt": "<128-bit salt>",
+  "hello": "dummy encrypted value",
+  "secrets": {
+    "private_key": {
+      "contents": {
+        "private": {
+          "nonce": "...",
+          "ciphertext": "..."
+        },
+        "public": "..."
+      },
+      "key_type": "Private",
+      "date_created": "..."
+    },
+    "public_key": {
+      "contents": {
+        "private": null,
+        "public": "..."
+      },
+      "key_type": "Public",
+      "date_created": "..."
+    }
+  }
+}
