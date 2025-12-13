@@ -1,8 +1,10 @@
 use crate::store::{KeyMetadata, Vault};
 use crate::AppState;
-use secrecy::SecretString;
+use secrecy::{ExposeSecret, SecretString};
 use std::sync::Mutex;
 use tauri_plugin_store::StoreExt;
+use tokio::fs::File;
+use tokio::io::AsyncWriteExt;
 
 #[tauri::command]
 pub fn vault_exists() -> bool {
@@ -56,4 +58,28 @@ pub fn fetch_keys(app_handle: tauri::AppHandle) -> Vec<KeyMetadata> {
         .collect();
 
     return items;
+}
+
+#[tauri::command]
+pub async fn export_key(
+    key: String,
+    path: String,
+    state: tauri::State<'_, Mutex<AppState>>,
+) -> Result<(), String> {
+    let mut key_file = File::create(path).await.expect("failed to open key file");
+    let key_content = {
+        let state = match state.lock() {
+            Ok(state) => state,
+            Err(poisoned) => poisoned.into_inner(), // idc gangalang
+        };
+        let vault = state.vault.as_ref().expect("vault not initialized");
+
+        vault.load_secret(key).expect("could not load key")
+    };
+    key_file
+        .write_all(key_content.expose_secret().as_bytes())
+        .await
+        .expect("failed to write file");
+    key_file.flush().await.expect("failed to flush file buffer");
+    Ok(())
 }

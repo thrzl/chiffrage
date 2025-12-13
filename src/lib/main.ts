@@ -1,7 +1,8 @@
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
-export function openWindow(window: string) {
+export function openWindow(window: string, title: string) {
   const win = new WebviewWindow(window, {
+    title,
     url: window, // or correct relative path
     width: 500,
     height: 600,
@@ -13,8 +14,4 @@ export function openWindow(window: string) {
   win.once("tauri://error", (e) => {
     console.error("Failed to create window", e);
   });
-}
-
-export function authenticate() {
-  openWindow("authenticate");
 }

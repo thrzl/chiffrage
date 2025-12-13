@@ -35,7 +35,7 @@
     listen("update-keys", async () => (keysFetch = await invoke("fetch_keys")));
 
     let keyMatches = filter_keys(keysFetch);
-    console.log(`key matches: ${keyMatches}`);
+
     let privateKey = keyMatches.find((key) => key.name.startsWith("priv:"));
     let publicKey = keyMatches.find((key) => key.name.startsWith("pub:"))!;
     let general: Key = {
@@ -51,9 +51,19 @@
     <h2>{general.name}</h2>
     <p>has private key? {privateKey ? "yes" : "no"}</p>
     <nav>
-        <button onclick={() => openWindow("produce-age")}>encrypt</button>
-        <button onclick={() => openWindow("consume-age")}>decrypt</button>
-        <button onclick={() => openWindow("new-key")}>new key</button>
+        <button onclick={() => openWindow("produce-age", "encrypt")}
+            >encrypt</button
+        >
+        {#if privateKey}<button
+                onclick={() => openWindow("consume-age", "decrypt")}
+                >decrypt</button
+            >{/if}
+        <button onclick={() => openWindow("new-key", "new key")}>new key</button
+        >
+        <button
+            onclick={() => openWindow(`keys/${general.name}/export`, "export")}
+            >export</button
+        >
     </nav>
 </main>
 

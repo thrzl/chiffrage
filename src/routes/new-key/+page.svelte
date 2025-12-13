@@ -1,6 +1,7 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
     import { emit } from "@tauri-apps/api/event";
+    import { open } from "@tauri-apps/plugin-dialog";
 
     type Key = {
         id: string;
@@ -18,6 +19,12 @@
         console.log("generated keys");
         emit("update-keys");
     }
+    async function import_key(event: Event) {
+        event.preventDefault();
+
+        let paths = await open({ directory: false, multiple: true });
+        if (!paths) alert("u gotta pick a key gangalang");
+    }
     const keysFetch: Promise<Key[]> = invoke("fetch_keys");
     // console.log(`keys: ${await invoke("keys")}`);
 </script>
@@ -27,6 +34,8 @@
 
     <input bind:value={name} placeholder="key name" />
     <button onclick={generate_key}>generate keypair</button>
+    <p>or...</p>
+    <button onclick={import_key}>import key</button>
 </main>
 
 <style>
