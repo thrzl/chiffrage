@@ -5,8 +5,8 @@ permissions:
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+    paths: ["src-tauri/tauri.conf.json"]
 
 jobs:
   autorelease:
