@@ -60,10 +60,13 @@ pub async fn decrypt_file_cmd(
             .unwrap()
             .clone()
     };
-    let output_path =
-        crypto::decrypt_file(key_content.expose_secret().to_string(), PathBuf::from(file))
-            .await
-            .expect("failed to encrypt file");
+    let output_path = crypto::decrypt_file(
+        key_content.expose_secret().to_string(),
+        PathBuf::from(file),
+        reader,
+    )
+    .await
+    .expect("failed to decrypt file");
     reveal_item_in_dir(output_path.as_path()).expect("failed to reveal item");
     Ok(())
 }

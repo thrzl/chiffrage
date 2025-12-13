@@ -59,7 +59,11 @@ pub async fn encrypt_file(
     Ok(encrypted_output)
 }
 
-pub async fn decrypt_file(private_key: String, file_path: PathBuf) -> Result<PathBuf, String> {
+pub async fn decrypt_file(
+    private_key: String,
+    file_path: PathBuf,
+    progress: tauri::ipc::Channel<f64>,
+) -> Result<PathBuf, String> {
     let file = File::open(&file_path).await.expect("failed to open file");
     let decryptor = Decryptor::new_async_buffered(BufReader::new(file).compat())
         .await
@@ -77,7 +81,9 @@ pub async fn decrypt_file(private_key: String, file_path: PathBuf) -> Result<Pat
         ))
         .expect("failed to decrypt contents");
 
-    let mut buffer = [0u8; 8_192]; // 8 kb buffer
+    let mut buffer = vec![0u8; 1024 * 1024 * 4]; // 4 MB buffer
+    let total_byte_size = metadata(file_path).await.unwrap().len() as f64;
+    let mut read_byte_size = 0 as f64;
 
     loop {
         let n = decrypted_reader
@@ -91,6 +97,9 @@ pub async fn decrypt_file(private_key: String, file_path: PathBuf) -> Result<Pat
             .write_all(&buffer[..n])
             .await
             .expect("failed to write"); // only write the new bytes
+
+        read_byte_size += n as f64;
+        let _ = progress.send(read_byte_size / total_byte_size); // this is not a critical function
     }
 
     Ok(decrypted_output)
