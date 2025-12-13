@@ -1,6 +1,12 @@
 name: "publish"
 
 on:
+  workflow_dispatch:
+    inputs:
+      tagName:
+        description: "tag to build"
+        required: true
+        default: "0.0.0"
   push:
     tags:
       - "**"
@@ -10,6 +16,8 @@ on:
 
 jobs:
   publish-tauri:
+    env:
+      TAG_NAME: ${{ github.event_name == 'push' && github.ref_name || github.event.inputs.tagName }}
     permissions:
       contents: write
     strategy:
@@ -52,14 +60,14 @@ jobs:
         uses: mikepenz/release-changelog-builder-action@{latest-release}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          toTag: ${{ github.ref_name }}
+          toTag: ${{ env.TAG_NAME }}
 
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: ${{ github.ref_name }}
+          tagName: ${{ env.TAG_NAME }}
+          releaseName: ${{ env.TAG_NAME }}
           releaseBody: ${{steps.build-changelog.outputs.changelog}}
           releaseDraft: true
           prerelease: false
