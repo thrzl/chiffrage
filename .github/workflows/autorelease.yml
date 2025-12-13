@@ -3,7 +3,7 @@ name: autorelease on bump
 permissions:
   contents: write
 
-on: workflow_run # not ready for release yet
+on: workflow_dispatch # not ready for release yet
 # on:
 #   push:
 #     branches:
