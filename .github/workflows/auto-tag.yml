@@ -1,9 +1,10 @@
-name: autorelease on bump
+name: auto-tag on bump
 
 permissions:
   contents: write
 
-on: workflow_dispatch # not ready for release yet
+on: workflow_dispatch
+# not ready for release yet
 # on:
 #   push:
 #     branches:
@@ -25,7 +26,7 @@ jobs:
         run: git fetch --tags --prune
 
       - name: compare tags
-        id: tag
+        id: get-tag
         run:
           | # much inspiration from github.com/imputnet/helium/.github/workflows/release-and-tag.yml
           v version.v
@@ -47,13 +48,12 @@ jobs:
             } | tee body.md
           fi
 
-      - name: Create Release
-        if: steps.tag.outputs.version
-        id: create_release
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: create tag
+        if: steps.get-tag.outputs.version
+        id: create-tag
+        uses: laputansoft/github-tag-action@v4.6
         with:
-          tag_name: ${{ steps.tag.outputs.version }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.get-tag.outputs.version }}
           name: ${{ steps.tag.outputs.version }}
           body_path: body.md
