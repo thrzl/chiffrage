@@ -22,8 +22,11 @@
     async function import_key(event: Event) {
         event.preventDefault();
 
-        let paths = await open({ directory: false, multiple: true });
-        if (!paths) alert("u gotta pick a key gangalang");
+        let path = await open({ directory: false, multiple: false });
+        if (!path) return;
+
+        await invoke("import_key", { name, path });
+        emit("update-keys");
     }
     const keysFetch: Promise<Key[]> = invoke("fetch_keys");
     // console.log(`keys: ${await invoke("keys")}`);

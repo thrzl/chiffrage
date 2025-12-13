@@ -3,7 +3,7 @@
 mod crypt;
 mod store;
 use serde::Serialize;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use tauri::Manager;
@@ -22,7 +22,7 @@ where
 }
 
 struct AppState {
-    vault: Option<store::Vault>,
+    vault: Option<Arc<Mutex<store::Vault>>>,
     first_open: bool,
 }
 
@@ -64,14 +64,22 @@ pub fn run() {
             crypt::encrypt_text,
             crypt::encrypt_file_cmd,
             crypt::decrypt_file_cmd,
-            store::export_key
+            store::export_key,
+            store::import_key
         ])
         .setup(|app| {
             let store = app
                 .store_builder("index.json")
                 .auto_save(Duration::from_millis(100))
                 .build()?;
-            let first_open = !app.path().app_data_dir()?.join("vault.cb").exists();
+            let app_data_dir = app
+                .path()
+                .app_data_dir()
+                .expect("could not find app data directory");
+            let first_open = !app_data_dir.join("vault.cb").exists();
+            if !app_data_dir.exists() {
+                std::fs::create_dir(app_data_dir).expect("failed to create app data directory")
+            }
             app.manage(Mutex::new(AppState {
                 vault: None,
                 first_open,

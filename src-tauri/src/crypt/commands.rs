@@ -5,7 +5,6 @@ use secrecy::{ExposeSecret, SecretString};
 use serde_json::json;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::reveal_item_in_dir;
 use tauri_plugin_store::StoreExt;
 
@@ -18,7 +17,11 @@ pub async fn encrypt_file_cmd(
 ) -> Result<(), ()> {
     let key_contents = {
         let state = state.lock().expect("failed to get lock on state");
-        let vault = state.vault.as_ref().expect("vault not initialized");
+        let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
+        let vault = match vault_handle.lock() {
+            Ok(vault) => vault,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         public_keys
             .iter()
             .map(|key| {
@@ -48,7 +51,11 @@ pub async fn decrypt_file_cmd(
 ) -> Result<(), ()> {
     let key_content = {
         let state = state.lock().expect("failed to get lock on state");
-        let vault = state.vault.as_ref().expect("vault not initialized");
+        let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
+        let vault = match vault_handle.lock() {
+            Ok(vault) => vault,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         vault.load_secret(private_key).unwrap().clone()
     };
     let output_path =
@@ -65,15 +72,30 @@ pub async fn generate_keypair(
     state: tauri::State<'_, Mutex<AppState>>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let mut state = state.lock().unwrap();
-    let vault = state.vault.as_mut().expect("failed to load vault");
-    let keypair = crypt::generate_key();
-    vault.put_secret(format!("priv:{}", id), keypair.private_key)?;
-    vault.put_secret(
-        format!("pub:{}", id),
-        SecretString::from(keypair.public_key),
-    )?;
-    vault.save_vault();
+    let vault_handle = {
+        let state = state.lock().unwrap();
+        state.vault.as_ref().expect("failed to load vault").clone()
+    };
+    {
+        let mut vault = match vault_handle.lock() {
+            Ok(vault) => vault,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        let keypair = crypt::generate_key();
+        vault.put_secret(format!("priv:{}", id), keypair.private_key)?;
+        vault.put_secret(
+            format!("pub:{}", id),
+            SecretString::from(keypair.public_key),
+        )?;
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let vault = match vault_handle.lock() {
+            Ok(vault) => vault,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        vault.save_vault();
+    });
+
     let index = app_handle
         .store("index.json")
         .expect("failed to open key index");

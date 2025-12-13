@@ -13,7 +13,7 @@ use chacha20poly1305::{
 
 use secrecy::{ExposeSecret, SecretBox, SecretString};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs, path::PathBuf, str::FromStr}; // how terrifying
+use std::{collections::HashMap, fs, io::Write, path::PathBuf, str::FromStr}; // how terrifying
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum KeyType {
@@ -153,10 +153,13 @@ impl Vault {
     pub fn save_vault(&self) {
         let data = serde_cbor::to_vec(&self.file).expect("failed to serialize vault");
         let path = self.path.clone();
-        tauri::async_runtime::spawn(async move {
-            tokio::fs::write(path, data)
-                .await
-                .expect("failed to write vault to disk");
-        });
+        if let Some(parent) = self.path.parent() {
+            std::fs::create_dir_all(parent).expect("failed to create parent directories");
+        }
+
+        std::fs::write(path, &data).expect("failed to init vault file");
+        // file.write_all(&data)
+        //     .expect("failed to write vault to disk");
+        // file.flush().expect("failed to flush buffers");
     }
 }
