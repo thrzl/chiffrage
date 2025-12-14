@@ -87,14 +87,14 @@ pub fn fetch_key(name: String, state: tauri::State<Mutex<AppState>>) -> Option<K
 }
 
 #[tauri::command]
-pub fn delete_key(name: String, state: tauri::State<'_, Mutex<AppState>>) -> Result<(), String> {
+pub fn delete_key(id: String, state: tauri::State<'_, Mutex<AppState>>) -> Result<(), String> {
     let state = state
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
 
     let vault_handle = state.vault.as_ref().expect("vault not initialized");
     let mut vault = vault_handle.lock().unwrap();
-    vault.delete_key(name);
+    vault.delete_key(id);
     vault.save_vault();
     Ok(())
 }
@@ -106,7 +106,6 @@ pub async fn export_key(
     key_type: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
-    let mut key_file = File::create(path).await.expect("failed to open key file");
     let key_content = {
         let state = match state.lock() {
             Ok(state) => state,
@@ -118,7 +117,7 @@ pub async fn export_key(
             Err(poisoned) => poisoned.into_inner(),
         };
 
-        let key_meta = vault.get_key(key).clone().expect("could not load key");
+        let key_meta = vault.get_key(key).expect("could not load key");
         let key_contents = key_meta.contents.clone();
         match key_type.as_str() {
             "public" => key_contents.public,
@@ -130,7 +129,8 @@ pub async fn export_key(
             &_ => return Err("invalid key type".to_string()),
         }
     };
-    // ! this needs to be rewritten to allow choosing between public and private
+
+    let mut key_file = File::create(path).await.expect("failed to open key file");
     key_file
         .write_all(key_content.as_bytes())
         .await

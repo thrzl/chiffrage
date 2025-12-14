@@ -32,7 +32,7 @@
     <table style="text-align: left; margin: 2rem">
         <thead>
             <tr>
-                <th>id</th>
+                <th>name</th>
                 <th>private?</th>
             </tr>
         </thead>
@@ -41,7 +41,7 @@
                 {#each keys as key}
                     <tr
                         onclick={() => {
-                            openWindow(`/keys/${key.name}`, "key details");
+                            openWindow(`/keys/${key.id}`, "key details");
                         }}
                     >
                         <td>{key.name}</td>

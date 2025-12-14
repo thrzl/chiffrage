@@ -14,6 +14,7 @@ use chacha20poly1305::{
 
 use secrecy::{ExposeSecret, SecretBox, SecretString};
 use serde::{Deserialize, Serialize};
+use slugify::slugify;
 use std::{collections::HashMap, fs, path::PathBuf, str::FromStr, time::SystemTime};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -24,6 +25,7 @@ pub enum KeyType {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KeyMetadata {
+    pub id: String,
     pub name: String,
     pub key_type: KeyType,
     pub date_created: SystemTime,
@@ -37,6 +39,7 @@ impl KeyMetadata {
             None => KeyType::Public,
         };
         KeyMetadata {
+            id: slugify!(&name),
             name,
             key_type,
             date_created: SystemTime::now(),
@@ -114,8 +117,8 @@ impl Vault {
         KeyMetadata::from_keypair(name, KeyPair { public, private })
     }
 
-    pub fn delete_key(&mut self, name: String) {
-        let _ = self.file.secrets.remove(&name);
+    pub fn delete_key(&mut self, id: String) {
+        let _ = self.file.secrets.remove(&id);
     }
 
     pub fn generate_key(&self, name: String) -> KeyMetadata {
@@ -128,6 +131,7 @@ impl Vault {
             )),
         };
         KeyMetadata {
+            id: slugify!(&name),
             name,
             key_type: KeyType::Private,
             date_created: SystemTime::now(),
@@ -167,11 +171,11 @@ impl Vault {
     }
 
     pub fn get_key(&self, name: String) -> Option<&KeyMetadata> {
-        self.file.secrets.get(&name)
+        self.file.secrets.get(&slugify!(&name))
     }
 
     pub fn put_key(&mut self, key: KeyMetadata) -> Result<(), String> {
-        self.file.secrets.insert(key.name.clone(), key);
+        self.file.secrets.insert(key.id.clone(), key);
         Ok(())
     }
 

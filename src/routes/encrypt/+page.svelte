@@ -15,7 +15,7 @@
             (await open({
                 multiple: false,
                 directory: false,
-            })) || "file load failed";
+            })) || "choose file";
     }
     async function encryptFile(event: Event) {
         event.preventDefault();
@@ -45,7 +45,7 @@
                 <option value="" disabled selected>choose a key</option>
                 {#if keys}
                     {#each keys as key}
-                        <option value={key.name}>{key.name}</option>
+                        <option value={key.id}>{key.name}</option>
                     {/each}
                 {:else}
                     <option value="no-key" disabled>no keys!</option>

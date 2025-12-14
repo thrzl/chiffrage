@@ -32,3 +32,4 @@ tokio = "1.48.0"
 futures-io = "0.3.31"
 tokio-util = { version = "0.7.17", features = ["compat"] }
 futures-util = "0.3.31"
+slugify = "0.1.0"

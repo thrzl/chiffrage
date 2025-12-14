@@ -56,6 +56,7 @@ pub enum KeyType {
 }
 
 pub struct KeyMetadata {
+    pub id: String,
     pub name: String,
     pub key_type: KeyType,
     pub date_created: SystemTime,
@@ -106,6 +107,7 @@ key type in typescript (this is in the rust too, but json/ts are more readable):
 
 ```ts
 export type Key = {
+  id: string;
   name: string;
   key_type: "public" | "private";
   date_created: { secs_since_epoch: number }; // pretty sure there's also millis_since_epoch

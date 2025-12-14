@@ -20,10 +20,10 @@
             error = "no name set!";
             return;
         }
-        if (!name.match(/^[a-zA-Z0-9]+$/)) {
-            error = "name may only consist of alphanumeric characters";
-            return;
-        }
+        // if (!name.match(/^[a-zA-Z0-9]+$/)) {
+        //     error = "name may only consist of alphanumeric characters";
+        //     return;
+        // }
         return name;
     }
     async function generate_key(event: Event) {

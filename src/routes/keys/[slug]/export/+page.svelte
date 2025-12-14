@@ -21,7 +21,7 @@
             return;
         }
         await invoke("export_key", {
-            key: slug,
+            key: name,
             path: destination,
             keyType,
         });
@@ -29,7 +29,7 @@
 </script>
 
 <main class="container">
-    <h1>key info</h1>
+    <h1>{key.id} info</h1>
     <h2>{key.name}</h2>
     <p>has private key? {privateKey ? "yes" : "no"}</p>
     <nav>
