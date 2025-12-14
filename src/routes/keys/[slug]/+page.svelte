@@ -10,8 +10,6 @@
     import { emit } from "@tauri-apps/api/event";
     import { Channel } from "@tauri-apps/api/core";
 
-    // Prints boolean to the console
-
     const { data }: PageProps = $props();
     const slug = data.slug;
 

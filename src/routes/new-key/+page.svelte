@@ -39,7 +39,11 @@
         event.preventDefault();
         if (!getName()) return;
         error = "";
-        let path = await open({ directory: false, multiple: false });
+        let path = await open({
+            directory: false,
+            multiple: false,
+            filters: [{ name: "age keyfiles", extensions: [".age", ".txt"] }],
+        });
         if (!path) return;
 
         console.log(await invoke("import_key", { name: name.trim(), path }));
@@ -55,10 +59,17 @@
     <h1>add a key</h1>
 
     <form>
-        <input bind:value={name} placeholder="key name" required />
-        <button onclick={generate_key}>generate keypair</button>
-        <p>or...</p>
-        <button onclick={import_key}>import key</button>
+        <input
+            bind:value={name}
+            placeholder="key name"
+            required
+            style="margin-bottom: 1rem"
+        />
+        <div>
+            <button onclick={generate_key}>generate keypair</button>
+            <p>or...</p>
+            <button onclick={import_key}>import key</button>
+        </div>
     </form>
     <p style:color="red">{error}</p>
 </main>

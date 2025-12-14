@@ -22,7 +22,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-age = { version = "0.11.1", features = ["async"] }
+age = { version = "0.11.1", features = ["armor", "async"] }
 secrecy = "0.10.3"
 chacha20poly1305 = "0.10.1"
 serde_cbor = "0.11.2"

@@ -3,10 +3,9 @@
     import { open } from "@tauri-apps/plugin-dialog";
     import type { Key } from "$lib/main";
 
-    let name = $state("");
+    let error = $state("");
     let progress = $state(0);
     let key = $state("");
-    let greetMsg = $state("");
     let file: string = $state("choose file");
 
     async function chooseFile(event: Event) {
@@ -19,12 +18,21 @@
     }
     async function encryptFile(event: Event) {
         event.preventDefault();
+        if (file === "choose file") {
+            error = "no file selected";
+            return;
+        }
+        if (!key) {
+            error = "no key selected";
+            return;
+        }
+        error = "";
         progress = 0;
         const channel = new Channel<number>();
         channel.onmessage = (message) => {
             progress = message;
         };
-        greetMsg = await invoke("encrypt_file_cmd", {
+        error = await invoke("encrypt_file_cmd", {
             publicKeys: [key],
             reader: channel,
             file,
@@ -35,7 +43,7 @@
 </script>
 
 <main class="container">
-    <h1>encrypt + sign</h1>
+    <h1>encrypt to key</h1>
 
     <form onsubmit={chooseFile}>
         <select bind:value={key}>
@@ -55,8 +63,6 @@
         <button onclick={chooseFile}
             >{file.split("/").slice(-1) || "choose file"}</button
         >
-        <input type="checkbox" value="armor" id="armor" name="armor" />
-        <label for="armor">armor</label>
         <button
             onclick={encryptFile}
             style:width="75%"
@@ -68,5 +74,5 @@
         style="background-color: green; height: 10px"
         style:width={`${progress * 100}%`}
     ></div>
-    <p>{greetMsg}</p>
+    <p>{error}</p>
 </main>
