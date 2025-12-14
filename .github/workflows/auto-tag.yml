@@ -24,13 +24,14 @@ jobs:
         id: get-tag
         run:
           | # much inspiration from github.com/imputnet/helium/.github/workflows/release-and-tag.yml
+          NEW_VERSION=./version
+          echo "current version: $NEW_VERSION"
+
           LATEST_TAG=$(git describe --tags --abbrev=0)
-          echo "Checking out $LATEST_TAG"
+          echo "checking out $LATEST_TAG"
           git checkout "tags/$LATEST_TAG" -b release-$LATEST_TAG
           OLD_VERSION=./version
-
-          git checkout HEAD
-          NEW_VERSION=./version
+          echo "old version: $OLD_VERSION"
 
           if [ "$OLD_VERSION" != "$NEW_VERSION" ]; then
             echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
