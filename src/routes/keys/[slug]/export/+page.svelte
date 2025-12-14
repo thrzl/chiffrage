@@ -13,7 +13,7 @@
     let key: Key = await invoke("fetch_key", { name: slug });
     let privateKey = key.key_type === "Private";
 
-    async function exportKey(keyType: "pub" | "priv") {
+    async function exportKey(keyType: "public" | "private") {
         const destination = await save({
             filters: [{ name: "age key file", extensions: ["age"] }],
         });
@@ -21,8 +21,9 @@
             return;
         }
         await invoke("export_key", {
-            key: name,
+            key: slug,
             path: destination,
+            keyType,
         });
     }
 </script>
@@ -32,8 +33,8 @@
     <h2>{key.name}</h2>
     <p>has private key? {privateKey ? "yes" : "no"}</p>
     <nav>
-        <button onclick={() => exportKey("pub")}>export public</button>
-        {#if privateKey}<button onclick={() => exportKey("priv")}
+        <button onclick={() => exportKey("public")}>export public</button>
+        {#if privateKey}<button onclick={() => exportKey("private")}
                 >export private</button
             >{/if}
     </nav>

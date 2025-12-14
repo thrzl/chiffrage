@@ -1,6 +1,7 @@
 use crate::store::{KeyMetadata, Vault};
 use crate::AppState;
 use age::x25519::{Identity, Recipient};
+use secrecy::ExposeSecret;
 use secrecy::SecretString;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -79,7 +80,9 @@ pub fn fetch_key(name: String, state: tauri::State<Mutex<AppState>>) -> Option<K
         .unwrap_or_else(|poisoned| poisoned.into_inner());
 
     let vault_handle = state.vault.as_ref().expect("vault not initialized");
-    let vault = vault_handle.lock().unwrap();
+    let vault = vault_handle
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     vault.get_key(name).cloned()
 }
 
@@ -100,10 +103,11 @@ pub fn delete_key(name: String, state: tauri::State<'_, Mutex<AppState>>) -> Res
 pub async fn export_key(
     key: String,
     path: String,
+    key_type: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
     let mut key_file = File::create(path).await.expect("failed to open key file");
-    let key = {
+    let key_content = {
         let state = match state.lock() {
             Ok(state) => state,
             Err(poisoned) => poisoned.into_inner(), // idc gangalang
@@ -115,11 +119,20 @@ pub async fn export_key(
         };
 
         let key_meta = vault.get_key(key).clone().expect("could not load key");
-        key_meta.contents.public.clone()
+        let key_contents = key_meta.contents.clone();
+        match key_type.as_str() {
+            "public" => key_contents.public,
+            "private" => vault
+                .decrypt_secret(&key_contents.private.expect("no private key!"))
+                .unwrap()
+                .expose_secret()
+                .to_string(), // should be guarded against in frontend
+            &_ => return Err("invalid key type".to_string()),
+        }
     };
     // ! this needs to be rewritten to allow choosing between public and private
     key_file
-        .write_all(key.as_bytes())
+        .write_all(key_content.as_bytes())
         .await
         .expect("failed to write file");
     key_file.flush().await.expect("failed to flush file buffer");
