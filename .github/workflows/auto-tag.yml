@@ -4,6 +4,8 @@ permissions:
   contents: write
 
 on:
+  workflow_dispatch:
+    inputs: {}
   push:
     branches: [main]
     paths: ["src-tauri/tauri.conf.json"]
