@@ -22,10 +22,14 @@ jobs:
       - name: fetch tags
         run: git fetch --tags --prune
 
+      - name: install v
+        uses: vlang/setup-v@v1.4
+
       - name: compare tags
         id: get-tag
         run:
           | # much inspiration from github.com/imputnet/helium/.github/workflows/release-and-tag.yml
+          v version.v
           NEW_VERSION=$(./version)
           echo "current version: $NEW_VERSION"
 
