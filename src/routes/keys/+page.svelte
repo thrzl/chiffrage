@@ -32,8 +32,9 @@
     <table style="text-align: left; margin: 2rem">
         <thead>
             <tr>
+                <th>type</th>
                 <th>name</th>
-                <th>private?</th>
+                <th>date created</th>
             </tr>
         </thead>
         <tbody>
@@ -44,8 +45,13 @@
                             openWindow(`/keys/${key.id}`, "key details");
                         }}
                     >
+                        <td>{key.key_type.toLowerCase()}</td>
                         <td>{key.name}</td>
-                        <td>{key.key_type === "Private" ? "yes" : "no"}</td>
+                        <td
+                            >{new Date(
+                                key.date_created.secs_since_epoch * 1000,
+                            ).toLocaleDateString()}</td
+                        >
                     </tr>{/each}
             {/await}
         </tbody>
