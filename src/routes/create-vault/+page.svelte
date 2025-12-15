@@ -30,7 +30,7 @@
             await invoke("load_vault", { password: password });
             password =
                 "don't read the password please that would not be nice and i really don't think you should do that";
-            window.location.href = "/home";
+            window.location.href = "/keys";
         }
     }
 

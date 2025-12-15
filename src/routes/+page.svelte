@@ -18,7 +18,7 @@
                     ).value,
                 });
                 error = invokeError || "";
-                window.location.href = "/home";
+                window.location.href = "/keys";
             });
         } else {
             window.location.href = "/create-vault";
@@ -31,7 +31,7 @@
                 .value,
         });
         error = invokeError || "";
-        window.location.href = "/home";
+        window.location.href = "/keys";
     }
 
     // let isFirstOpenRes: Promise<boolean> = invoke("is_first_open");
