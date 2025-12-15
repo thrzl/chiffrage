@@ -39,20 +39,32 @@
         </thead>
         <tbody>
             {#await keysFetch then keys}
-                {#each keys as key}
+                {#if keys.length > 0}
+                    {#each keys as key}
+                        <tr
+                            onclick={() => {
+                                openWindow(`/keys/${key.id}`, "key details");
+                            }}
+                        >
+                            <td>{key.key_type.toLowerCase()}</td>
+                            <td>{key.name}</td>
+                            <td
+                                >{new Date(
+                                    key.date_created.secs_since_epoch * 1000,
+                                ).toLocaleDateString()}</td
+                            >
+                        </tr>{/each}
+                {:else}
                     <tr
                         onclick={() => {
-                            openWindow(`/keys/${key.id}`, "key details");
+                            openWindow(`/new-key`, "create your first key");
                         }}
                     >
-                        <td>{key.key_type.toLowerCase()}</td>
-                        <td>{key.name}</td>
-                        <td
-                            >{new Date(
-                                key.date_created.secs_since_epoch * 1000,
-                            ).toLocaleDateString()}</td
-                        >
-                    </tr>{/each}
+                        <td>n/a</td>
+                        <td>click here to add/create a new key</td>
+                        <td>n/a</td>
+                    </tr>
+                {/if}
             {/await}
         </tbody>
     </table>
