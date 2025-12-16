@@ -63,9 +63,8 @@ pub fn fetch_keys(state: tauri::State<Mutex<AppState>>) -> Vec<KeyMetadata> {
             .secrets
             .values()
             .cloned()
-            .map(|mut key| {
-                key.redact(); // we dont need to send private
-                key
+            .map(|key| {
+                key.redacted() // we dont need to send private
             })
             .collect::<Vec<KeyMetadata>>()
     };

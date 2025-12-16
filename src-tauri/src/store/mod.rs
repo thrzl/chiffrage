@@ -47,8 +47,9 @@ impl KeyMetadata {
         }
     }
 
-    pub fn redact(&mut self) {
+    pub fn redacted(mut self) -> KeyMetadata {
         self.contents.redact();
+        self
     }
 }
 
