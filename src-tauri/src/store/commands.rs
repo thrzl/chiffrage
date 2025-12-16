@@ -18,7 +18,6 @@ pub fn vault_exists(app_handle: tauri::AppHandle) -> bool {
         .unwrap()
         .join("vault.cb")
         .exists();
-    println!("{:?}", res);
     res
 }
 
@@ -70,7 +69,10 @@ pub fn fetch_keys(state: tauri::State<Mutex<AppState>>) -> Vec<KeyMetadata> {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-        let vault_handle = state.vault.as_ref().expect("vault not initialized");
+        let vault_handle = match state.vault.as_ref() {
+            Some(vault_handle) => vault_handle,
+            None => return vec![],
+        };
         let vault = vault_handle.lock().unwrap();
         vault
             .file
@@ -158,7 +160,6 @@ pub async fn import_key(
     path: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<String, String> {
-    println!("running key import");
     let mut key_file = File::open(path).await.expect("failed to open key file");
     let mut key_content = String::new();
 
@@ -207,7 +208,6 @@ pub async fn import_key(
             Err(poisoned) => poisoned.into_inner(),
         };
         vault.save_vault();
-        println!("saved vault")
     })
     .await
     .expect("failed to save vault");
@@ -239,10 +239,12 @@ pub async fn authenticate(
         }
     });
     let password = SecretString::from(match rx.await {
-        Ok(password) => serde_json::from_str::<String>(&password).unwrap(),
+        Ok(message) => {
+            let raw_unwrap = serde_json::from_str::<String>(&message).unwrap();
+            raw_unwrap
+        }
         Err(error) => return Err(error.to_string()),
     });
-    println!("{:?}", password.expose_secret());
     let _ = webview.close();
     let state = state.lock().unwrap_or_else(|p| p.into_inner());
     let mut vault = state

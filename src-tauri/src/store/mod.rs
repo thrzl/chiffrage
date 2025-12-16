@@ -15,7 +15,7 @@ use chacha20poly1305::{
 use cuid2::create_id;
 use secrecy::{ExposeSecret, SecretBox, SecretString};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs, path::PathBuf, str::FromStr, sync::Arc, time::SystemTime};
+use std::{collections::HashMap, fs, path::PathBuf, str::FromStr, time::SystemTime};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum KeyType {
@@ -120,7 +120,6 @@ impl Vault {
     }
     pub fn get_vault_key(&self) -> &SecretBox<[u8; 32]> {
         self.key.as_ref().expect("no key")
-        // SecretBox::from(Box::new(key.expose_secret().clone()))
     }
     pub fn new_key(
         &self,
