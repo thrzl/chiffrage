@@ -18,6 +18,9 @@
             })) || "file load failed";
     }
     async function decryptFile(event: Event) {
+        if (!(await invoke("vault_unlocked"))) {
+            await invoke("authenticate");
+        }
         event.preventDefault();
         progress = 0;
         const channel = new Channel<number>();

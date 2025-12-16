@@ -6,6 +6,8 @@ use std::thread;
 use std::time::Duration;
 use tauri::Manager;
 
+use crate::store::Vault;
+
 // im ngl idk what im doin
 pub fn set_timeout<F>(delay_ms: u64, f: F)
 where
@@ -51,19 +53,25 @@ pub fn run() {
             store::export_key,
             store::import_key,
             store::delete_key,
-            store::fetch_key
+            store::fetch_key,
+            store::authenticate,
+            store::vault_unlocked
         ])
         .setup(|app| {
             let app_data_dir = app
                 .path()
                 .app_data_dir()
                 .expect("could not find app data directory");
-            let first_open = !app_data_dir.join("vault.cb").exists();
-            if !app_data_dir.exists() {
+            let vault_path = app_data_dir.join("vault.cb");
+            let first_open = !vault_path.exists();
+            if first_open && !app_data_dir.exists() {
                 std::fs::create_dir(app_data_dir).expect("failed to create app data directory")
             }
             app.manage(Mutex::new(AppState {
-                vault: None,
+                vault: Some(Arc::new(Mutex::new(
+                    Vault::load_vault(vault_path.to_str().unwrap())
+                        .expect("failed to initialize vault"),
+                ))),
                 first_open,
             }));
             Ok(())

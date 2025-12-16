@@ -31,6 +31,9 @@
         if (!getName()) return;
         error = "";
         // Learn more about Tauri commands at https://tauri.app/d,evelop/calling-rust/
+        if (!(await invoke("vault_unlocked"))) {
+            await invoke("authenticate");
+        }
         await invoke("generate_keypair", { name: name.trim() });
         emit("update-keys");
         await tauriWindow.close();
@@ -46,6 +49,9 @@
         });
         if (!path) return;
 
+        if (!(await invoke("vault_unlocked"))) {
+            await invoke("authenticate");
+        }
         console.log(await invoke("import_key", { name: name.trim(), path }));
         console.log("imported key");
         emit("update-keys");

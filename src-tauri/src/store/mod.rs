@@ -15,7 +15,7 @@ use chacha20poly1305::{
 use cuid2::create_id;
 use secrecy::{ExposeSecret, SecretBox, SecretString};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs, path::PathBuf, str::FromStr, time::SystemTime};
+use std::{collections::HashMap, fs, path::PathBuf, str::FromStr, sync::Arc, time::SystemTime};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum KeyType {
@@ -101,10 +101,27 @@ pub struct VaultFile {
 pub struct Vault {
     file: VaultFile,
     path: PathBuf,
-    key: SecretBox<[u8; 32]>,
+    key: Option<SecretBox<[u8; 32]>>,
 }
 
 impl Vault {
+    pub fn set_vault_key(&mut self, password: SecretString) -> Result<(), String> {
+        let key = derive_key(&password, &self.file.salt);
+        let hello = &self.file.hello;
+        let mut cipher = XChaCha20Poly1305::new(key.expose_secret().into());
+        let nonce = XNonce::from_slice(hello.nonce.as_slice());
+
+        let decrypted_bytes = cipher.decrypt(nonce, hello.ciphertext.as_ref());
+        if decrypted_bytes.is_err() {
+            return Err("incorrect key.".to_string());
+        };
+        self.key = Some(key);
+        Ok(())
+    }
+    pub fn get_vault_key(&self) -> &SecretBox<[u8; 32]> {
+        self.key.as_ref().expect("no key")
+        // SecretBox::from(Box::new(key.expose_secret().clone()))
+    }
     pub fn new_key(
         &self,
         name: String,
@@ -112,7 +129,7 @@ impl Vault {
         private: Option<SecretString>,
     ) -> KeyMetadata {
         let private = match private {
-            Some(private_key) => Some(Vault::encrypt_secret(&self.key, private_key)),
+            Some(private_key) => Some(Vault::encrypt_secret(&self.get_vault_key(), private_key)),
             None => None,
         };
         KeyMetadata::from_keypair(name, KeyPair { public, private })
@@ -127,7 +144,7 @@ impl Vault {
         let keypair = KeyPair {
             public: identity.to_public().to_string(),
             private: Some(Vault::encrypt_secret(
-                &self.key,
+                &self.get_vault_key(),
                 SecretString::from(identity.to_string()),
             )),
         };
@@ -144,7 +161,7 @@ impl Vault {
         &self,
         encrypted_secret: &EncryptedSecret,
     ) -> Result<SecretString, String> {
-        let mut cipher = XChaCha20Poly1305::new(self.key.expose_secret().into());
+        let mut cipher = XChaCha20Poly1305::new(self.get_vault_key().expose_secret().into());
         let nonce = XNonce::from_slice(&encrypted_secret.nonce);
 
         let decrypted_bytes = cipher.decrypt(nonce, encrypted_secret.ciphertext.as_ref());
@@ -180,28 +197,17 @@ impl Vault {
         Ok(())
     }
 
-    pub fn load_vault(path: &str, password: SecretString) -> Result<Self, String> {
+    pub fn load_vault(path: &str) -> Result<Self, String> {
         if !std::path::Path::new(path).exists() {
             return Err("vault does not exist".to_string());
         }
         let data = fs::read(path).expect("could not read vault");
         let vault_file: VaultFile = serde_cbor::from_slice(&data).expect("could not parse vault");
-        let key = derive_key(&password, &vault_file.salt);
 
         let vault = Vault {
             file: vault_file,
             path: PathBuf::from_str(path).expect("invalid path"),
-            key,
-        };
-
-        let hello = vault.decrypt_secret(&vault.file.hello);
-        if hello.is_ok() {
-            let raw_hello = hello.unwrap().expose_secret().to_string();
-            if raw_hello != "hello" {
-                return Err("authentication failed".to_string());
-            }
-        } else {
-            return Err("authentication failed".to_string());
+            key: None,
         };
 
         Ok(vault)
@@ -221,7 +227,7 @@ impl Vault {
         Vault {
             file: vault_file,
             path: PathBuf::from_str(path).expect("invalid path"),
-            key,
+            key: Some(key),
         }
     }
 

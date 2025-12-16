@@ -1,45 +1,86 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
-    import { onMount } from "svelte";
+    import { listen } from "@tauri-apps/api/event";
+    import { openWindow } from "$lib/main";
+    import type { Key } from "$lib/main";
 
-    let passwordInput: HTMLInputElement | null = null;
+    let name = $state("");
+    let greetMsg = $state("");
 
-    let error = $state("");
-
-    onMount(async () => {
-        if (await invoke("vault_exists")) {
-            (
-                document.querySelector("input") as HTMLInputElement
-            ).addEventListener("keypress", async (event) => {
-                if (event.key !== "Enter") return;
-                const invokeError: string = await invoke("load_vault", {
-                    password: (
-                        document.querySelector("input") as HTMLInputElement
-                    ).value,
-                });
-                error = invokeError || "";
-                window.location.href = "/keys";
-            });
-        } else {
-            window.location.href = "/create-vault";
-        }
-    });
-    async function unlockVault(event: Event) {
-        event.preventDefault();
-        const invokeError: string = await invoke("load_vault", {
-            password: (document.querySelector("input") as HTMLInputElement)
-                .value,
-        });
-        error = invokeError || "";
-        window.location.href = "/keys";
+    if (!(await invoke("vault_exists"))) {
+        window.location.href = "/create-vault";
     }
 
-    // let isFirstOpenRes: Promise<boolean> = invoke("is_first_open");
+    let keysFetch: Promise<Key[]> = $state(invoke("fetch_keys"));
+    listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
 </script>
 
 <main class="container">
-    <p>welcome back</p>
-    <input type="password" placeholder="enter your vault password" />
-    <button type="submit" onclick={unlockVault}>unlock vault</button>
-    <p style:color="red">{error}</p>
+    <h1>chiffrage</h1>
+    <nav>
+        <button onclick={() => openWindow("encrypt", "encrypt")}>encrypt</button
+        >
+        <button onclick={() => openWindow("decrypt", "decrypt")}>decrypt</button
+        >
+        <button onclick={() => openWindow("new-key", "new key")}>new key</button
+        >
+    </nav>
+
+    <table style="text-align: left; margin: 2rem">
+        <thead>
+            <tr>
+                <th>type</th>
+                <th>name</th>
+                <th>date created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {#await keysFetch then keys}
+                {#if keys.length > 0}
+                    {#each keys as key}
+                        <tr
+                            onclick={() => {
+                                openWindow(`/keys/${key.id}`, "key details");
+                            }}
+                        >
+                            <td>{key.key_type.toLowerCase()}</td>
+                            <td>{key.name}</td>
+                            <td
+                                >{new Date(
+                                    key.date_created.secs_since_epoch * 1000,
+                                ).toLocaleDateString()}</td
+                            >
+                        </tr>{/each}
+                {:else}
+                    <tr
+                        onclick={() => {
+                            openWindow(`/new-key`, "create your first key");
+                        }}
+                    >
+                        <td>n/a</td>
+                        <td>click here to add/create a new key</td>
+                        <td>n/a</td>
+                    </tr>
+                {/if}
+            {/await}
+        </tbody>
+    </table>
 </main>
+
+<style>
+    thead > tr {
+        background-color: #222222;
+        cursor: default !important;
+    }
+    tr {
+        margin: 1rem;
+        background-color: #444444;
+    }
+    tr:hover {
+        cursor: pointer;
+    }
+    th,
+    td {
+        padding: 0.25rem 0.5rem;
+    }
+</style>
