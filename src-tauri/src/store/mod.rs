@@ -12,9 +12,9 @@ use chacha20poly1305::{
     AeadCore, KeyInit, XChaCha20Poly1305, XNonce,
 };
 
+use cuid2::create_id;
 use secrecy::{ExposeSecret, SecretBox, SecretString};
 use serde::{Deserialize, Serialize};
-use slugify::slugify;
 use std::{collections::HashMap, fs, path::PathBuf, str::FromStr, time::SystemTime};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -39,7 +39,7 @@ impl KeyMetadata {
             None => KeyType::Public,
         };
         KeyMetadata {
-            id: slugify!(&name),
+            id: create_id(),
             name,
             key_type,
             date_created: SystemTime::now(),
@@ -131,7 +131,7 @@ impl Vault {
             )),
         };
         KeyMetadata {
-            id: slugify!(&name),
+            id: create_id(),
             name,
             key_type: KeyType::Private,
             date_created: SystemTime::now(),
@@ -170,8 +170,8 @@ impl Vault {
         }
     }
 
-    pub fn get_key(&self, name: String) -> Option<&KeyMetadata> {
-        self.file.secrets.get(&slugify!(&name))
+    pub fn get_key(&self, id: &str) -> Option<&KeyMetadata> {
+        self.file.secrets.get(id)
     }
 
     pub fn put_key(&mut self, key: KeyMetadata) -> Result<(), String> {

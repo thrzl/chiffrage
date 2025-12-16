@@ -21,14 +21,7 @@ pub async fn encrypt_file_cmd(
         };
         public_keys
             .iter()
-            .map(|key| {
-                vault
-                    .get_key(key.to_owned())
-                    .unwrap()
-                    .contents
-                    .public
-                    .clone()
-            })
+            .map(|key| vault.get_key(key).unwrap().contents.public.clone())
             .collect::<Vec<String>>()
     };
     let path = PathBuf::from(file);
@@ -54,7 +47,7 @@ pub async fn decrypt_file_cmd(
             Ok(vault) => vault,
             Err(poisoned) => poisoned.into_inner(),
         };
-        let key_content = vault.get_key(private_key).unwrap();
+        let key_content = vault.get_key(&private_key).unwrap();
         vault
             .decrypt_secret(&key_content.contents.private.as_ref().unwrap())
             .unwrap()

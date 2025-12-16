@@ -83,7 +83,7 @@ pub fn fetch_key(name: String, state: tauri::State<Mutex<AppState>>) -> Option<K
     let vault = vault_handle
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    vault.get_key(name).cloned()
+    vault.get_key(&name).cloned()
 }
 
 #[tauri::command]
@@ -117,7 +117,7 @@ pub async fn export_key(
             Err(poisoned) => poisoned.into_inner(),
         };
 
-        let key_meta = vault.get_key(key).expect("could not load key");
+        let key_meta = vault.get_key(&key).expect("could not load key");
         let key_contents = key_meta.contents.clone();
         match key_type.as_str() {
             "public" => key_contents.public,
