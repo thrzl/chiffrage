@@ -68,10 +68,14 @@ pub fn run() {
                 std::fs::create_dir(app_data_dir).expect("failed to create app data directory")
             }
             app.manage(Mutex::new(AppState {
-                vault: Some(Arc::new(Mutex::new(
-                    Vault::load_vault(vault_path.to_str().unwrap())
-                        .expect("failed to initialize vault"),
-                ))),
+                vault: if first_open {
+                    None
+                } else {
+                    Some(Arc::new(Mutex::new(
+                        Vault::load_vault(vault_path.to_str().unwrap())
+                            .expect("failed to initialize vault"),
+                    )))
+                },
                 first_open,
             }));
             Ok(())

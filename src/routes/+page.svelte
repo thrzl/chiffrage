@@ -9,10 +9,10 @@
 
     if (!(await invoke("vault_exists"))) {
         window.location.href = "/create-vault";
+    } else {
+        let keysFetch: Promise<Key[]> = $state(invoke("fetch_keys"));
+        listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
     }
-
-    let keysFetch: Promise<Key[]> = $state(invoke("fetch_keys"));
-    listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
 </script>
 
 <main class="container">

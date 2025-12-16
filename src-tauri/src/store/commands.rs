@@ -12,12 +12,14 @@ use tokio::sync::oneshot;
 
 #[tauri::command]
 pub fn vault_exists(app_handle: tauri::AppHandle) -> bool {
-    app_handle
+    let res = app_handle
         .path()
         .app_data_dir()
         .unwrap()
         .join("vault.cb")
-        .exists()
+        .exists();
+    println!("{:?}", res);
+    res
 }
 
 #[tauri::command]
