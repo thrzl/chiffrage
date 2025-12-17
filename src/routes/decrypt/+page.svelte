@@ -48,7 +48,7 @@
                 <option value="" disabled selected>choose a key</option>
                 {#if keys}
                     {#each keys.filter((key) => key.key_type === "Private") as key}
-                        <option value={key.name}>{key.name}</option>
+                        <option value={key.id}>{key.name}</option>
                     {/each}
                 {:else}
                     <option value="no-key" disabled>no keys!</option>
