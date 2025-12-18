@@ -1,5 +1,11 @@
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
+export type Progress = {
+  read_bytes: number;
+  total_bytes: number;
+  current_file: string;
+};
+
 export type Key = {
   id: string;
   name: string;

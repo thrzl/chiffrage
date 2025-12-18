@@ -1,36 +1,39 @@
 <script lang="ts">
     import { invoke, Channel } from "@tauri-apps/api/core";
     import { open } from "@tauri-apps/plugin-dialog";
-    import type { Key } from "$lib/main";
+    import type { Key, Progress } from "$lib/main";
 
-    let name = $state("");
-    let progress = $state(0);
+    let progress: Progress | null = $state(null);
+    let message = $state("");
     let key = $state("");
-    let greetMsg = $state("");
-    let file: string = $state("choose file");
+    let error = $state("");
+    let files: string[] | null = $state(null);
 
     async function chooseFile(event: Event) {
         event.preventDefault();
-        file =
-            (await open({
-                multiple: false,
-                directory: false,
-            })) || "file load failed";
+        files = await open({
+            multiple: true,
+            directory: false,
+        });
     }
     async function decryptFile(event: Event) {
+        event.preventDefault();
         if (!(await invoke("vault_unlocked"))) {
             await invoke("authenticate");
         }
-        event.preventDefault();
-        progress = 0;
-        const channel = new Channel<number>();
-        channel.onmessage = (message) => {
-            progress = message;
+        progress = null;
+        const channel = new Channel<Progress>();
+        channel.onmessage = (msg) => {
+            progress = msg;
+            if (progress.read_bytes !== progress.total_bytes) {
+                return (message = `decrypting <br/>${progress.current_file}`);
+            }
+            message = "";
         };
-        greetMsg = await invoke("decrypt_file_cmd", {
+        error = await invoke("decrypt_file_cmd", {
             privateKey: key,
             reader: channel,
-            file,
+            files,
         });
     }
     let keysFetch: Promise<Key[]> = $state(invoke("fetch_keys"));
@@ -56,18 +59,23 @@
             {/await}
         </select>
         <button onclick={chooseFile}
-            >{file.split("/").slice(-1) || "choose file"}</button
+            >{files
+                ? `${files.length} files selected`
+                : "choose file(s)"}</button
         >
         <button
             onclick={decryptFile}
             style:width="75%"
             style:margin="2rem"
-            style:margin-top="0.5rem">decrypt file</button
+            style:margin-top="0.5rem">decrypt</button
         >
     </form>
     <div
         style="background-color: green; height: 10px"
-        style:width={`${progress * 100}%`}
+        style:width={progress
+            ? `${(progress.read_bytes / progress.total_bytes) * 100}%`
+            : "0"}
     ></div>
-    <p>{greetMsg}</p>
+    <p bind:innerHTML={message} contenteditable></p>
+    <p>{error}</p>
 </main>

@@ -1,17 +1,11 @@
 <script lang="ts">
     import { invoke, Channel } from "@tauri-apps/api/core";
     import { open } from "@tauri-apps/plugin-dialog";
-    import type { Key } from "$lib/main";
-
-    type Progress = {
-        read_bytes: number;
-        total_bytes: number;
-        current_file: string;
-    };
+    import type { Key, Progress } from "$lib/main";
 
     let error = $state("");
     let message = $state("");
-    let progress: null | Progress = $state(null);
+    let progress: Progress | null = $state(null);
     let key = $state("");
     let files: string[] | null = $state(null);
 
@@ -79,7 +73,7 @@
             onclick={encryptFile}
             style:width="75%"
             style:margin="2rem"
-            style:margin-top="0.5rem">encrypt file</button
+            style:margin-top="0.5rem">encrypt</button
         >
     </form>
     <div
