@@ -65,3 +65,9 @@
         </tbody>
     </table>
 </main>
+
+<style>
+    tr:hover {
+        cursor: pointer;
+    }
+</style>
