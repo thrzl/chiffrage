@@ -4,6 +4,16 @@ a desktop UI for [age](https://github.com/FiloSottile/age) encryption.
 
 built with tauri and sveltekit
 
+<details><summary>screenshots</summary>
+<p>
+
+<img src="/screenshots/homepage.png"/>
+
+<img src="/screenshots/encrypt.png"/>
+
+</p>
+</details> 
+
 ## note on mac usage
 
 i don't have a developer license, so it'll complain that the app is damaged or something when you try to run it
