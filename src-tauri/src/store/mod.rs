@@ -23,6 +23,7 @@ pub enum KeyType {
     Private,
 }
 
+/// representation of a key object. id is a cuid2
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KeyMetadata {
     pub id: String,
@@ -47,12 +48,18 @@ impl KeyMetadata {
         }
     }
 
+    /// removes the private key without changing `key_type`
     pub fn redacted(mut self) -> KeyMetadata {
         self.contents.redact();
         self
     }
 }
 
+/// an object storing the actual key contents.
+///
+/// `public` contains the public key in plaintext
+///
+/// `private` is `Option<EncryptedSecret>`, being an object containing a `nonce` and `ciphertext` (both `Vec<u8>`)
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KeyPair {
     pub public: String,
@@ -75,12 +82,14 @@ impl From<Recipient> for KeyPair {
     }
 }
 
+/// a type storing an XChaCha20Poly1305 `ciphertext` and `nonce`. both are of type `Vec<u8>`.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EncryptedSecret {
     nonce: Vec<u8>,
     ciphertext: Vec<u8>,
 }
 
+/// derive a 256-bit key from a password and salt, using argon2.
 pub fn derive_key(password: &SecretString, salt: &[u8]) -> SecretBox<[u8; 32]> {
     let argon2 = Argon2::default();
     let mut key = [0u8; 32];
@@ -91,6 +100,7 @@ pub fn derive_key(password: &SecretString, salt: &[u8]) -> SecretBox<[u8; 32]> {
     SecretBox::new(Box::new(key))
 }
 
+/// an abstraction for the contents of the vault file. contains the `salt`, a `hello` value used to validate passwords, and a map of `secrets`.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct VaultFile {
     salt: Vec<u8>,

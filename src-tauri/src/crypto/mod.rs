@@ -7,7 +7,7 @@ pub use commands::*;
 use futures_util::{AsyncReadExt as FuturesReadExt, AsyncWriteExt as FuturesWriteExt};
 use std::path::PathBuf;
 use std::str::FromStr;
-use tokio::fs::{metadata, File};
+use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
