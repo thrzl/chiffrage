@@ -1,15 +1,20 @@
 use crate::crypto;
 use crate::AppState;
+use futures_util::future::join_all;
 use secrecy::ExposeSecret;
+use serde_json::json;
+use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
-use std::sync::Mutex;
-use tauri_plugin_opener::reveal_item_in_dir;
+use std::sync::atomic::AtomicUsize;
+use std::sync::{Arc, Mutex};
+use tauri_plugin_opener::reveal_items_in_dir;
+use tokio::fs::metadata;
 
 #[tauri::command]
 pub async fn encrypt_file_cmd(
     public_keys: Vec<String>,
-    reader: tauri::ipc::Channel<f64>,
-    file: String,
+    reader: tauri::ipc::Channel<serde_json::Value>,
+    files: Vec<String>,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), ()> {
     let key_contents = {
@@ -24,13 +29,39 @@ pub async fn encrypt_file_cmd(
             .map(|key| vault.get_key(key).unwrap().contents.public.clone())
             .collect::<Vec<String>>()
     };
-    let path = PathBuf::from(file);
-    let output_path = crypto::encrypt_file(key_contents, path, reader)
-        .await
-        .expect("failed to encrypt file");
-    reveal_item_in_dir(output_path.as_path()).expect("failed to reveal item");
+    let total_bytes: u64 = join_all(files.iter().map(async |path| {
+        metadata(path)
+            .await
+            .expect("failed to get file metadata")
+            .size()
+    }))
+    .await
+    .into_iter()
+    .sum();
+    let total_read_bytes = Arc::new(AtomicUsize::new(0));
+    let reader = Arc::new(reader);
+    let mut output_paths = Vec::new();
+    for file in files.clone() {
+        let total_read_bytes = total_read_bytes.clone();
+        let path = PathBuf::from(file.clone());
+        let reader = reader.clone();
+        let output_path =
+            crypto::encrypt_file(&key_contents, &path.clone(), move |processed_bytes| {
+                total_read_bytes.fetch_add(processed_bytes, std::sync::atomic::Ordering::SeqCst);
+                let _ = reader.send(
+                    json!({ // its okay if it doesnt send i'd rather the files just encrypt
+                        "read_bytes": total_read_bytes,
+                        "total_bytes": total_bytes,
+                        "current_file": path.file_name().unwrap().to_str().unwrap()
+                    }),
+                );
+            })
+            .await
+            .expect("failed to encrypt file");
+        output_paths.push(output_path)
+    }
+    reveal_items_in_dir(output_paths).expect("failed to reveal item");
     Ok(())
-    // let file_path = Dialog::file().blocking_pick_file();
 }
 
 #[tauri::command]
@@ -60,7 +91,7 @@ pub async fn decrypt_file_cmd(
     )
     .await
     .expect("failed to decrypt file");
-    reveal_item_in_dir(output_path.as_path()).expect("failed to reveal item");
+    reveal_items_in_dir(std::iter::once(output_path.as_path())).expect("failed to reveal item");
     Ok(())
 }
 

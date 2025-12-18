@@ -3,22 +3,28 @@
     import { open } from "@tauri-apps/plugin-dialog";
     import type { Key } from "$lib/main";
 
+    type Progress = {
+        read_bytes: number;
+        total_bytes: number;
+        current_file: string;
+    };
+
     let error = $state("");
-    let progress = $state(0);
+    let message = $state("");
+    let progress: null | Progress = $state(null);
     let key = $state("");
-    let file: string = $state("choose file");
+    let files: string[] | null = $state(null);
 
     async function chooseFile(event: Event) {
         event.preventDefault();
-        file =
-            (await open({
-                multiple: false,
-                directory: false,
-            })) || "choose file";
+        files = await open({
+            multiple: true,
+            directory: false,
+        });
     }
     async function encryptFile(event: Event) {
         event.preventDefault();
-        if (file === "choose file") {
+        if (!files) {
             error = "no file selected";
             return;
         }
@@ -27,15 +33,19 @@
             return;
         }
         error = "";
-        progress = 0;
-        const channel = new Channel<number>();
-        channel.onmessage = (message) => {
-            progress = message;
+        progress = null;
+        const channel = new Channel<Progress>();
+        channel.onmessage = (msg) => {
+            progress = msg;
+            if (progress.read_bytes !== progress.total_bytes) {
+                return (message = `encrypting <br/>${progress.current_file}`);
+            }
+            message = "";
         };
         error = await invoke("encrypt_file_cmd", {
             publicKeys: [key],
             reader: channel,
-            file,
+            files,
         });
     }
     let keysFetch: Promise<Key[]> = $state(invoke("fetch_keys"));
@@ -61,7 +71,9 @@
             {/await}
         </select>
         <button onclick={chooseFile}
-            >{file.split("/").slice(-1) || "choose file"}</button
+            >{files
+                ? `${files.length} files selected`
+                : "choose file(s)"}</button
         >
         <button
             onclick={encryptFile}
@@ -72,7 +84,10 @@
     </form>
     <div
         style="background-color: green; height: 10px"
-        style:width={`${progress * 100}%`}
+        style:width={progress
+            ? `${(progress.read_bytes / progress.total_bytes) * 100}%`
+            : "0"}
     ></div>
+    <p bind:innerHTML={message} contenteditable></p>
     <p>{error}</p>
 </main>

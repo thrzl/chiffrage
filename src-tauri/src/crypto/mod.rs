@@ -11,12 +11,17 @@ use tokio::fs::{metadata, File};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-pub async fn encrypt_file(
-    public_keys: Vec<String>,
-    file_path: PathBuf,
-    progress: tauri::ipc::Channel<f64>,
-) -> Result<PathBuf, String> {
-    let file = File::open(&file_path).await.expect("failed to open file");
+/// every time a new chunk is encrypted, the callback will be run with the amount of bytes that were encrypted
+pub async fn encrypt_file<F>(
+    public_keys: &Vec<String>,
+    file_path: &PathBuf,
+    mut callback: F,
+) -> Result<PathBuf, String>
+where
+    // im the greatest rust programmer ever
+    F: FnMut(usize) + Send,
+{
+    let file = File::open(file_path).await.expect("failed to open file");
     let mut reader = BufReader::new(file);
 
     let mut encrypted_output = file_path.clone();
@@ -27,7 +32,7 @@ pub async fn encrypt_file(
     let file_writer = BufWriter::new(output).compat_write();
 
     let encryptor = age::Encryptor::with_recipients(
-        keys_to_recipients(public_keys)
+        keys_to_recipients(public_keys.clone())
             .iter()
             .map(|recipient| recipient as _),
     )
@@ -39,8 +44,6 @@ pub async fn encrypt_file(
         .expect("failed to initialize writer");
 
     let mut buffer = vec![0u8; 1024 * 1024 * 4]; // 4 MB buffer
-    let total_byte_size = metadata(file_path).await.unwrap().len() as f64;
-    let mut read_byte_size = 0 as f64;
 
     loop {
         let n = reader.read(&mut buffer).await.expect("failed to read file");
@@ -51,8 +54,7 @@ pub async fn encrypt_file(
             .write_all(&buffer[..n])
             .await
             .expect("failed to write"); // only write the new bytes
-        read_byte_size += n as f64;
-        let _ = progress.send(read_byte_size / total_byte_size); // this is not a critical function
+        callback(n); // this is not a critical function
     }
 
     writer.close().await.expect("failed to write final chunk");
