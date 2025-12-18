@@ -3,7 +3,6 @@ use crate::AppState;
 use futures_util::future::join_all;
 use secrecy::ExposeSecret;
 use serde_json::json;
-use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
@@ -33,7 +32,7 @@ pub async fn encrypt_file_cmd(
         metadata(path)
             .await
             .expect("failed to get file metadata")
-            .size()
+            .len()
     }))
     .await
     .into_iter()
@@ -88,7 +87,7 @@ pub async fn decrypt_file_cmd(
         metadata(path)
             .await
             .expect("failed to get file metadata")
-            .size()
+            .len()
     }))
     .await
     .into_iter()
