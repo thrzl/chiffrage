@@ -2,6 +2,7 @@
     import { invoke, Channel } from "@tauri-apps/api/core";
     import { open } from "@tauri-apps/plugin-dialog";
     import type { Key, Progress } from "$lib/main";
+    import { getFileName } from "$lib/main";
 
     let progress: Progress | null = $state(null);
     let message = $state("");
@@ -30,11 +31,12 @@
             }
             message = "";
         };
-        error = await invoke("decrypt_file_cmd", {
+        invoke("decrypt_file_cmd", {
             privateKey: key,
             reader: channel,
             files,
-        });
+        }).then()
+        .catch(e => error = e);
     }
     let keysFetch: Promise<Key[]> = $state(invoke("fetch_keys"));
     // listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
@@ -70,12 +72,29 @@
             style:margin-top="0.5rem">decrypt</button
         >
     </form>
+    <table style="text-align: left; margin: 2rem">
+        <thead>
+            <tr>
+                <th>name</th>
+                <th>extension</th>
+                <th>remove</th>
+            </tr>
+        </thead>
+        <tbody>
+            {#each files as file}
+                <tr>
+                    <td>{getFileName(file)}</td>
+                    <td>{file.split(".").slice(-1)}</td>
+                    <td class="delete-button" onclick={() => files = files!.length > 1 ? files!.filter((f) => f !== file) : null}>x</td>
+                </tr>{/each}
+        </tbody>
+    </table>
     <div
         style="background-color: green; height: 10px"
         style:width={progress
             ? `${(progress.read_bytes / progress.total_bytes) * 100}%`
             : "0"}
     ></div>
-    <p bind:innerHTML={message} contenteditable></p>
-    <p>{error}</p>
+    <p>{@html message}</p>
+    <p style="color: red">{error}</p>
 </main>

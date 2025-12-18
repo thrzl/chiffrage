@@ -69,7 +69,7 @@ pub async fn decrypt_file_cmd(
     reader: tauri::ipc::Channel<serde_json::Value>,
     files: Vec<String>,
     state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<(), ()> {
+) -> Result<(), String> {
     let key_content = {
         let state = state.lock().expect("failed to get lock on state");
         let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
@@ -111,8 +111,7 @@ pub async fn decrypt_file_cmd(
                 }));
             },
         )
-        .await
-        .expect("failed to decrypt file");
+        .await?;
         output_paths.push(output_path)
     }
     reveal_items_in_dir(output_paths).expect("failed to reveal item");

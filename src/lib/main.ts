@@ -1,5 +1,10 @@
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
+export function getFileName(path: string) {
+  const normalized = path.replace(/\\/g, "/");
+  return normalized.split("/").pop();
+}
+
 export type Progress = {
   read_bytes: number;
   total_bytes: number;

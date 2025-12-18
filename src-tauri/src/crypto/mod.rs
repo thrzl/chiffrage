@@ -80,11 +80,19 @@ where
         .expect("failed to get handle on output file");
     let mut file_writer = BufWriter::new(output);
 
-    let mut decrypted_reader = decryptor
-        .decrypt_async(std::iter::once(
+    let mut decrypted_reader = {
+        let result = decryptor.decrypt_async(std::iter::once(
             &age::x25519::Identity::from_str(private_key.as_str()).unwrap() as &dyn age::Identity,
-        ))
-        .expect("failed to decrypt contents");
+        ));
+        if let Ok(decryptor_reader) = result {
+            decryptor_reader
+        } else {
+            return Err(format!(
+                "decryption failed: {}",
+                result.err().unwrap().to_string()
+            ));
+        }
+    };
 
     let mut buffer = vec![0u8; 1024 * 1024 * 4]; // 4 MB buffer
 

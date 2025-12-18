@@ -2,6 +2,7 @@
     import { invoke, Channel } from "@tauri-apps/api/core";
     import { open } from "@tauri-apps/plugin-dialog";
     import type { Key, Progress } from "$lib/main";
+    import {getFileName} from "$lib/main"
 
     let error = $state("");
     let message = $state("");
@@ -44,10 +45,6 @@
     }
     let keysFetch: Promise<Key[]> = $state(invoke("fetch_keys"));
     // listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
-    function getFileName(path: string) {
-        const normalized = path.replace(/\\/g, "/");
-        return normalized.split("/").pop();
-    }
 </script>
 
 <main class="container">
