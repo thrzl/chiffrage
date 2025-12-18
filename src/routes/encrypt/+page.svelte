@@ -44,6 +44,10 @@
     }
     let keysFetch: Promise<Key[]> = $state(invoke("fetch_keys"));
     // listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
+    function getFileName(path: string) {
+        const normalized = path.replace(/\\/g, "/");
+        return normalized.split("/").pop();
+    }
 </script>
 
 <main class="container">
@@ -76,12 +80,43 @@
             style:margin-top="0.5rem">encrypt</button
         >
     </form>
+    <table style="text-align: left; margin: 2rem">
+        <thead>
+            <tr>
+                <th>name</th>
+                <th>extension</th>
+                <th>remove</th>
+            </tr>
+        </thead>
+        <tbody>
+            {#each files as file}
+                <tr>
+                    <td>{getFileName(file)}</td>
+                    <td>{file.split(".").slice(-1)}</td>
+                    <td class="delete-button" onclick={() => files = files!.length > 1 ? files!.filter((f) => f !== file) : null}>x</td>
+                </tr>{/each}
+        </tbody>
+    </table>
     <div
         style="background-color: green; height: 10px"
         style:width={progress
             ? `${(progress.read_bytes / progress.total_bytes) * 100}%`
             : "0"}
     ></div>
-    <p bind:innerHTML={message} contenteditable></p>
+    <p>{@html message}</p>
     <p>{error}</p>
 </main>
+
+<style>
+    .delete-button {
+        font-family: monospace;
+        text-align: center;
+        font-size: 1.5rem
+    }
+    .delete-button:hover {
+        cursor: pointer;
+    }
+    td {
+        word-break: break-all;
+    }
+</style>
