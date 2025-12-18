@@ -65,21 +65,3 @@
         </tbody>
     </table>
 </main>
-
-<style>
-    thead > tr {
-        background-color: #222222;
-        cursor: default !important;
-    }
-    tr {
-        margin: 1rem;
-        background-color: #444444;
-    }
-    tr:hover {
-        cursor: pointer;
-    }
-    th,
-    td {
-        padding: 0.25rem 0.5rem;
-    }
-</style>
