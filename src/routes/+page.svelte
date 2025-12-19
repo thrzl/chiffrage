@@ -13,9 +13,11 @@
     import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index";
     import KeyImportDialog from "../components/KeyImportDialog.svelte";
     import KeyGenDialog from "../components/KeyGenDialog.svelte";
+    import KeyViewDialog from "../components/KeyViewDialog.svelte";
 
     let keygenDialogOpen = $state(false);
     let keyImportDialogOpen = $state(false);
+    let selectedKey: Key | undefined = $state(undefined)
     if (!(await invoke("vault_exists"))) {
         window.location.href = "/create-vault";
     }
@@ -49,7 +51,7 @@
           </DropdownMenu.Content>
         </DropdownMenu.Root>
     </nav>
-
+    <p>selected key: {selectedKey?.id}</p>
     {#if keys.length > 0}
         <Table.Root style="text-align: left; margin: 2rem; max-width: 100vw">
             <Table.Header>
@@ -64,7 +66,9 @@
                     <Table.Row
                         class="cursor-pointer"
                         onclick={() => {
-                            openWindow(`/keys/${key.id}`, "key details");
+                            {
+                              console.log(`selected key: ${key.id}`);
+                              selectedKey = key};
                         }}
                     >
                         <Table.Cell>{key.key_type.toLowerCase()}</Table.Cell>
@@ -99,8 +103,9 @@
     {/if}
 </main>
 
-<KeyImportDialog open={keyImportDialogOpen} />
-<KeyGenDialog open={keygenDialogOpen} />
+<KeyViewDialog bind:key={selectedKey} />
+<KeyImportDialog bind:open={keyImportDialogOpen} />
+<KeyGenDialog bind:open={keygenDialogOpen} />
 
 <style>
     .container {

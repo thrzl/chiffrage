@@ -123,7 +123,7 @@ impl Vault {
 
         let decrypted_bytes = cipher.decrypt(nonce, hello.ciphertext.as_ref());
         if decrypted_bytes.is_err() {
-            return Err("incorrect key.".to_string());
+            return Err("password is incorrect".to_string());
         };
         self.key = Some(key);
         Ok(())

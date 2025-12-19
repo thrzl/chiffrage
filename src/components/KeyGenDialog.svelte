@@ -7,7 +7,7 @@
     import { emit } from "@tauri-apps/api/event";
     let name = $state("");
     let error = $state("");
-    let { open } = $props();
+    let { open = $bindable() } = $props();
 
     function getName() {
         if (!name) {

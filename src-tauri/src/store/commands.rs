@@ -5,7 +5,7 @@ use secrecy::ExposeSecret;
 use secrecy::SecretString;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-use tauri::{Listener, Manager};
+use tauri::{Emitter, Listener, Manager};
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::oneshot;
@@ -226,35 +226,42 @@ pub async fn authenticate(
     )
     .build()
     .expect("failed to open auth window");
-    let (tx, rx) = oneshot::channel();
-    let tx = Mutex::new(Some(tx));
-    webview.listen("authenticate", move |event| {
-        if let Some(tx) = tx
+    loop {
+        let (tx, rx) = oneshot::channel();
+        let tx = Mutex::new(Some(tx));
+        webview.once("authenticate", move |event| {
+            if let Some(tx) = tx
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .take()
+            // wtf bro
+            {
+                let _ = tx.send(event.payload().to_string());
+            }
+        });
+        let password = SecretString::from(match rx.await {
+            Ok(message) => {
+                let raw_unwrap = serde_json::from_str::<String>(&message).unwrap();
+                raw_unwrap
+            }
+            Err(error) => return Err(error.to_string()),
+        });
+        let state = state.lock().unwrap_or_else(|p| p.into_inner());
+        let mut vault = state
+            .vault
+            .as_ref()
+            .clone()
+            .expect("vault not initialized")
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .take()
-        // wtf bro
-        {
-            let _ = tx.send(event.payload().to_string());
-        }
-    });
-    let password = SecretString::from(match rx.await {
-        Ok(message) => {
-            let raw_unwrap = serde_json::from_str::<String>(&message).unwrap();
-            raw_unwrap
-        }
-        Err(error) => return Err(error.to_string()),
-    });
+            .unwrap_or_else(|p| p.into_inner());
+        let unlock_attempt = vault.set_vault_key(password);
+        if let Err(error) = unlock_attempt {
+            let _ = webview.emit("auth-error", error);
+        } else {
+            break;
+        };
+    }
     let _ = webview.close();
-    let state = state.lock().unwrap_or_else(|p| p.into_inner());
-    let mut vault = state
-        .vault
-        .as_ref()
-        .clone()
-        .expect("vault not initialized")
-        .lock()
-        .unwrap_or_else(|p| p.into_inner());
-    vault.set_vault_key(password).expect("incorrect vault key");
 
     Ok(())
 }

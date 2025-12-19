@@ -11,7 +11,7 @@
     let name = $state("");
     let keyFile: string | null = $state(null);
     let error = $state("");
-    let { open } = $props();
+    let { open = $bindable() } = $props();
 
     function getName() {
         if (!name) {
