@@ -116,7 +116,7 @@
                 <Dialog.Title class="font-bold"
                     >{key?.name}
                     {#if isPrivateKey}<Badge
-                            class="bg-blue-500 text-white dark:bg-blue-600"
+                            class="bg-blue-500 text-white dark:bg-blue-600 ml-1"
                             ><SquareAsterisk />private</Badge
                         >{/if}</Dialog.Title
                 >
