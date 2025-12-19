@@ -5,22 +5,12 @@
     import { Input } from "$lib/components/ui/input/index";
     import { buttonVariants } from "$lib/components/ui/button/index";
     import { emit } from "@tauri-apps/api/event";
+    import { toast } from "svelte-sonner";
     let name = $state("");
-    let error = $state("");
     let { open = $bindable() } = $props();
 
-    function getName() {
-        if (!name) {
-            error = "no name set!";
-            return;
-        }
-        return name;
-    }
-
     async function generate_key() {
-        if (!getName()) return;
-        error = "";
-        // Learn more about Tauri commands at https://tauri.app/d,evelop/calling-rust/
+        if (!name) return toast.error("no name set");
         if (!(await invoke("vault_unlocked"))) {
             await invoke("authenticate");
         }
@@ -30,13 +20,21 @@
     }
 </script>
 
-<Dialog.Root bind:open>
+<Dialog.Root
+    bind:open
+    onOpenChange={(open) => {
+        if (!open) {
+            name = "";
+        }
+    }}
+>
     <form>
-        <!-- <Dialog.Trigger
-            class={buttonVariants({ variant: "default" })}
-            >new keypair</Dialog.Trigger
-        > -->
-        <Dialog.Content class="sm:max-w-[425px]">
+        <Dialog.Content
+            class="sm:max-w-[425px]"
+            onkeydown={async (event) => {
+                if (event.key === "Enter") await generate_key();
+            }}
+        >
             <Dialog.Header>
                 <Dialog.Title>generate new keypair</Dialog.Title>
                 <Dialog.Description>

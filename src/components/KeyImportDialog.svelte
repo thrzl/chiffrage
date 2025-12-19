@@ -11,31 +11,17 @@
     import { toast } from "svelte-sonner";
     let name = $state("");
     let keyFile: string | null = $state(null);
-    let error = $state("");
     let { open = $bindable() } = $props();
 
-    function getName() {
-        if (!name) {
-            error = "no name set!";
-            return;
-        }
-        return name;
-    }
-
     async function import_key() {
-
-        if (!getName()) return toast.error("no name set");
+        if (!name) return toast.error("no name set");
         if (!keyFile) return toast.error("no file selected");
-        error = "";
 
         if (!(await invoke("vault_unlocked"))) {
             let authComplete = await invoke("authenticate");
             if (!authComplete) return toast.error("authentication failed")
         }
-        console.log(keyFile);
-        console.log(
-            await invoke("import_key", { name: name.trim(), path: keyFile }),
-        );
+        await invoke("import_key", { name: name.trim(), path: keyFile });
         toast.success("imported key");
         emit("update-keys");
         open = false;
@@ -47,7 +33,7 @@
 
 <Dialog.Root bind:open={open} onOpenChange={(open) => { if (!open) {keyFile = null; name = ""}}}>
     <form>
-        <Dialog.Content class="sm:max-w-[425px]">
+        <Dialog.Content class="sm:max-w-[425px]" onkeydown={async (event) => {if (event.key === "Enter") await import_key()}}>
             <Dialog.Header>
                 <Dialog.Title>import key</Dialog.Title>
                 <Dialog.Description>
