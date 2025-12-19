@@ -38,6 +38,8 @@
         toast.success("imported key");
         emit("update-keys");
         open = false;
+        keyFile = null;
+        name = "";
         // keys = await invoke("fetch_keys");
     }
 </script>
