@@ -3,6 +3,8 @@
     import { zxcvbn, zxcvbnOptions } from "@zxcvbn-ts/core";
     import * as zxcvbnCommonPackage from "@zxcvbn-ts/language-common";
     import * as zxcvbnEnPackage from "@zxcvbn-ts/language-en";
+    import { Input } from "$lib/components/ui/input";
+    import Button from "$lib/components/ui/button/button.svelte";
 
     const options = {
         translations: zxcvbnEnPackage.translations,
@@ -40,7 +42,7 @@
 <main class="container">
     <p>welcome, let's make a vault to store your keys!</p>
     <h1>choose a password</h1>
-    <input bind:value={password} type="password" />
+    <Input bind:value={password} type="password" />
     <div
         style={`background-color: green; width: ${Math.min(zxcvbn(password).crackTimesSeconds.offlineSlowHashing1e4PerSecond / 31_536_000, 1) * 100}%; height: 10px`}
     ></div>
@@ -48,5 +50,16 @@
             will take {zxcvbn(password).crackTimesDisplay
                 .offlineSlowHashing1e4PerSecond} to crack
         </p>{/if}
-    <button onclick={createVault} disabled={password === ""}>create</button>
+    <Button onclick={createVault} disabled={password === ""}>create</Button>
 </main>
+
+<style>
+    .container {
+        margin: 3rem;
+        /*padding-top: 10vh;*/
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+    }
+</style>
