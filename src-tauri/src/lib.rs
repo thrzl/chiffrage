@@ -58,7 +58,9 @@ pub fn run() {
             store::delete_key,
             store::fetch_key,
             store::authenticate,
-            store::vault_unlocked
+            store::vault_unlocked,
+            store::import_key_text,
+            store::check_keyfile_type
         ])
         .setup(|app| {
             let app_data_dir = app

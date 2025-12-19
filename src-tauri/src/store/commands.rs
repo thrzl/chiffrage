@@ -154,6 +154,69 @@ pub async fn export_key(
     Ok(())
 }
 
+/// returns `true` if the key is private
+#[tauri::command]
+pub async fn check_keyfile_type(path: String) -> Result<bool, String> {
+    let mut key_file = File::open(path).await.expect("failed to open key file");
+    let mut key_content = String::new();
+    if let Err(error) = key_file.read_to_string(&mut key_content).await {
+        return Err(error.to_string());
+    };
+    return Ok(key_content.starts_with("AGE-SECRET-KEY"));
+}
+
+#[tauri::command]
+pub async fn import_key_text(
+    name: String,
+    key_content: String,
+    state: tauri::State<'_, Mutex<AppState>>,
+) -> Result<String, String> {
+    let is_private = key_content.starts_with("AGE-SECRET-KEY");
+
+    let vault_handle = {
+        let state = match state.lock() {
+            Ok(state) => state,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        state.vault.as_ref().expect("vault not initialized").clone()
+    };
+    {
+        let mut vault = match vault_handle.lock() {
+            Ok(vault) => vault,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        if is_private {
+            let identity =
+                Identity::from_str(key_content.clone().as_str()).expect("failed to parse key");
+            let key = vault.new_key(
+                name,
+                identity.to_public().to_string(),
+                Some(SecretString::from(identity.to_string())),
+            );
+            vault.put_key(key)?;
+        } else {
+            let key = vault.new_key(
+                name,
+                Recipient::from_str(key_content.clone().as_str())
+                    .expect("failed to parse public key")
+                    .to_string(),
+                None,
+            );
+            vault.put_key(key)?;
+        }
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let vault = match vault_handle.lock() {
+            Ok(vault) => vault,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        vault.save_vault();
+    })
+    .await
+    .expect("failed to save vault");
+    Ok("key import complete".to_string())
+}
+
 #[tauri::command]
 pub async fn import_key(
     name: String,
@@ -231,6 +294,9 @@ pub async fn authenticate(
             .expect("failed to open auth window")
         });
     let _ = webview.set_always_on_top(true); // not that serious
+    let _ = webview.set_resizable(false);
+    let _ = webview.set_maximizable(false);
+    let _ = webview.set_minimizable(false);
     loop {
         let (tx, rx) = oneshot::channel();
         let tx = Arc::new(Mutex::new(Some(tx)));

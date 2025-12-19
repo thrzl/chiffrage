@@ -11,13 +11,31 @@
     import { toast } from "svelte-sonner";
     let name = $state("");
     let keyFile: string | null = $state(null);
+    let keyContent: string | null = $state(null)
     let { open = $bindable() } = $props();
 
     async function import_key() {
         if (!name) return toast.error("no name set");
         if (!keyFile) return toast.error("no file selected");
 
-        if (!(await invoke("vault_unlocked"))) {
+        if (await invoke("check_keyfile_type", {path: keyFile}) && !(await invoke("vault_unlocked"))) {
+            let authComplete = await invoke("authenticate");
+            if (!authComplete) return toast.error("authentication failed")
+        }
+        await invoke("import_key", { name: name.trim(), path: keyFile });
+        toast.success("imported key");
+        emit("update-keys");
+        open = false;
+        keyFile = null;
+        name = "";
+        // keys = await invoke("fetch_keys");
+    }
+
+    async function import_key_text() {
+        if (!name) return toast.error("no name set");
+        if (!keyContent) return toast.error("no key content");
+
+        if (keyContent.startsWith("AGE-SECRET-KEY") && !(await invoke("vault_unlocked"))) {
             let authComplete = await invoke("authenticate");
             if (!authComplete) return toast.error("authentication failed")
         }
