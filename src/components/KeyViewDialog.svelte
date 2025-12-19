@@ -36,10 +36,11 @@
         );
 
         if (!answer) return;
-        await invoke("authenticate");
+        if (!(await invoke("authenticate"))) {
+            return toast.error("authentication failed");
+        }
         await invoke("delete_key", { id: key?.id });
         webviewWindow.emit("update-keys");
-        await webviewWindow.close();
     }
 
     async function encrypt(e: Event) {
