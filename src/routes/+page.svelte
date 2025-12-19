@@ -9,7 +9,7 @@
     import Plus from "@lucide/svelte/icons/plus";
     import Lock from "@lucide/svelte/icons/lock";
     import Unlock from "@lucide/svelte/icons/lock-open";
-    import KeyIcon from "@lucide/svelte/icons/key";
+    import KeyIcon from "@lucide/svelte/icons/key-round";
     import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index";
     import KeyImportDialog from "../components/KeyImportDialog.svelte";
     import KeyGenDialog from "../components/KeyGenDialog.svelte";
@@ -51,7 +51,6 @@
           </DropdownMenu.Content>
         </DropdownMenu.Root>
     </nav>
-    <p>selected key: {selectedKey?.id}</p>
     {#if keys.length > 0}
         <Table.Root style="text-align: left; margin: 2rem; max-width: 100vw">
             <Table.Header>
@@ -82,7 +81,7 @@
             </Table.Body>
         </Table.Root>
     {:else}
-        <Empty.Root>
+        <Empty.Root class="p-0 m-8">
             <Empty.Header>
                 <Empty.Media variant="icon">
                     <KeyIcon />

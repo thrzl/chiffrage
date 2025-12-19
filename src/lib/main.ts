@@ -17,7 +17,7 @@ export type Key = {
   key_type: "Public" | "Private";
   date_created: { secs_since_epoch: number };
   contents: {
-    public: String;
+    public: string;
     private: {
       nonce: number[];
       ciphertext: number[];

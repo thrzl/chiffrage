@@ -1,9 +1,11 @@
 <script>
     import "../app.css";
     import "./layout.css"
+    import { Toaster } from "$lib/components/ui/sonner";
     let { children } = $props();
 </script>
 
+<Toaster />
 <div id="main-container" class="dark">
     {@render children?.()}
 </div>

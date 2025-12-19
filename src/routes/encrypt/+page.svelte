@@ -3,6 +3,8 @@
     import { open } from "@tauri-apps/plugin-dialog";
     import type { Key, Progress } from "$lib/main";
     import {getFileName} from "$lib/main"
+    import * as Table from "$lib/components/ui/table/index";
+    import * as Empty from "$lib/components/ui/empty/index";
 
     let error = $state("");
     let message = $state("");

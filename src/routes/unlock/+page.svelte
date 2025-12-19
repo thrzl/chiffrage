@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { invoke } from "@tauri-apps/api/core";
     import { emit, once } from "@tauri-apps/api/event";
     import Button from "$lib/components/ui/button/button.svelte";
     import Input from "$lib/components/ui/input/input.svelte";

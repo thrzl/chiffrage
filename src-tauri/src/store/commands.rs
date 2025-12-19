@@ -5,7 +5,7 @@ use secrecy::ExposeSecret;
 use secrecy::SecretString;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-use tauri::{Emitter, Listener, Manager};
+use tauri::{Emitter, Listener, Manager, WindowEvent};
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::oneshot;
@@ -218,19 +218,38 @@ pub async fn import_key(
 pub async fn authenticate(
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
-    let webview = tauri::WebviewWindowBuilder::new(
-        &app_handle,
-        "vault-unlock",
-        tauri::WebviewUrl::App("unlock".into()),
-    )
-    .build()
-    .expect("failed to open auth window");
+) -> Result<bool, String> {
+    let webview = app_handle
+        .get_webview_window("vault-unlock")
+        .unwrap_or_else(|| {
+            tauri::WebviewWindowBuilder::new(
+                &app_handle,
+                "vault-unlock",
+                tauri::WebviewUrl::App("unlock".into()),
+            )
+            .build()
+            .expect("failed to open auth window")
+        });
+    let _ = webview.set_always_on_top(true); // not that serious
     loop {
         let (tx, rx) = oneshot::channel();
-        let tx = Mutex::new(Some(tx));
+        let tx = Arc::new(Mutex::new(Some(tx)));
+        let tx2 = tx.clone();
+        webview.on_window_event(move |event| {
+            if matches!(event, WindowEvent::CloseRequested { api, .. }) {
+                if let Some(tx) = tx
+                    .clone()
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .take()
+                // wtf bro
+                {
+                    let _ = tx.send("".to_string());
+                }
+            };
+        });
         webview.once("authenticate", move |event| {
-            if let Some(tx) = tx
+            if let Some(tx) = tx2
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner())
                 .take()
@@ -239,8 +258,13 @@ pub async fn authenticate(
                 let _ = tx.send(event.payload().to_string());
             }
         });
+
         let password = SecretString::from(match rx.await {
             Ok(message) => {
+                if message.len() == 0 {
+                    println!("hi from rust! empty password. window was closed");
+                    return Ok(false);
+                }
                 let raw_unwrap = serde_json::from_str::<String>(&message).unwrap();
                 raw_unwrap
             }
@@ -263,5 +287,5 @@ pub async fn authenticate(
     }
     let _ = webview.close();
 
-    Ok(())
+    Ok(true)
 }

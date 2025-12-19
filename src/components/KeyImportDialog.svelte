@@ -8,6 +8,7 @@
     import * as Item from "$lib/components/ui/item/index";
     import { Button, buttonVariants } from "$lib/components/ui/button/index";
     import { emit } from "@tauri-apps/api/event";
+    import { toast } from "svelte-sonner";
     let name = $state("");
     let keyFile: string | null = $state(null);
     let error = $state("");
@@ -27,18 +28,21 @@
         error = "";
 
         if (!(await invoke("vault_unlocked"))) {
-            await invoke("authenticate");
+            let authComplete = await invoke("authenticate");
+            if (!authComplete) return toast.error("authentication failed")
         }
+        console.log(keyFile);
         console.log(
             await invoke("import_key", { name: name.trim(), path: keyFile }),
         );
-        console.log("imported key");
+        toast.success("imported key");
         emit("update-keys");
+        open = false;
         // keys = await invoke("fetch_keys");
     }
 </script>
 
-<Dialog.Root bind:open>
+<Dialog.Root bind:open={open} onOpenChange={(open) => { if (!open) {keyFile = null; name = ""}}}>
     <form>
         <Dialog.Content class="sm:max-w-[425px]">
             <Dialog.Header>
@@ -73,6 +77,7 @@
                                             },
                                         ],
                                     });
+                                    if (keyFile && !name) name = getFileName(keyFile)!.split(".").shift()!;
                                 }}
                                 >{keyFile
                                     ? getFileName(keyFile)
@@ -87,14 +92,14 @@
                     class={buttonVariants({
                         variant: "outline",
                     })}
-                    onclick={() => (open = false)}>cancel</Dialog.Close
+                    >cancel</Dialog.Close
                 >
-                <Dialog.Close
+                <Button
                     class={buttonVariants({
                         variant: "default",
                     })}
                     onclick={import_key}
-                    disabled={name === "" || !keyFile}>import key</Dialog.Close
+                    disabled={name === "" || !keyFile}>import key</Button
                 >
             </Dialog.Footer>
         </Dialog.Content>

@@ -36,6 +36,7 @@
     "@tailwindcss/vite": "^4.1.17",
     "@tauri-apps/cli": "^2",
     "bits-ui": "^2.14.4",
+    "mode-watcher": "^1.1.0",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",
     "tailwindcss": "^4.1.17",
