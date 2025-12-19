@@ -23,8 +23,9 @@
     }
 
     async function import_key() {
-        if (!getName()) return (error = "no name set");
-        if (!keyFile) return (error = "no file selected");
+
+        if (!getName()) return toast.error("no name set");
+        if (!keyFile) return toast.error("no file selected");
         error = "";
 
         if (!(await invoke("vault_unlocked"))) {
