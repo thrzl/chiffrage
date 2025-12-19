@@ -22,11 +22,12 @@
         window.location.href = "/create-vault";
     }
     let keys: Key[] = $state(await invoke("fetch_keys"));
-    listen("update-keys", async () => (keys = await invoke("fetch_keys")));
+    listen("update-keys", async () => {keys = await invoke("fetch_keys"); selectedKey = undefined});
 </script>
 
 <main class="container">
     <h1 class="text-4xl font-bold mb-8">your keys</h1>
+    {#if keys.length > 0}
     <nav>
         <Button onclick={() => openWindow("encrypt", "encrypt")}
             ><Lock /> encrypt</Button
@@ -51,8 +52,7 @@
           </DropdownMenu.Content>
         </DropdownMenu.Root>
     </nav>
-    {#if keys.length > 0}
-        <Table.Root style="text-align: left; margin: 2rem; max-width: 100vw">
+        <Table.Root style="text-align: left; max-width: 100vw" class="max-h-48 m-8">
             <Table.Header>
                 <Table.Row>
                     <Table.Head>type</Table.Head>
@@ -81,7 +81,7 @@
             </Table.Body>
         </Table.Root>
     {:else}
-        <Empty.Root class="p-0 m-8">
+        <Empty.Root class="!p-0 max-h-48 m-8">
             <Empty.Header>
                 <Empty.Media variant="icon">
                     <KeyIcon />
