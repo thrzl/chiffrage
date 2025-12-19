@@ -3,22 +3,17 @@
     import { listen } from "@tauri-apps/api/event";
     import { openWindow } from "$lib/main";
     import type { Key } from "$lib/main";
-    import { Button, buttonVariants } from "$lib/components/ui/button/index";
+    import { Button } from "$lib/components/ui/button/index";
     import * as Table from "$lib/components/ui/table/index";
     import * as Empty from "$lib/components/ui/empty/index";
     import Plus from "@lucide/svelte/icons/plus";
     import Lock from "@lucide/svelte/icons/lock";
     import Unlock from "@lucide/svelte/icons/lock-open";
     import KeyIcon from "@lucide/svelte/icons/key";
-    import { open } from "@tauri-apps/plugin-dialog";
     import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index";
     import KeyImportDialog from "../components/KeyImportDialog.svelte";
     import KeyGenDialog from "../components/KeyGenDialog.svelte";
 
-    let name = $state("");
-    let keyFile: string | null = $state(null);
-    let greetMsg = $state("");
-    let error = $state("");
     let keygenDialogOpen = $state(false);
     let keyImportDialogOpen = $state(false);
     if (!(await invoke("vault_exists"))) {
@@ -108,9 +103,6 @@
 <KeyGenDialog open={keygenDialogOpen} />
 
 <style>
-    tr[data-slot="table-row"] {
-        cursor: pointer;
-    }
     .container {
         margin: 3rem;
         /*padding-top: 10vh;*/

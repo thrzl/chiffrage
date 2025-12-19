@@ -1,7 +1,8 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
     import { emit } from "@tauri-apps/api/event";
-    import { onMount } from "svelte";
+    import Button from "$lib/components/ui/button/button.svelte";
+    import Input from "$lib/components/ui/input/input.svelte";
 
     let passwordInput: HTMLInputElement | null = null;
 
@@ -18,8 +19,12 @@
 </script>
 
 <main class="container">
-    <p>welcome back</p>
-    <input type="password" placeholder="enter your vault password" />
-    <button type="submit" onclick={unlockVault}>unlock vault</button>
+    <h1 class="text-lg font-bold mb-2">authentication required</h1>
+    <form class="gap-2 flex flex-col">
+        <Input type="password" placeholder="enter your vault password" />
+        <Button class="w-full" type="submit" onclick={unlockVault}
+            >unlock vault</Button
+        >
+    </form>
     <p style:color="red">{error}</p>
 </main>
