@@ -1,6 +1,5 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
-    import { openWindow } from "$lib/main";
     import type { PageProps } from "./$types";
     import { save, open } from "@tauri-apps/plugin-dialog";
     import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -16,6 +15,7 @@
     let name = $state("");
     let key: Key = await invoke("fetch_key", { name: slug });
     let isPrivateKey = key.key_type === "Private";
+    let error = $state("");
     const webviewWindow = getCurrentWebviewWindow();
 
     async function deleteKey(e: Event) {
@@ -67,6 +67,10 @@
     }
 
     async function exportKey(keyType: "public" | "private") {
+        if (keyType === "private") {
+            error = await invoke("authenticate");
+            if (error) return alert(error);
+        }
         const destination = await save({
             filters: [{ name: "age key file", extensions: ["age"] }],
         });
