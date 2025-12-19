@@ -65,9 +65,6 @@
         <Dialog.Content class="sm:max-w-[425px]" onkeydown={async (event) => {if (event.key === "Enter") await import_key()}}>
             <Dialog.Header>
                 <Dialog.Title>import key</Dialog.Title>
-                <Dialog.Description>
-                    import a key
-                </Dialog.Description>
             </Dialog.Header>
             <div class="grid gap-4">
                 <div class="grid gap-3">
