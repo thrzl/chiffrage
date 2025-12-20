@@ -6,7 +6,6 @@
     import * as Table from "$lib/components/ui/scroll-table/index";
     import * as Alert from "$lib/components/ui/alert/index";
     import Label from "$lib/components/ui/label/label.svelte";
-    import {ScrollArea} from "$lib/components/ui/scroll-area/index";
     import {animate} from "motion/mini"
     import { TrashIcon, TriangleAlert } from "@lucide/svelte";
     import {andList} from "human-list";
@@ -106,7 +105,7 @@
               {/each}
             </Select.Group>
             {/if}
-            {#if publicKeys.length < 0 && privateKeys.length < 0}
+            {#if publicKeys.length === 0 && privateKeys.length === 0}
                 <Select.Item
                   value={"#"}
                   label={"no key"}
