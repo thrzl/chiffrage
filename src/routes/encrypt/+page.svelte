@@ -5,21 +5,26 @@
     import {formatBytes, getFileName} from "$lib/main"
     import * as Table from "$lib/components/ui/scroll-table/index";
     import * as Alert from "$lib/components/ui/alert/index";
+    import * as Tabs from "$lib/components/ui/tabs/index";
     import Progress from "$lib/components/ui/progress/progress.svelte";
     import Label from "$lib/components/ui/label/label.svelte";
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
     import {animate} from "motion/mini"
-    import { TrashIcon, TriangleAlert } from "@lucide/svelte";
+    import { TrashIcon, TriangleAlert, EyeIcon, EyeClosedIcon } from "@lucide/svelte";
     import {andList} from "human-list";
     import * as Select from "$lib/components/ui/select/index.js";
     import Button from "$lib/components/ui/button/button.svelte";
     import { toast } from "svelte-sonner";
+    import Input from "$lib/components/ui/input/input.svelte";
+    import * as InputGroup from "$lib/components/ui/input-group/index";
 
     let progress: FileProgress | null = $state(null);
     let chosenKeys: string[] = $state(new URLSearchParams(window.location.search).get("keys")?.split(",") ?? []);
     let files: string[] | null = $state(null);
+    let encryptMethod: "pass" | "key" = $state("key")
 
-
+    let password = $state("");
+    let showPassword = $state(false);
     let alertElement: HTMLDivElement | undefined = $state();
 
     async function chooseFile(event: Event) {
@@ -36,8 +41,12 @@
             toast.error("no file selected");
             return;
         }
-        if (chosenKeys.length === 0) {
+        if (encryptMethod === "key" && chosenKeys.length === 0) {
             toast.error("no key selected");
+            return;
+        }
+        if (encryptMethod === "pass" && password.length === 0) {
+            toast.error("no password set");
             return;
         }
         progress = null;
@@ -46,7 +55,7 @@
             progress = msg;
         };
         let error: string = await invoke("encrypt_file", {
-            recipient: chosenKeys,
+            recipient: encryptMethod === "key" ? chosenKeys : password,
             reader: channel,
             files,
         });
@@ -70,55 +79,72 @@
     <h1 class="text-2xl font-bold mb-2">encrypt</h1>
 
     <form onsubmit={chooseFile} class="w-3/4 mx-auto">
-        <div class="flex flex-row gap-2 justify-items-center justify-center mx-auto">
-        <Select.Root type="multiple" name="target keys" bind:value={chosenKeys} onValueChange={updateAlert}>
-          <Select.Trigger class="w-[180px] flex-grow">
-            <p>{@html chosenKeys.length > 0 ? andList(chosenKeys.map(id => `<span class="font-bold">${keyMap[id].name}</span>`)) : "choose recipients..."}</p>
-          </Select.Trigger>
-          <Select.Content>
-            {#if publicKeys.length > 0}
-            <Select.Group>
-              <Select.Label>public keys</Select.Label>
-              {#each publicKeys as key}
-                <Select.Item
-                  value={key.id}
-                  label={key.name}
+            <Tabs.Root bind:value={encryptMethod}><Tabs.List class="w-full">
+                <Tabs.Trigger value="key">keys</Tabs.Trigger>
+                <Tabs.Trigger value="pass">passphrase</Tabs.Trigger>
+            </Tabs.List>
+        <div class="flex flex-row gap-2 justify-items-center justify-center mx-auto w-full">
+            <Tabs.Content value="key" class="flex-grow w-[180px]">
+                <Select.Root type="multiple" name="target keys" bind:value={chosenKeys} onValueChange={updateAlert}>
+                    <Select.Trigger class="flex-grow w-full">
+                        <p>{@html chosenKeys.length > 0 ? andList(chosenKeys.map(id => `<span class="font-bold">${keyMap[id].name}</span>`)) : "choose recipients..."}</p>
+                    </Select.Trigger>
+                    <Select.Content>
+                        {#if publicKeys.length > 0}
+                        <Select.Group>
+                        <Select.Label>public keys</Select.Label>
+                        {#each publicKeys as key}
+                            <Select.Item
+                            value={key.id}
+                            label={key.name}
+                            >
+                            {key.name}
+                            </Select.Item>
+                        {/each}
+                        </Select.Group>
+                        {/if}
+                        {#if privateKeys.length > 0}
+                            <Select.Group>
+                        <Select.Label>private keys</Select.Label>
+                        {#each privateKeys as key}
+                            <Select.Item
+                            value={key.id}
+                            label={key.name}
+                            >
+                            {key.name}
+                            </Select.Item>
+                        {/each}
+                        </Select.Group>
+                        {/if}
+                        {#if publicKeys.length === 0 && privateKeys.length === 0}
+                            <Select.Item
+                            value={"#"}
+                            label={"no key"}
+                            disabled
+                            >
+                            {"no keys"}
+                            </Select.Item>
+                        {/if}
+                    </Select.Content>
+                </Select.Root>
+            </Tabs.Content>
+            <Tabs.Content value="pass" class="flex-grow w-[180px]">
+                <InputGroup.Root>
+                    <InputGroup.Input type={showPassword? "text" : "password"} name="pass" class={`${showPassword ? "font-mono" : ""}`} placeholder="enter passphrase..." bind:value={password}/>
+                    <InputGroup.Addon align="inline-end">
+                        <InputGroup.Button variant="ghost" onclick={() => showPassword = !showPassword}>
+                            {#if showPassword} <EyeIcon />{:else} <EyeClosedIcon />{/if}
+                        </InputGroup.Button>
+                    </InputGroup.Addon>
+                </InputGroup.Root>
+            </Tabs.Content>
+                <Button onclick={chooseFile} variant={"secondary"}
+                    >{files
+                        ? `${files.length} files selected`
+                        : "choose file(s)"}</Button
                 >
-                  {key.name}
-                </Select.Item>
-              {/each}
-            </Select.Group>
-            {/if}
-            {#if privateKeys.length > 0}
-                <Select.Group>
-              <Select.Label>private keys</Select.Label>
-              {#each privateKeys as key}
-                <Select.Item
-                  value={key.id}
-                  label={key.name}
-                >
-                  {key.name}
-                </Select.Item>
-              {/each}
-            </Select.Group>
-            {/if}
-            {#if publicKeys.length === 0 && privateKeys.length === 0}
-                <Select.Item
-                  value={"#"}
-                  label={"no key"}
-                  disabled
-                >
-                  {"no keys"}
-                </Select.Item>
-            {/if}
-          </Select.Content>
-        </Select.Root>
-        <Button onclick={chooseFile} variant={"secondary"}
-            >{files
-                ? `${files.length} files selected`
-                : "choose file(s)"}</Button
-        >
         </div>
+            </Tabs.Root>
         <div bind:this={alertElement} class="text-left overflow-hidden mt-0 h-0">
         <Alert.Root>
             <TriangleAlert />
@@ -127,7 +153,7 @@
         </Alert.Root></div>
         <Button
             onclick={encryptFile}
-            disabled={chosenKeys.length === 0 || !files || (progress && progress.read_bytes !== progress.total_bytes)}
+            disabled={(encryptMethod === "key" ? chosenKeys.length  : password.length) === 0 || !files || (progress && progress.read_bytes !== progress.total_bytes)}
             class="w-full mt-2 rounded-b-none truncate">{#if progress && progress.read_bytes !== progress.total_bytes}<Spinner/> encrypting {progress.current_file}
                 {:else}encrypt{/if}</Button
         >
