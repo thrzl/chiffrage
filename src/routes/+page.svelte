@@ -4,7 +4,7 @@
     import { openWindow } from "$lib/main";
     import type { Key } from "$lib/main";
     import { Button } from "$lib/components/ui/button/index";
-    import * as Table from "$lib/components/ui/table/index";
+    import * as Table from "$lib/components/ui/scroll-table/index";
     import * as Empty from "$lib/components/ui/empty/index";
     import Plus from "@lucide/svelte/icons/plus";
     import Lock from "@lucide/svelte/icons/lock";
@@ -52,12 +52,12 @@
           </DropdownMenu.Content>
         </DropdownMenu.Root>
     </nav>
-        <Table.Root style="text-align: left; max-width: 100vw" class="max-h-48 m-8">
+        <Table.Root height={"16rem"} style="text-align: left; max-width: 100vw" containerClass="m-8">
             <Table.Header>
                 <Table.Row>
-                    <Table.Head>type</Table.Head>
-                    <Table.Head>name</Table.Head>
-                    <Table.Head>date created</Table.Head>
+                    <Table.Head class="sticky top-0 bg-secondary">type</Table.Head>
+                    <Table.Head class="sticky top-0 bg-secondary">name</Table.Head>
+                    <Table.Head class="sticky top-0 bg-secondary">date created</Table.Head>
                 </Table.Row>
             </Table.Header>
             <Table.Body>
