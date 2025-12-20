@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { HTMLTableAttributes } from "svelte/elements";
+	import type { ClassValue, HTMLTableAttributes } from "svelte/elements";
 	import { cn, type WithElementRef } from "$lib/utils.js";
 
 	let {
@@ -7,11 +7,12 @@
 		class: className,
 		height = "auto",
 		children,
+		containerClass,
 		...restProps
-	}: WithElementRef<HTMLTableAttributes> & {height: string} = $props();
+	}: WithElementRef<HTMLTableAttributes> & {height: string, containerClass?: ClassValue} = $props();
 </script>
 
-<div data-slot="table-container" class="relative w-full overflow-y-auto" style={`height: ${height}`}>
+<div data-slot="table-container" class={cn("relative w-full overflow-y-auto", containerClass)} style={`max-height: ${height}`}>
 	<table
 		bind:this={ref}
 		data-slot="table"

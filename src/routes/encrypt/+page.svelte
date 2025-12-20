@@ -136,7 +136,7 @@
     </form>
     <div class="w-3/4 mx-auto mt-4">
     <Label for="selected-files" class="mb-2">selected files</Label>
-    <Table.Root height="12rem" id="selected-files" class="table-fixed">
+    <Table.Root height="8rem" id="selected-files" class="table-fixed text-left" containerClass="border-2 border-solid rounded-sm">
         <Table.Header>
             <Table.Row>
                 <Table.Head class="pl-4 sticky top-0 bg-secondary w-4/5">name</Table.Head>
@@ -144,11 +144,18 @@
             </Table.Row>
         </Table.Header>
         <Table.Body>
+        {#if !files || files.length === 0}
+            <Table.Row class="pointer-events-none">
+                <Table.Cell class="truncate px-4 opacity-60">no files selected</Table.Cell>
+                <Table.Cell class="text-center"><Button variant={"secondary"} class="cursor-pointer" disabled onclick={() => files = files!.length > 1 ? files!.filter((f) => f !== file) : null}><TrashIcon class="w-4"/></Button></Table.Cell>
+            </Table.Row>
+            {:else}
             {#each files as file}
                 <Table.Row>
-                    <Table.Cell class="truncate">{getFileName(file)}</Table.Cell>
-                    <Table.Cell><Button variant={"secondary"} class="cursor-pointer" onclick={() => files = files!.length > 1 ? files!.filter((f) => f !== file) : null}><TrashIcon class="w-4"/></Button></Table.Cell>
+                    <Table.Cell class="truncate px-4">{getFileName(file)}</Table.Cell>
+                    <Table.Cell class="text-center"><Button variant={"secondary"} class="cursor-pointer" onclick={() => files = files!.length > 1 ? files!.filter((f) => f !== file) : null}><TrashIcon class="w-4"/></Button></Table.Cell>
                 </Table.Row>{/each}
+            {/if}
         </Table.Body>
     </Table.Root>
         <!-- </ScrollArea> -->
