@@ -22,7 +22,7 @@
       else if (currentTab === "paste") await import_key_text()
     }
     async function import_key_file() {
-        if (!name) return toast.error("no name set");
+        if (!name.replaceAll(" ", "")) return toast.error("no name set");
         if (!keyFile) return toast.error("no file selected");
 
         if (await invoke("check_keyfile_type", {path: keyFile}) && !(await invoke("vault_unlocked"))) {
@@ -39,7 +39,7 @@
     }
 
     function cannotSubmit() {
-      return name === "" || (currentTab === "file" && !keyFile) || (currentTab === "paste" && !keyContent)
+      return name.replaceAll(" ", "") === "" || (currentTab === "file" && !keyFile) || (currentTab === "paste" && !keyContent)
     }
 
     async function import_key_text() {

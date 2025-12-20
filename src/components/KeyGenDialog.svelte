@@ -10,7 +10,7 @@
     let { open = $bindable() } = $props();
 
     async function generate_key() {
-        if (!name) return toast.error("no name set");
+        if (!name.replaceAll(" ", "")) return toast.error("no name set");
         if (!(await invoke("vault_unlocked"))) {
             await invoke("authenticate");
         }
@@ -61,7 +61,8 @@
                         variant: "default",
                     })}
                     onclick={generate_key}
-                    disabled={name === ""}>generate</Dialog.Close
+                    disabled={name.replaceAll(" ", "") === ""}
+                    >generate</Dialog.Close
                 >
             </Dialog.Footer>
         </Dialog.Content>
