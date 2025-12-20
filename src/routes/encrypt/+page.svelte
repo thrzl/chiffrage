@@ -45,7 +45,7 @@
         channel.onmessage = (msg) => {
             progress = msg;
         };
-        let error: string = await invoke("encrypt_file_cmd", {
+        let error: string = await invoke("encrypt_file", {
             publicKeys: chosenKeys,
             reader: channel,
             files,

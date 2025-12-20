@@ -1,6 +1,6 @@
 // higher-level age functions to be called from the frontend
 
-mod commands;
+pub mod commands;
 use age::x25519;
 use age::Decryptor;
 use age::{Identity, Recipient};

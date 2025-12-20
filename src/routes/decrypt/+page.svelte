@@ -33,7 +33,7 @@
         channel.onmessage = (msg) => {
             progress = msg;
         };
-        invoke("decrypt_file_cmd", {
+        invoke("decrypt_file", {
             privateKey: chosenKey,
             reader: channel,
             files,

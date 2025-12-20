@@ -10,7 +10,7 @@ use tauri_plugin_opener::reveal_items_in_dir;
 use tokio::fs::metadata;
 
 #[tauri::command]
-pub async fn encrypt_file_cmd(
+pub async fn encrypt_file(
     public_keys: Vec<String>,
     reader: tauri::ipc::Channel<serde_json::Value>,
     files: Vec<String>,
@@ -66,7 +66,7 @@ pub async fn encrypt_file_cmd(
 }
 
 #[tauri::command]
-pub async fn decrypt_file_cmd(
+pub async fn decrypt_file(
     private_key: String,
     reader: tauri::ipc::Channel<serde_json::Value>,
     files: Vec<String>,
