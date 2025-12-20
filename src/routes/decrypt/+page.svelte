@@ -2,11 +2,15 @@
     import { invoke, Channel } from "@tauri-apps/api/core";
     import { open } from "@tauri-apps/plugin-dialog";
     import type { Key, Progress } from "$lib/main";
+    import * as Table from "$lib/components/ui/scroll-table";
+    import * as Select from "$lib/components/ui/select/index";
+    import Label from "$lib/components/ui/label/label.svelte";
+    import Button from "$lib/components/ui/button/button.svelte";
     import { getFileName } from "$lib/main";
 
     let progress: Progress | null = $state(null);
     let message = $state("");
-    let key = $state("");
+    let chosenKey = $state("");
     let error = $state("");
     let files: string[] | null = $state(null);
 
@@ -32,63 +36,82 @@
             message = "";
         };
         invoke("decrypt_file_cmd", {
-            privateKey: key,
+            privateKey: chosenKey,
             reader: channel,
             files,
         }).then()
         .catch(e => error = e);
     }
-    let keysFetch: Promise<Key[]> = $state(invoke("fetch_keys"));
-    // listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
+    let keyFetch: Key[] = $state(await invoke("fetch_keys"));
+    let keys = keyFetch.filter(key => key.key_type === "Private");
+    let keyMap = $derived(Object.fromEntries(keys.map(key => ([key.id, key]))));
 </script>
 
 <main class="container">
-    <h1>decrypt</h1>
+    <h1 class="text-2xl font-bold mb-2">decrypt</h1>
 
-    <form onsubmit={chooseFile}>
-        <select bind:value={key}>
-            {#await keysFetch}
-                <option value="" disabled selected>loading keys</option>
-            {:then keys}
-                <option value="" disabled selected>choose a key</option>
-                {#if keys}
-                    {#each keys.filter((key) => key.key_type === "Private") as key}
-                        <option value={key.id}>{key.name}</option>
-                    {/each}
-                {:else}
-                    <option value="no-key" disabled>no keys!</option>
-                {/if}
-            {/await}
-        </select>
-        <button onclick={chooseFile}
+    <form onsubmit={chooseFile} class="w-3/4 mx-auto">
+        <div class="flex flex-row gap-2 justify-items-center justify-center mx-auto">
+        <Select.Root type="single" name="target key" bind:value={chosenKey}>
+          <Select.Trigger class="w-[180px] flex-grow">
+              <p>{#if chosenKey}<span class="font-bold">{keyMap[chosenKey].name}</span>{:else}choose key...{/if}</p>
+          </Select.Trigger>
+          <Select.Content>
+              <Select.Group>
+                <Select.Label>private keys</Select.Label>
+            {#if keys.length > 0}
+              {#each keys as key}
+                <Select.Item
+                  value={key.id}
+                  label={key.name}
+                >
+                  {key.name}
+                </Select.Item>
+              {/each}
+            {/if}
+            {#if keys.length === 0}
+                <Select.Item
+                  value={"#"}
+                  label={"no key"}
+                  disabled
+                >
+                  {"no private keys"}
+                </Select.Item>
+            {/if}
+              </Select.Group>
+          </Select.Content>
+        </Select.Root>
+        <Button onclick={chooseFile} variant={"secondary"}
             >{files
                 ? `${files.length} files selected`
-                : "choose file(s)"}</button
+                : "choose file(s)"}</Button
         >
-        <button
+        </div>
+        <Button
             onclick={decryptFile}
-            style:width="75%"
-            style:margin="2rem"
-            style:margin-top="0.5rem">decrypt</button
+            disabled={chosenKey.length === 0 || !files}
+            class="w-full mt-2">decrypt</Button
         >
     </form>
-    <table style="text-align: left; margin: 2rem">
-        <thead>
-            <tr>
-                <th>name</th>
-                <th>extension</th>
-                <th>remove</th>
-            </tr>
-        </thead>
-        <tbody>
+    <div class="w-3/4 mx-auto mt-4">
+    <Label for="selected-files" class="mb-2">selected files</Label>
+    <Table.Root height="12rem" id="selected-files" class="table-fixed">
+        <Table.Header>
+            <Table.Row>
+                <Table.Head class="pl-4 sticky top-0 bg-secondary w-4/5">name</Table.Head>
+                <Table.Head class="pl-4 sticky top-0 bg-secondary w-1/5">remove</Table.Head>
+            </Table.Row>
+        </Table.Header>
+        <Table.Body>
             {#each files as file}
-                <tr>
-                    <td>{getFileName(file)}</td>
-                    <td>{file.split(".").slice(-1)}</td>
-                    <td class="delete-button" onclick={() => files = files!.length > 1 ? files!.filter((f) => f !== file) : null}>x</td>
-                </tr>{/each}
-        </tbody>
-    </table>
+                <Table.Row>
+                    <Table.Cell class="truncate">{getFileName(file)}</Table.Cell>
+                    <Table.Cell><Button variant={"secondary"} class="cursor-pointer" onclick={() => files = files!.length > 1 ? files!.filter((f) => f !== file) : null}><TrashIcon class="w-4"/></Button></Table.Cell>
+                </Table.Row>{/each}
+        </Table.Body>
+    </Table.Root>
+        <!-- </ScrollArea> -->
+    </div>
     <div
         style="background-color: green; height: 10px"
         style:width={progress
@@ -96,5 +119,5 @@
             : "0"}
     ></div>
     <p>{@html message}</p>
-    <p style="color: red">{error}</p>
+    <p>{error}</p>
 </main>
