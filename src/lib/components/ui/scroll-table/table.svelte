@@ -9,7 +9,7 @@
 		children,
 		containerClass,
 		...restProps
-	}: WithElementRef<HTMLTableAttributes> & {height: string, containerClass?: ClassValue} = $props();
+	}: WithElementRef<HTMLTableAttributes> & {height?: string, containerClass?: ClassValue} = $props();
 </script>
 
 <div data-slot="table-container" class={cn("relative w-full overflow-y-auto", containerClass)} style={`max-height: ${height}`}>
