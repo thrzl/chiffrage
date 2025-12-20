@@ -135,6 +135,7 @@
                         }}
                         readonly
                         class="resize-none"
+                        wrap="hard"
                     />
                 </section>
                 <section id="actions">

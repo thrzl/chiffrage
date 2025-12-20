@@ -100,6 +100,7 @@
                                             });
                                             if (keyFile && !name) name = getFileName(keyFile)!.split(".").shift()!;
                                         }}
+                                        class="truncate w-24"
                                         >{keyFile
                                             ? getFileName(keyFile)
                                             : "choose file"}</Button
@@ -113,7 +114,7 @@
                                     <p class="text-muted-foreground text-sm"
                                         >paste your key content</p
                                     >
-                                    <Textarea bind:value={keyContent} class="resize-none"/>
+                                    <Textarea bind:value={keyContent} class="resize-none" wrap="hard"/>
                             </div>
                         </Tabs.Content>
                     </Tabs.Root>
