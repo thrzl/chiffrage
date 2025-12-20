@@ -16,8 +16,9 @@
     let error = $state("");
     let message = $state("");
     let progress: Progress | null = $state(null);
-    let chosenKeys: string[] = $state([]);
+    let chosenKeys: string[] = $state(new URLSearchParams(window.location.search).get("keys")?.split(",") ?? []);
     let files: string[] | null = $state(null);
+
 
     let alertElement: HTMLDivElement | undefined = $state();
 
