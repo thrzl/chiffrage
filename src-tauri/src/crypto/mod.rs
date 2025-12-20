@@ -43,7 +43,7 @@ where
         .await
         .expect("failed to initialize writer");
 
-    let mut buffer = vec![0u8; 1024 * 1024 * 16]; // 4 MB buffer
+    let mut buffer = vec![0u8; 1024 * 1024 * 16]; // 16 MB buffer
 
     loop {
         let n = reader.read(&mut buffer).await.expect("failed to read file");
@@ -94,7 +94,9 @@ where
         }
     };
 
-    let mut buffer = vec![0u8; 1024 * 1024 * 16]; // 4 MB buffer
+    let target_size = 1024 * 1024 * 4; // only send at most every 4MB
+    let mut accumulator: usize = 0;
+    let mut buffer = vec![0u8; 1024 * 1024 * 16]; // 16 MB buffer
 
     loop {
         let n = decrypted_reader
@@ -108,8 +110,11 @@ where
             .write_all(&buffer[..n])
             .await
             .expect("failed to write"); // only write the new bytes
-
-        callback(n);
+        accumulator += n;
+        if accumulator >= target_size {
+            callback(accumulator);
+            accumulator = 0;
+        }
     }
 
     Ok(decrypted_output)

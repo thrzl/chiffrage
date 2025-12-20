@@ -1,18 +1,19 @@
 <script lang="ts">
     import { invoke, Channel } from "@tauri-apps/api/core";
     import { open } from "@tauri-apps/plugin-dialog";
-    import type { Key, Progress } from "$lib/main";
+    import { toast } from "svelte-sonner";
+    import type { Key, Progress as FileProgress } from "$lib/main";
     import * as Table from "$lib/components/ui/scroll-table";
     import * as Select from "$lib/components/ui/select/index";
     import Label from "$lib/components/ui/label/label.svelte";
     import Button from "$lib/components/ui/button/button.svelte";
+    import Spinner from "$lib/components/ui/spinner/spinner.svelte";
+    import { Progress } from "$lib/components/ui/progress";
     import { TrashIcon } from "@lucide/svelte";
-    import { getFileName } from "$lib/main";
+    import { getFileName, formatBytes } from "$lib/main";
 
-    let progress: Progress | null = $state(null);
-    let message = $state("");
+    let progress: FileProgress | null = $state(null);
     let chosenKey = $state("");
-    let error = $state("");
     let files: string[] | null = $state(null);
 
     async function chooseFile(event: Event) {
@@ -28,20 +29,16 @@
             await invoke("authenticate");
         }
         progress = null;
-        const channel = new Channel<Progress>();
+        const channel = new Channel<FileProgress>();
         channel.onmessage = (msg) => {
             progress = msg;
-            if (progress.read_bytes !== progress.total_bytes) {
-                return (message = `decrypting <br/>${progress.current_file}`);
-            }
-            message = "";
         };
         invoke("decrypt_file_cmd", {
             privateKey: chosenKey,
             reader: channel,
             files,
-        }).then()
-        .catch(e => error = e);
+        }).then(() => progress?.read_bytes === progress?.total_bytes)
+        .catch(e => toast.error(e));
     }
     let keyFetch: Key[] = $state(await invoke("fetch_keys"));
     let keys = keyFetch.filter(key => key.key_type === "Private");
@@ -55,7 +52,7 @@
         <div class="flex flex-row gap-2 justify-items-center justify-center mx-auto">
         <Select.Root type="single" name="target key" bind:value={chosenKey}>
           <Select.Trigger class="w-[180px] flex-grow">
-              <p>{#if chosenKey}<span class="font-bold">{keyMap[chosenKey].name}</span>{:else}choose key...{/if}</p>
+              <p>{#if chosenKey}<span class="font-bold">{keyMap[chosenKey].name}</span>{:else}choose recipient...{/if}</p>
           </Select.Trigger>
           <Select.Content>
               <Select.Group>
@@ -90,9 +87,19 @@
         </div>
         <Button
             onclick={decryptFile}
-            disabled={chosenKey.length === 0 || !files}
-            class="w-full mt-2">decrypt</Button
+            disabled={chosenKey.length === 0 || !files || (progress && progress.read_bytes !== progress.total_bytes)}
+            class="w-full mt-2 rounded-b-none">{#if progress && progress.read_bytes !== progress.total_bytes}<Spinner/> decrypting {progress.current_file.replace(/\.age$/,"")}
+                {:else}decrypt{/if}</Button
         >
+        <Progress
+            min={0}
+            max={progress?.total_bytes}
+            value={progress?.read_bytes}
+            class="rounded-t-none"
+            id="progress-bar"
+            style={`--primary: ${!progress || progress.read_bytes === 0 ? "inherit" : "lightgreen"}`}
+        />
+        <Label for="progress-bar" class="mt-2 text-xs text-center mx-auto block">{formatBytes(progress?.read_bytes || 0)} / {formatBytes(progress?.total_bytes || 0)}</Label>
     </form>
     <div class="w-3/4 mx-auto mt-4">
     <Label for="selected-files" class="mb-2">selected files</Label>
@@ -107,7 +114,7 @@
             {#if !files || files.length === 0}
                 <Table.Row class="pointer-events-none">
                     <Table.Cell class="truncate px-4 opacity-60">no files selected</Table.Cell>
-                    <Table.Cell class="text-center"><Button variant={"secondary"} class="cursor-pointer" disabled onclick={() => files = files!.length > 1 ? files!.filter((f) => f !== file) : null}><TrashIcon class="w-4"/></Button></Table.Cell>
+                    <Table.Cell class="text-center"><Button variant={"secondary"} class="cursor-pointer" disabled><TrashIcon class="w-4"/></Button></Table.Cell>
                 </Table.Row>
                 {:else}
             {#each files as file}
@@ -117,14 +124,5 @@
                 </Table.Row>{/each}{/if}
         </Table.Body>
     </Table.Root>
-        <!-- </ScrollArea> -->
-    <div
-        style="background-color: green; height: 10px"
-        style:width={progress
-            ? `${(progress.read_bytes / progress.total_bytes) * 100}%`
-            : "0"}
-    ></div>
-    <p>{@html message}</p>
-    <p>{error}</p>
     </div>
 </main>

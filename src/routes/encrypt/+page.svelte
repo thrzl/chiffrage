@@ -1,20 +1,21 @@
 <script lang="ts">
     import { invoke, Channel } from "@tauri-apps/api/core";
     import { open } from "@tauri-apps/plugin-dialog";
-    import type { Key, Progress } from "$lib/main";
-    import {getFileName} from "$lib/main"
+    import type { Key, Progress as FileProgress } from "$lib/main";
+    import {formatBytes, getFileName} from "$lib/main"
     import * as Table from "$lib/components/ui/scroll-table/index";
     import * as Alert from "$lib/components/ui/alert/index";
+    import Progress from "$lib/components/ui/progress/progress.svelte";
     import Label from "$lib/components/ui/label/label.svelte";
+    import Spinner from "$lib/components/ui/spinner/spinner.svelte";
     import {animate} from "motion/mini"
     import { TrashIcon, TriangleAlert } from "@lucide/svelte";
     import {andList} from "human-list";
     import * as Select from "$lib/components/ui/select/index.js";
     import Button from "$lib/components/ui/button/button.svelte";
+    import { toast } from "svelte-sonner";
 
-    let error = $state("");
-    let message = $state("");
-    let progress: Progress | null = $state(null);
+    let progress: FileProgress | null = $state(null);
     let chosenKeys: string[] = $state(new URLSearchParams(window.location.search).get("keys")?.split(",") ?? []);
     let files: string[] | null = $state(null);
 
@@ -32,28 +33,24 @@
     async function encryptFile(event: Event) {
         event.preventDefault();
         if (!files) {
-            error = "no file selected";
+            toast.error("no file selected");
             return;
         }
         if (chosenKeys.length === 0) {
-            error = "no key selected";
+            toast.error("no key selected");
             return;
         }
-        error = "";
         progress = null;
-        const channel = new Channel<Progress>();
+        const channel = new Channel<FileProgress>();
         channel.onmessage = (msg) => {
             progress = msg;
-            if (progress.read_bytes !== progress.total_bytes) {
-                return (message = `encrypting <br/>${progress.current_file}`);
-            }
-            message = "";
         };
-        error = await invoke("encrypt_file_cmd", {
+        let error: string = await invoke("encrypt_file_cmd", {
             publicKeys: chosenKeys,
             reader: channel,
             files,
         });
+        if (error) toast.error(error)
     }
     let keys: Key[] = $state(await invoke("fetch_keys"));
     let privateKeys = keys.filter(key => key.key_type === "Private");
@@ -70,13 +67,13 @@
 </script>
 
 <main class="container">
-    <h1 class="text-2xl font-bold mb-2">encrypt to key</h1>
+    <h1 class="text-2xl font-bold mb-2">encrypt</h1>
 
     <form onsubmit={chooseFile} class="w-3/4 mx-auto">
         <div class="flex flex-row gap-2 justify-items-center justify-center mx-auto">
         <Select.Root type="multiple" name="target keys" bind:value={chosenKeys} onValueChange={updateAlert}>
           <Select.Trigger class="w-[180px] flex-grow">
-            <p>{@html chosenKeys.length > 0 ? andList(chosenKeys.map(id => `<span class="font-bold">${keyMap[id].name}</span>`)) : "choose keys..."}</p>
+            <p>{@html chosenKeys.length > 0 ? andList(chosenKeys.map(id => `<span class="font-bold">${keyMap[id].name}</span>`)) : "choose recipients..."}</p>
           </Select.Trigger>
           <Select.Content>
             {#if publicKeys.length > 0}
@@ -130,9 +127,19 @@
         </Alert.Root></div>
         <Button
             onclick={encryptFile}
-            disabled={chosenKeys.length === 0 || !files}
-            class="w-full mt-2">encrypt</Button
+            disabled={chosenKeys.length === 0 || !files || (progress && progress.read_bytes !== progress.total_bytes)}
+            class="w-full mt-2 rounded-b-none truncate">{#if progress && progress.read_bytes !== progress.total_bytes}<Spinner/> encrypting {progress.current_file}
+                {:else}encrypt{/if}</Button
         >
+        <Progress
+            min={0}
+            max={progress?.total_bytes}
+            value={progress?.read_bytes}
+            class="rounded-t-none"
+            id="progress-bar"
+            style={`--primary: ${!progress || progress.read_bytes === 0 ? "inherit" : "lightgreen"}`}
+        />
+        <Label for="progress-bar" class="mt-2 text-xs text-center mx-auto block">{formatBytes(progress?.read_bytes || 0)} / {formatBytes(progress?.total_bytes || 0)}</Label>
     </form>
     <div class="w-3/4 mx-auto mt-4">
     <Label for="selected-files" class="mb-2">selected files</Label>
@@ -147,7 +154,7 @@
         {#if !files || files.length === 0}
             <Table.Row class="pointer-events-none">
                 <Table.Cell class="truncate px-4 opacity-60">no files selected</Table.Cell>
-                <Table.Cell class="text-center"><Button variant={"secondary"} class="cursor-pointer" disabled onclick={() => files = files!.length > 1 ? files!.filter((f) => f !== file) : null}><TrashIcon class="w-4"/></Button></Table.Cell>
+                <Table.Cell class="text-center"><Button variant={"secondary"} class="cursor-pointer" disabled><TrashIcon class="w-4"/></Button></Table.Cell>
             </Table.Row>
             {:else}
             {#each files as file}
@@ -160,14 +167,6 @@
     </Table.Root>
         <!-- </ScrollArea> -->
     </div>
-    <div
-        style="background-color: green; height: 10px"
-        style:width={progress
-            ? `${(progress.read_bytes / progress.total_bytes) * 100}%`
-            : "0"}
-    ></div>
-    <p>{@html message}</p>
-    <p>{error}</p>
 </main>
 
 <style>
