@@ -124,11 +124,13 @@ where
 pub fn keys_to_x25519_recipients(
     public_keys: &Vec<String>,
 ) -> Result<Vec<x25519::Recipient>, String> {
-    let mut keys_iter = public_keys
+    let keys_iter: Result<Vec<x25519::Recipient>, _> = public_keys
         .iter()
-        .map(|key| -> Result<x25519::Recipient, &str> { key.parse::<x25519::Recipient>() });
-    if keys_iter.any(|key_res| key_res.is_err()) {
-        return Err("failed to parse key(s)".to_string());
+        .map(|key| key.parse::<x25519::Recipient>())
+        .collect();
+    if let Err(e) = keys_iter {
+        return Err(format!("failed to parse key(s): {e}"));
+    } else {
+        return Ok(keys_iter.unwrap());
     }
-    Ok(keys_iter.map(|key_res| key_res.unwrap()).collect())
 }
