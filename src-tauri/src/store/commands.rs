@@ -302,7 +302,7 @@ pub async fn authenticate(
         let tx = Arc::new(Mutex::new(Some(tx)));
         let tx2 = tx.clone();
         webview.on_window_event(move |event| {
-            if matches!(event, WindowEvent::CloseRequested { api, .. }) {
+            if matches!(event, WindowEvent::CloseRequested { .. }) {
                 if let Some(tx) = tx
                     .clone()
                     .lock()
