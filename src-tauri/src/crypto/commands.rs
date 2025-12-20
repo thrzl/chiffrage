@@ -1,7 +1,9 @@
-use crate::crypto;
+use crate::crypto::{self, WildcardRecipient};
 use crate::AppState;
 use futures_util::future::join_all;
 use secrecy::ExposeSecret;
+use secrecy::SecretString;
+use serde::Deserialize;
 use serde_json::json;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicUsize;
@@ -9,24 +11,43 @@ use std::sync::{Arc, Mutex};
 use tauri_plugin_opener::reveal_items_in_dir;
 use tokio::fs::metadata;
 
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum EncryptionMethod {
+    PublicKeys(Vec<String>),
+    Scrypt(String),
+}
+
 #[tauri::command]
 pub async fn encrypt_file(
-    public_keys: Vec<String>,
+    recipient: EncryptionMethod,
     reader: tauri::ipc::Channel<serde_json::Value>,
     files: Vec<String>,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
-    let key_contents = {
-        let state = state.lock().expect("failed to get lock on state");
-        let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
-        let vault = match vault_handle.lock() {
-            Ok(vault) => vault,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        public_keys
-            .iter()
-            .map(|key| vault.get_key(key).unwrap().contents.public.clone())
-            .collect::<Vec<String>>()
+    let recipients: Vec<Box<WildcardRecipient>> = match recipient {
+        EncryptionMethod::PublicKeys(public_keys) => {
+            let state = state.lock().expect("failed to get lock on state");
+            let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
+            let vault = match vault_handle.lock() {
+                Ok(vault) => vault,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            let key_contents = public_keys
+                .iter()
+                .map(|key| vault.get_key(key).unwrap().contents.public.clone())
+                .collect::<Vec<String>>();
+            crypto::keys_to_x25519_recipients(&key_contents)?
+                .into_iter()
+                .map(|recipient| Box::new(recipient) as Box<WildcardRecipient>)
+                .collect()
+        }
+        EncryptionMethod::Scrypt(password) => {
+            vec![
+                Box::new(age::scrypt::Recipient::new(SecretString::from(password)))
+                    as Box<WildcardRecipient>,
+            ]
+        }
     };
     let total_bytes: u64 = join_all(files.iter().map(async |path| {
         metadata(path)
@@ -40,7 +61,6 @@ pub async fn encrypt_file(
     let total_read_bytes = Arc::new(AtomicUsize::new(0));
     let reader = Arc::new(reader);
     let mut output_paths = Vec::new();
-    let recipients = crypto::keys_to_x25519_recipients(&key_contents)?;
 
     for file in files {
         let total_read_bytes = total_read_bytes.clone();

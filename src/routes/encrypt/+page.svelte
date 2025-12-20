@@ -46,7 +46,7 @@
             progress = msg;
         };
         let error: string = await invoke("encrypt_file", {
-            publicKeys: chosenKeys,
+            recipient: chosenKeys,
             reader: channel,
             files,
         });

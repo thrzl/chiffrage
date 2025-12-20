@@ -11,9 +11,12 @@ use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
+/// can be any type that implements `age::Recipient`. `Send + Sync` for async compat
+pub type WildcardRecipient = dyn Recipient + Send + Sync;
+
 /// every time a new chunk is encrypted, the callback will be run with the amount of bytes that were encrypted
 pub async fn encrypt_file<F>(
-    recipients: &Vec<impl Recipient>,
+    recipients: &Vec<Box<WildcardRecipient>>,
     file_path: &PathBuf,
     mut callback: F,
 ) -> Result<PathBuf, String>
@@ -31,9 +34,12 @@ where
         .expect("failed to get handle on output file");
     let file_writer = BufWriter::new(output).compat_write();
 
-    let encryptor =
-        age::Encryptor::with_recipients(recipients.iter().map(|recipient| recipient as _))
-            .expect("encryptor initialization failed");
+    let encryptor = age::Encryptor::with_recipients(
+        recipients
+            .iter()
+            .map(|recipient| &**recipient as &dyn Recipient), // bro wtf
+    )
+    .expect("encryptor initialization failed");
 
     let mut writer = encryptor
         .wrap_async_output(file_writer)
