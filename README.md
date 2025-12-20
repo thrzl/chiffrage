@@ -26,14 +26,14 @@ xattr -c /Applications/chiffrage.app
 ## todo
 - [x] secure storage backend in tauri
 - [x] age backend in tauri
-- [ ] complete frontend
-- [ ] implement key management
+- [x] complete frontend
+- [x] implement key management
     - [x] keypair generation
     - [ ] metadata editor + notes
     - [x] key export
     - [x] key import
 - [ ] encrypt folders
-- [ ] encrypt multiple files
+- [x] encrypt multiple files
 - [ ] password encryption
 - [x] automated builds
 
