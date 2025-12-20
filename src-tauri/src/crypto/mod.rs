@@ -43,7 +43,7 @@ where
         .await
         .expect("failed to initialize writer");
 
-    let mut buffer = vec![0u8; 1024 * 1024 * 4]; // 4 MB buffer
+    let mut buffer = vec![0u8; 1024 * 1024 * 16]; // 4 MB buffer
 
     loop {
         let n = reader.read(&mut buffer).await.expect("failed to read file");
@@ -94,7 +94,7 @@ where
         }
     };
 
-    let mut buffer = vec![0u8; 1024 * 1024 * 4]; // 4 MB buffer
+    let mut buffer = vec![0u8; 1024 * 1024 * 16]; // 4 MB buffer
 
     loop {
         let n = decrypted_reader
