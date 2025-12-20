@@ -22,6 +22,8 @@
     "@zxcvbn-ts/language-en": "^3.0.2",
     "clsx": "^2.1.1",
     "hotkeys-js": "^4.0.0-beta.7",
+    "human-list": "^0.0.1",
+    "motion": "^12.23.26",
     "svelte-sonner": "^1.0.7",
     "tailwind-merge": "^3.4.0",
     "tailwind-variants": "^3.2.2",
