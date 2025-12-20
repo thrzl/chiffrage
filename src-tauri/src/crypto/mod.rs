@@ -1,19 +1,19 @@
 // higher-level age functions to be called from the frontend
 
 mod commands;
-use age::x25519::Recipient;
+use age::x25519;
 use age::Decryptor;
+use age::{Identity, Recipient};
 pub use commands::*;
 use futures_util::{AsyncReadExt as FuturesReadExt, AsyncWriteExt as FuturesWriteExt};
 use std::path::PathBuf;
-use std::str::FromStr;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
 /// every time a new chunk is encrypted, the callback will be run with the amount of bytes that were encrypted
 pub async fn encrypt_file<F>(
-    public_keys: &Vec<String>,
+    recipients: &Vec<impl Recipient>,
     file_path: &PathBuf,
     mut callback: F,
 ) -> Result<PathBuf, String>
@@ -31,12 +31,9 @@ where
         .expect("failed to get handle on output file");
     let file_writer = BufWriter::new(output).compat_write();
 
-    let encryptor = age::Encryptor::with_recipients(
-        keys_to_recipients(public_keys.clone())
-            .iter()
-            .map(|recipient| recipient as _),
-    )
-    .expect("encryptor initialization failed");
+    let encryptor =
+        age::Encryptor::with_recipients(recipients.iter().map(|recipient| recipient as _))
+            .expect("encryptor initialization failed");
 
     let mut writer = encryptor
         .wrap_async_output(file_writer)
@@ -62,7 +59,7 @@ where
 }
 
 pub async fn decrypt_file<F>(
-    private_key: String,
+    identity: &impl Identity,
     file_path: &PathBuf,
     mut callback: F,
 ) -> Result<PathBuf, String>
@@ -81,9 +78,7 @@ where
     let mut file_writer = BufWriter::new(output);
 
     let mut decrypted_reader = {
-        let result = decryptor.decrypt_async(std::iter::once(
-            &age::x25519::Identity::from_str(private_key.as_str()).unwrap() as &dyn age::Identity,
-        ));
+        let result = decryptor.decrypt_async(std::iter::once(identity as &dyn age::Identity));
         if let Ok(decryptor_reader) = result {
             decryptor_reader
         } else {
@@ -120,50 +115,14 @@ where
     Ok(decrypted_output)
 }
 
-pub fn keys_to_recipients(public_keys: Vec<String>) -> Vec<Recipient> {
-    return public_keys
+pub fn keys_to_x25519_recipients(
+    public_keys: &Vec<String>,
+) -> Result<Vec<x25519::Recipient>, String> {
+    let mut keys_iter = public_keys
         .iter()
-        .map(|key| -> Result<Recipient, String> {
-            Ok(key
-                .parse::<Recipient>()
-                .expect(&format!("could not parse recipient from key: {}", key)))
-        })
-        .filter_map(|recipient: Result<Recipient, _>| recipient.ok())
-        .collect::<Vec<Recipient>>();
-}
-
-pub async fn encrypt_bytes(public_keys: Vec<String>, bytes: &[u8]) -> Vec<u8> {
-    // TODO need to make error handling not be terrible here. you dont want to encrypt something to nobody
-    let recipients = public_keys
-        .iter()
-        .map(|key| -> Result<Recipient, String> {
-            Ok(key
-                .parse::<Recipient>()
-                .expect(&format!("could not parse recipient from key: {}", key)))
-        })
-        .filter_map(|recipient: Result<Recipient, _>| recipient.ok())
-        .collect::<Vec<Recipient>>();
-
-    let encryptor =
-        age::Encryptor::with_recipients(recipients.iter().map(|recipient| recipient as _))
-            .expect("encryptor initialization failed");
-
-    let mut encrypted_output = vec![];
-    let mut writer = encryptor
-        .wrap_async_output(&mut encrypted_output)
-        .await
-        .expect("failed to initialize writer");
-
-    writer
-        .write_all(bytes)
-        .await
-        .expect("failed to write bytes");
-    writer.finish().expect("failed to write final chunk");
-
-    return encrypted_output;
-}
-
-#[tauri::command]
-pub async fn encrypt_text(public_keys: Vec<String>, text: String) -> Vec<u8> {
-    return encrypt_bytes(public_keys, text.as_bytes()).await;
+        .map(|key| -> Result<x25519::Recipient, &str> { key.parse::<x25519::Recipient>() });
+    if keys_iter.any(|key_res| key_res.is_err()) {
+        return Err("failed to parse key(s)".to_string());
+    }
+    Ok(keys_iter.map(|key_res| key_res.unwrap()).collect())
 }

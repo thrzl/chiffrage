@@ -50,7 +50,6 @@ pub fn run() {
             store::create_vault,
             store::vault_exists,
             crypto::generate_keypair,
-            crypto::encrypt_text,
             crypto::encrypt_file_cmd,
             crypto::decrypt_file_cmd,
             store::export_key,
