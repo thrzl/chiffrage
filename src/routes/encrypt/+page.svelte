@@ -108,9 +108,9 @@
                 <Tabs.Trigger value="pass">passphrase</Tabs.Trigger>
             </Tabs.List>
         <div class="flex flex-row gap-2 justify-items-center justify-center mx-auto w-full">
-            <Tabs.Content value="key" class="flex-grow w-[180px] mb-2">
+            <Tabs.Content value="key" class="grow w-45 mb-2">
                 <Select.Root type="multiple" name="target keys" bind:value={chosenKeys}>
-                    <Select.Trigger class="flex-grow w-full">
+                    <Select.Trigger class="grow w-full">
                         <p>{@html chosenKeys.length > 0 ? andList(chosenKeys.map(id => `<span class="font-bold">${keyMap[id].name}</span>`)) : "choose recipients..."}</p>
                     </Select.Trigger>
                     <Select.Content>
@@ -152,7 +152,7 @@
                     </Select.Content>
                 </Select.Root>
             </Tabs.Content>
-            <Tabs.Content value="pass" class="flex-grow w-[180px]">
+            <Tabs.Content value="pass" class="grow w-45">
                 <PasswordBox bind:password={password} bind:strength={strength} textAlign={"left"}/>
             </Tabs.Content>
                 <Button onclick={chooseFile} variant={"secondary"}

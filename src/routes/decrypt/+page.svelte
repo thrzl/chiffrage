@@ -63,7 +63,7 @@
             <Tabs.Trigger value="Scrypt">passphrase</Tabs.Trigger>
         </Tabs.List>
         <div class="flex flex-row gap-2 justify-items-center justify-center mx-auto w-full">
-            <Tabs.Content value="X25519" class="flex-grow w-[180px]">
+            <Tabs.Content value="X25519" class="grow w-45">
         <Select.Root type="single" name="target key" bind:value={chosenKey}>
           <Select.Trigger class="w-full">
               <p>{#if chosenKey}<span class="font-bold">{keyMap[chosenKey].name}</span>{:else}choose recipient...{/if}</p>
@@ -94,7 +94,7 @@
           </Select.Content>
         </Select.Root>
             </Tabs.Content>
-            <Tabs.Content value="Scrypt" class="flex-grow w-[180px]">
+            <Tabs.Content value="Scrypt" class="grow w-45">
                 <PasswordBox bind:password={password} showMeter={false} showGenerate={false}/>
             </Tabs.Content>
         <Button onclick={chooseFile} variant={"secondary"}
