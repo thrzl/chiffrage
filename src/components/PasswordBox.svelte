@@ -67,7 +67,6 @@
                 : "red",
     );
     async function generatePassphrase() {
-      inputElement!.focus()
       password = await invoke("generate_passphrase");
       strength = zxcvbn(password);
       showPassword = true;
