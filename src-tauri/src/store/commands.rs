@@ -291,6 +291,7 @@ pub async fn authenticate(
                 tauri::WebviewUrl::App("unlock".into()),
             )
             .title("authentication required")
+            .visible(false)
             .build()
             .expect("failed to open auth window")
         });
