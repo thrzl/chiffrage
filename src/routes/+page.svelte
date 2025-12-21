@@ -81,7 +81,7 @@
             </Table.Body>
         </Table.Root>
     {:else}
-        <Empty.Root class="!p-0 max-h-48 m-8">
+        <Empty.Root class="p-0! max-h-48 m-8">
             <Empty.Header>
                 <Empty.Media variant="icon">
                     <KeyIcon />
