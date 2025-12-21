@@ -21,29 +21,21 @@ jobs:
       - name: fetch tags
         run: git fetch --tags --prune
 
-      - name: install v
-        uses: vlang/setup-v@v1.4
-
       - name: compare tags
         id: get-tag
         run:
           | # much inspiration from github.com/imputnet/helium/.github/workflows/release-and-tag.yml
-          NEW_VERSION=$(v run version.v)
+          NEW_VERSION=$(jq -r .version src-tauri/tauri.conf.json)
           echo "current version: $NEW_VERSION"
 
           LATEST_TAG=$(git describe --tags --abbrev=0)
           echo "checking out $LATEST_TAG"
           git checkout "tags/$LATEST_TAG" -b release-$LATEST_TAG
-          OLD_VERSION=$(v run version.v)
+          OLD_VERSION=$(jq -r .version src-tauri/tauri.conf.json)
           echo "old version: $OLD_VERSION"
 
           if [ "$OLD_VERSION" != "$NEW_VERSION" ]; then
             echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-            {
-              printf '### changes\n```\n'
-              git log --oneline "$OLD_VERSION.."
-              echo '```'
-            } | tee body.md
           fi
 
       - name: create tag

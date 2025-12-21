@@ -55,11 +55,16 @@ jobs:
       - name: install frontend dependencies
         run: bun install
 
+      - name: get last tag
+        id: get-tag
+        run: echo "last-tag=git describe --tags --abbrev=0" >> "$GITHUB_OUTPUT"
+
       - name: build changelog
         id: build-changelog
         uses: mikepenz/release-changelog-builder-action@v6.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fromTag: ${{ steps.get-tag.outputs.version }}
           toTag: ${{ env.TAG_NAME }}
 
       - uses: tauri-apps/tauri-action@v0.6.0
