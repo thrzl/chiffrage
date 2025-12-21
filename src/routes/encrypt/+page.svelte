@@ -26,7 +26,7 @@
     let password = $state("");
     let strength = $state<ZxcvbnResult | null>(null);
     let alertElement: HTMLDivElement | undefined = $state();
-    let alert: {title: string, description: string} | undefined = $state(undefined);
+
 
     async function chooseFile(event: Event) {
         event.preventDefault();
@@ -67,40 +67,43 @@
     let publicKeys = keys.filter(key => key.key_type === "Public");
     let keyMap = $derived(Object.fromEntries(keys.map(key => ([key.id, key]))));
 
-  async function updateAlert() {
-      if (!alertElement) return
-      // let shouldAlert = false;
-      if ((encryptMethod === "key" && chosenKeys.length === 0) || (encryptMethod === "pass" && password.length <= 3)) {
-        alert = undefined;
-        return animate(alertElement, {
-          height: "0px"
-        }, { duration: 0.2, ease: "easeOut" }).then(() => alertElement!.style.marginBottom = "0")
-      }
-      if (encryptMethod === "key" && !(chosenKeys.length === 0 || chosenKeys.some(id => keyMap[id].key_type === "Private"))) {
-        alert = {title: "consider adding a private key", description: "if you do not encrypt to one of your own keys, you will not be able to decrypt this file later."}
-      } else if (encryptMethod === "pass" && strength && strength.guessesLog10 < 5) {
-        let feedback = strength.feedback;
-        alert = {title: "weak password", description: `${feedback.warning ? (feedback.warning.toLocaleLowerCase() + " "): ""}${feedback.suggestions[0].toLocaleLowerCase()}` || "this password is not very secure."}
-      } else {
-        console.log("no alert")
-        alert = undefined
-        return animate(alertElement, {
-          height: "0px"
-        }, { duration: 0.2, ease: "easeOut" }).then(() => alertElement!.style.marginBottom = "0")
-      }
-      await new Promise(resolve => setTimeout(resolve, 10)); // small sleep just to allow the dom to update
-      animate(alertElement, {
-        height: `${alertElement.scrollHeight}px`
-      }, { duration: 0.2, ease: "easeOut" }).then(() => alertElement!.style.marginBottom = "0.5rem")
-    }
-    // listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
+  let alert: { title: string; description: string } | undefined = $derived.by(
+      () => {
+          if (!alertElement) return;
+          if (encryptMethod === "key" && !(chosenKeys.length === 0 || chosenKeys.some(id => keyMap[id].key_type === "Private"))) {
+             return {title: "consider adding a private key", description: "if you do not encrypt to one of your own keys, you will not be able to decrypt this file later."}
+          } else if (encryptMethod === "pass" && strength && strength.guessesLog10 < 5) {
+              let feedback = strength.feedback;
+              return {
+                  title: "weak password",
+                  description:
+                      `${feedback.warning ? feedback.warning.toLocaleLowerCase() + " " : ""}${feedback.suggestions[0].toLocaleLowerCase()}` ||
+                      "this password is not very secure.",
+              };
+          }
+      },
+  );
+  $effect(() => {
+      if (!alertElement) return;
+      animate(
+          alertElement,
+          {
+              height: `${alert ? alertElement.scrollHeight : "0"}px`,
+          },
+          { duration: 0.2, ease: "easeOut" },
+      ).then(() => {
+          if (!alertElement) return;
+          let margin = alert ? "0.5rem" : "0rem";
+          alertElement.style.marginBottom = margin;
+      });
+  });
 </script>
 
 <main class="container">
     <h1 class="text-2xl font-bold mb-2">encrypt</h1>
 
     <form onsubmit={chooseFile} class="w-4/5 mx-auto">
-            <Tabs.Root bind:value={encryptMethod}><Tabs.List class="w-full">
+            <Tabs.Root bind:value={encryptMethod} onValueChange={(v) => v === "key" ? password = "" : chosenKeys = []}><Tabs.List class="w-full">
                 <Tabs.Trigger value="key">keys</Tabs.Trigger>
                 <Tabs.Trigger value="pass">passphrase</Tabs.Trigger>
             </Tabs.List>
@@ -150,7 +153,7 @@
                 </Select.Root>
             </Tabs.Content>
             <Tabs.Content value="pass" class="flex-grow w-[180px]">
-                <PasswordBox bind:password={password} bind:strength={strength} oninput={() => updateAlert()} textAlign={"left"}/>
+                <PasswordBox bind:password={password} bind:strength={strength} textAlign={"left"}/>
             </Tabs.Content>
                 <Button onclick={chooseFile} variant={"secondary"}
                     >{files

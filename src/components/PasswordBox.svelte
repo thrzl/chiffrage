@@ -19,7 +19,7 @@
         showCrackTime?: boolean;
         placeholder?: string;
         strength?: ZxcvbnResult | null;
-        oninput?: undefined | ((e: Event) => Promise<void>);
+        oninput?: undefined | ((e: Event) => void | Promise<void>);
         textAlign?: "left" | "center" | "right"
     } = $props();
     let inputElement = $state<HTMLInputElement | null>(null);
@@ -72,6 +72,7 @@
       strength = zxcvbn(password);
       showPassword = true;
     }
+    $effect(() => {if (password.length > 3) {strength = zxcvbn(password)} else strength = null})
 </script>
 
 <InputGroup.Root bind:ref={inputGroupElement} class={showMeter ? "rounded-b-none" : ""} onfocusout={() => showPassword = false}>
@@ -82,12 +83,7 @@
         {placeholder}
         bind:value={password}
         bind:ref={inputElement}
-        oninput={async (e: Event) => {
-          strength = zxcvbn(password);
-          if (callback) {
-              await callback(e)
-          }}
-        }
+        oninput={callback}
     />
     <InputGroup.Addon align="inline-end">
         <InputGroup.Button
