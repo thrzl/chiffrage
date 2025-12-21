@@ -63,6 +63,7 @@ jobs:
 
       - name: trigger build
         uses: actions/github-script@v8
+        if: steps.get-tag.outputs.version
         with:
           script: |
             await github.rest.actions.createWorkflowDispatch({
