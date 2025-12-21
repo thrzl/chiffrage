@@ -78,13 +78,13 @@
     let keys = ((await invoke("fetch_keys")) as Key[]).map((key) => key.name);
 
     let alert = $derived.by(async () => {
+        if (keys.includes(name)) {
+            return {
+                title: "key name already in use",
+                description: "a key with this name already exists",
+            };
+        }
         if (currentTab === "paste") {
-            if (keys.includes(name)) {
-                return {
-                    title: "key name already in use",
-                    description: "a key with this name already exists",
-                };
-            }
             if (keyContent) {
                 try {
                     bech32.decode(keyContent.trim());
@@ -185,7 +185,6 @@
                     </Tabs.Root>
                 </div>
             </div>
-            {@debug alert}
             <!-- {#await alert then alert} -->
             <SlideAlert bind:alert />
             <!-- {/await} -->
