@@ -95,7 +95,7 @@
 >
     <form>
         <Dialog.Content
-            class="sm:max-w-[425px]"
+            class="sm:max-w-106.25"
             onkeydown={async (event) => {
                 if (event.key === "Enter") await import_key();
             }}

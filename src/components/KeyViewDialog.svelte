@@ -114,7 +114,7 @@
     }}
 >
     <form>
-        <Dialog.Content class="sm:max-w-[425px]">
+        <Dialog.Content class="sm:max-w-106.25">
             <Dialog.Header>
                 <Dialog.Description>key details</Dialog.Description>
                 <Dialog.Title class="font-bold"
