@@ -4,19 +4,18 @@
     import type { Key, Progress as FileProgress } from "$lib/main";
     import {formatBytes, getFileName} from "$lib/main"
     import * as Table from "$lib/components/ui/scroll-table/index";
-    import * as Alert from "$lib/components/ui/alert/index";
     import * as Tabs from "$lib/components/ui/tabs/index";
     import Progress from "$lib/components/ui/progress/progress.svelte";
     import Label from "$lib/components/ui/label/label.svelte";
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
-    import {animate} from "motion/mini"
-    import { TrashIcon, TriangleAlert } from "@lucide/svelte";
+    import { TrashIcon } from "@lucide/svelte";
     import {andList} from "human-list";
     import * as Select from "$lib/components/ui/select/index.js";
     import Button from "$lib/components/ui/button/button.svelte";
     import { toast } from "svelte-sonner";
     import PasswordBox from "../../components/PasswordBox.svelte";
     import type { ZxcvbnResult } from "@zxcvbn-ts/core";
+    import SlideAlert from "../../components/SlideAlert.svelte";
 
     let progress: FileProgress | null = $state(null);
     let chosenKeys: string[] = $state(new URLSearchParams(window.location.search).get("keys")?.split(",") ?? []);
@@ -25,7 +24,6 @@
 
     let password = $state("");
     let strength = $state<ZxcvbnResult | null>(null);
-    let alertElement: HTMLDivElement | undefined = $state();
 
 
     async function chooseFile(event: Event) {
@@ -69,7 +67,6 @@
 
   let alert: { title: string; description: string } | undefined = $derived.by(
       () => {
-          if (!alertElement) return;
           if (encryptMethod === "key" && !(chosenKeys.length === 0 || chosenKeys.some(id => keyMap[id].key_type === "Private"))) {
              return {title: "consider adding a private key", description: "if you do not encrypt to one of your own keys, you will not be able to decrypt this file later."}
           } else if (encryptMethod === "pass" && strength && strength.guessesLog10 < 5) {
@@ -83,20 +80,6 @@
           }
       },
   );
-  $effect(() => {
-      if (!alertElement) return;
-      animate(
-          alertElement,
-          {
-              height: `${alert ? alertElement.scrollHeight : "0"}px`,
-          },
-          { duration: 0.2, ease: "easeOut" },
-      ).then(() => {
-          if (!alertElement) return;
-          let margin = alert ? "0.5rem" : "0rem";
-          alertElement.style.marginBottom = margin;
-      });
-  });
 </script>
 
 <main class="container">
@@ -162,12 +145,7 @@
                 >
         </div>
             </Tabs.Root>
-        <div bind:this={alertElement} class="text-left overflow-hidden mb-0 h-0">
-        <Alert.Root>
-            <TriangleAlert />
-            <Alert.Title>{alert?.title}</Alert.Title>
-            <Alert.Description>{alert?.description}</Alert.Description>
-        </Alert.Root></div>
+        <SlideAlert bind:alert />
         <Button
             onclick={encryptFile}
             disabled={(encryptMethod === "key" ? chosenKeys.length  : password.length) === 0 || !files || (progress && progress.read_bytes !== progress.total_bytes)}
