@@ -34,7 +34,7 @@ xattr -c /Applications/chiffrage.app
     - [x] key import
 - [ ] encrypt folders
 - [x] encrypt multiple files
-- [ ] password encryption
+- [x] password encryption
 - [x] automated builds
 
 ## contributing
