@@ -1,6 +1,8 @@
 <script lang="ts">
     import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-    import { VaultIcon, FileLockIcon, FileKeyIcon, PanelLeft} from "@lucide/svelte";
+    import HelpDialog from "./HelpDialog.svelte";
+    import Button from "$lib/components/ui/button/button.svelte";
+    import { VaultIcon, FileLockIcon, FileKeyIcon, PanelLeft, CircleQuestionMarkIcon } from "@lucide/svelte";
     import {page} from "$app/state"
 
     const items = [
@@ -10,6 +12,7 @@
         // { title: "settings", url: "settings", icon: SettingsIcon }
     ];
     const sidebar = Sidebar.useSidebar();
+    let helpOpen = $state(false);
 </script>
 
 <Sidebar.Root variant="floating" collapsible="icon" class="ease-out">
@@ -45,4 +48,10 @@
               </Sidebar.GroupContent>
             </Sidebar.Group>
     </Sidebar.Content>
+    <Sidebar.Footer>
+        <Button class="w-full" variant="ghost" onclick={() => helpOpen = true}>
+            <CircleQuestionMarkIcon />
+        </Button>
+    </Sidebar.Footer>
 </Sidebar.Root>
+<HelpDialog bind:open={helpOpen} />
