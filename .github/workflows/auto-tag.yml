@@ -39,11 +39,22 @@ jobs:
             echo "old-version=$OLD_VERSION" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: create tag
+      - name: create/update tag
         if: steps.get-tag.outputs.version
-        id: create-tag
-        uses: anothrNick/github-tag-action@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CUSTOM_TAG: ${{ steps.get-tag.outputs.version }}
-          INITIAL_VERSION: ${{ steps.get-tag.outputs.old-version }}
+        uses: actions/github-script@v8
+        with: # from https://stackoverflow.com/a/78010013
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'refs/tags/v${{ steps.get-tag.outputs.version }}',
+              sha: context.sha
+            }).catch(err => {
+              if (err.status !== 422) throw err;
+              github.rest.git.updateRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'tags/v${{ steps.get-tag.outputs.version }}',
+                sha: context.sha
+              });
+            })
