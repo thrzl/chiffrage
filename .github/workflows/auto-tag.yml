@@ -40,6 +40,7 @@ jobs:
           fi
 
       - name: create/update tag
+        id: create-tag
         if: steps.get-tag.outputs.version
         uses: actions/github-script@v8
         with: # from https://stackoverflow.com/a/78010013
@@ -57,4 +58,18 @@ jobs:
                 ref: 'tags/v${{ steps.get-tag.outputs.version }}',
                 sha: context.sha
               });
+            })
+
+      - name: trigger build
+        uses: actions/github-script@v8
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'build-on-tag.yml',
+              ref: 'refs/tags/v${{ steps.get-tag.outputs.version }}',
+              inputs: {
+                tagName: 'v${{ steps.get-tag.outputs.version }}',
+              },
             })
