@@ -74,7 +74,7 @@
         alert = undefined;
         return animate(alertElement, {
           height: "0px"
-        }, { duration: 0.2, ease: "easeOut" }).then(() => alertElement!.style.marginTop = "0")
+        }, { duration: 0.2, ease: "easeOut" }).then(() => alertElement!.style.marginBottom = "0")
       }
       if (encryptMethod === "key" && !(chosenKeys.length === 0 || chosenKeys.some(id => keyMap[id].key_type === "Private"))) {
         alert = {title: "consider adding a private key", description: "if you do not encrypt to one of your own keys, you will not be able to decrypt this file later."}
@@ -86,12 +86,12 @@
         alert = undefined
         return animate(alertElement, {
           height: "0px"
-        }, { duration: 0.2, ease: "easeOut" }).then(() => alertElement!.style.marginTop = "0")
+        }, { duration: 0.2, ease: "easeOut" }).then(() => alertElement!.style.marginBottom = "0")
       }
       await new Promise(resolve => setTimeout(resolve, 10)); // small sleep just to allow the dom to update
       animate(alertElement, {
         height: `${alertElement.scrollHeight}px`
-      }, { duration: 0.2, ease: "easeOut" }).then(() => alertElement!.style.marginTop = "0.5rem")
+      }, { duration: 0.2, ease: "easeOut" }).then(() => alertElement!.style.marginBottom = "0.5rem")
     }
     // listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
 </script>
@@ -99,13 +99,13 @@
 <main class="container">
     <h1 class="text-2xl font-bold mb-2">encrypt</h1>
 
-    <form onsubmit={chooseFile} class="w-3/4 mx-auto">
+    <form onsubmit={chooseFile} class="w-4/5 mx-auto">
             <Tabs.Root bind:value={encryptMethod}><Tabs.List class="w-full">
                 <Tabs.Trigger value="key">keys</Tabs.Trigger>
                 <Tabs.Trigger value="pass">passphrase</Tabs.Trigger>
             </Tabs.List>
         <div class="flex flex-row gap-2 justify-items-center justify-center mx-auto w-full">
-            <Tabs.Content value="key" class="flex-grow w-[180px]">
+            <Tabs.Content value="key" class="flex-grow w-[180px] mb-2">
                 <Select.Root type="multiple" name="target keys" bind:value={chosenKeys}>
                     <Select.Trigger class="flex-grow w-full">
                         <p>{@html chosenKeys.length > 0 ? andList(chosenKeys.map(id => `<span class="font-bold">${keyMap[id].name}</span>`)) : "choose recipients..."}</p>
@@ -150,7 +150,7 @@
                 </Select.Root>
             </Tabs.Content>
             <Tabs.Content value="pass" class="flex-grow w-[180px]">
-                <PasswordBox bind:password={password} bind:strength={strength} oninput={() => updateAlert()}/>
+                <PasswordBox bind:password={password} bind:strength={strength} oninput={() => updateAlert()} textAlign={"left"}/>
             </Tabs.Content>
                 <Button onclick={chooseFile} variant={"secondary"}
                     >{files
@@ -159,7 +159,7 @@
                 >
         </div>
             </Tabs.Root>
-        <div bind:this={alertElement} class="text-left overflow-hidden mt-0 h-0">
+        <div bind:this={alertElement} class="text-left overflow-hidden mb-0 h-0">
         <Alert.Root>
             <TriangleAlert />
             <Alert.Title>{alert?.title}</Alert.Title>
@@ -168,7 +168,7 @@
         <Button
             onclick={encryptFile}
             disabled={(encryptMethod === "key" ? chosenKeys.length  : password.length) === 0 || !files || (progress && progress.read_bytes !== progress.total_bytes)}
-            class="w-full mt-2 rounded-b-none truncate">{#if progress && progress.read_bytes !== progress.total_bytes}<Spinner/> encrypting {progress.current_file}
+            class="w-full rounded-b-none truncate">{#if progress && progress.read_bytes !== progress.total_bytes}<Spinner/> encrypting {progress.current_file}
                 {:else}encrypt{/if}</Button
         >
         <Progress
@@ -181,7 +181,7 @@
         />
         <Label for="progress-bar" class="mt-2 text-xs text-center mx-auto block">{formatBytes(progress?.read_bytes || 0)} / {formatBytes(progress?.total_bytes || 0)}</Label>
     </form>
-    <div class="w-3/4 mx-auto mt-4">
+    <div class="w-4/5 mx-auto mt-4">
     <Label for="selected-files" class="mb-2">selected files</Label>
     <Table.Root height="8rem" id="selected-files" class="table-fixed text-left" containerClass="border-2 border-solid rounded-sm">
         <Table.Header>

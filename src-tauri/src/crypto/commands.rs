@@ -194,3 +194,11 @@ pub async fn generate_keypair(
     });
     Ok(())
 }
+
+#[tauri::command]
+pub async fn generate_passphrase() -> String {
+    bip39::Mnemonic::generate(12)
+        .expect("failed to generate mnemonic")
+        .to_string()
+        .replace(" ", "-")
+}

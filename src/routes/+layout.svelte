@@ -2,15 +2,16 @@
     import "../app.css";
     import "./layout.css"
     import { Toaster } from "$lib/components/ui/sonner";
-      import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-      import AppSidebar from "../components/AppSidebar.svelte";
+    import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+    import AppSidebar from "../components/AppSidebar.svelte";
+    import {page} from "$app/state"
 
     let { children } = $props();
 </script>
 
 <Toaster />
 <Sidebar.Provider style="--sidebar-width: 12rem">
-    <AppSidebar/>
+    {#if new URL(page.url).pathname !== "/create-vault"}<AppSidebar/>{/if}
 <div id="main-container" class="dark">
     {@render children?.()}
 </div>

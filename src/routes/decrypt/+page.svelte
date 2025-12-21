@@ -57,7 +57,7 @@
 <main class="container ">
     <h1 class="text-2xl font-bold mb-2">decrypt</h1>
 
-    <form onsubmit={chooseFile} class="w-3/4 mx-auto">
+    <form onsubmit={chooseFile} class="w-4/5 mx-auto">
         <Tabs.Root bind:value={decryptMethod}><Tabs.List class="w-full">
             <Tabs.Trigger value="X25519">keys</Tabs.Trigger>
             <Tabs.Trigger value="Scrypt">passphrase</Tabs.Trigger>
@@ -95,7 +95,7 @@
         </Select.Root>
             </Tabs.Content>
             <Tabs.Content value="Scrypt" class="flex-grow w-[180px]">
-                <PasswordBox bind:password={password} showMeter={false}/>
+                <PasswordBox bind:password={password} showMeter={false} showGenerate={false}/>
             </Tabs.Content>
         <Button onclick={chooseFile} variant={"secondary"}
             >{files
@@ -120,7 +120,7 @@
         />
         <Label for="progress-bar" class="mt-2 text-xs text-center mx-auto block">{formatBytes(progress?.read_bytes || 0)} / {formatBytes(progress?.total_bytes || 0)}</Label>
     </form>
-    <div class="w-3/4 mx-auto mt-4">
+    <div class="w-4/5 mx-auto mt-4">
     <Label for="selected-files" class="mb-2">selected files</Label>
     <Table.Root height="8rem" id="selected-files" class="table-fixed text-left" containerClass="border-2 border-solid rounded-sm">
         <Table.Header>

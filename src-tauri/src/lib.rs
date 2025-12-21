@@ -52,6 +52,7 @@ pub fn run() {
             crypto::generate_keypair,
             crypto::commands::encrypt_file,
             crypto::commands::decrypt_file,
+            crypto::generate_passphrase,
             store::export_key,
             store::import_key,
             store::delete_key,

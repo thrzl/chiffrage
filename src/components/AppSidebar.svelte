@@ -1,7 +1,7 @@
 <script lang="ts">
     import * as Sidebar from "$lib/components/ui/sidebar/index.js";
     import { VaultIcon, FileLockIcon, FileKeyIcon, PanelLeft} from "@lucide/svelte";
-    import {page} from "$app/stores"
+    import {page} from "$app/state"
 
     const items = [
         { title: "keys", url: "/", icon: VaultIcon },
@@ -10,7 +10,6 @@
         // { title: "settings", url: "settings", icon: SettingsIcon }
     ];
     const sidebar = Sidebar.useSidebar();
-    $: currentPage = new URL($page.url).pathname
 </script>
 
 <Sidebar.Root variant="floating" collapsible="icon" class="ease-out">
@@ -32,7 +31,7 @@
                     <Sidebar.Separator/>
                   {#each items as item (item.title)}
                     <Sidebar.MenuItem>
-                      <Sidebar.MenuButton isActive={currentPage === item.url}>
+                      <Sidebar.MenuButton isActive={new URL(page.url).pathname === item.url}>
                         {#snippet child({ props })}
                           <a href={item.url} {...props}>
                             <item.icon />
