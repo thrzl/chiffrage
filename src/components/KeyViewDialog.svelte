@@ -15,7 +15,7 @@
     import * as InputGroup from "$lib/components/ui/input-group/index";
     import { invoke } from "@tauri-apps/api/core";
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
-    import { ask, open, save } from "@tauri-apps/plugin-dialog";
+    import { open, save } from "@tauri-apps/plugin-dialog";
     import { revealItemInDir } from "@tauri-apps/plugin-opener";
     import { Channel } from "@tauri-apps/api/core";
     import type { Key } from "$lib/main";
@@ -24,24 +24,21 @@
     let webviewWindow = getCurrentWebviewWindow();
     let { key = $bindable() }: { key: Key | undefined } = $props();
     let hasKey = $derived(key !== undefined);
-    let confirming = $state(false);
+    let confirmation:
+        | {
+              title: string;
+              description: string;
+              onaccept: (...args: any[]) => void | Promise<void>;
+          }
+        | undefined = $state();
+    let confirming = $derived(confirmation !== undefined);
     let exportingKey = $state(false);
     let isPrivateKey = $derived(hasKey && key?.key_type === "Private");
 
-    async function deleteKey(e: Event) {
-        e.preventDefault();
-
-        const answer = await ask(
-            "this action cannot be reverted. are you sure?",
-            {
-                title: "delete key",
-                kind: "warning",
-            },
-        );
-
-        if (!answer) return;
+    async function deleteKey() {
         if (!(await invoke("authenticate"))) {
-            return toast.error("authentication failed");
+            toast.error("authentication failed");
+            return;
         }
         await invoke("delete_key", { id: key?.id });
         webviewWindow.emit("update-keys");
@@ -83,7 +80,8 @@
         if (keyType === "private") {
             let authComplete = await invoke("authenticate");
             if (!authComplete) {
-                return toast.error("authentication failed");
+                toast.error("authentication failed");
+                return;
             }
             exportingKey = true;
         }
@@ -166,14 +164,27 @@
                         {#if isPrivateKey}<Button
                                 class="grow"
                                 variant={"destructive"}
-                                onclick={() => (confirming = true)}
+                                onclick={() =>
+                                    (confirmation = {
+                                        title: "are you sure?",
+                                        description:
+                                            "your private key can be used to decrypt every file that has ever been encrypted to you. if you are looking to receive files, you likely want to send your public key.",
+                                        onaccept: async () =>
+                                            await exportKey("private"),
+                                    })}
                                 disabled={exportingKey}
                                 >{#if exportingKey}<Spinner /> exporting key...{:else}<FolderUpIcon
                                     /> export private{/if}</Button
                             >{/if}
                         <Button
                             class="grow"
-                            onclick={deleteKey}
+                            onclick={() =>
+                                (confirmation = {
+                                    title: "are you sure?",
+                                    description:
+                                        "deleting a key is irreversible. there will be no way to restore it unless you have already exported a backup.",
+                                    onaccept: deleteKey,
+                                })}
                             variant={"destructive"}
                             ><TrashIcon /> delete key</Button
                         >
@@ -185,9 +196,9 @@
 </Dialog.Root>
 <Confirm
     bind:open={confirming}
-    title={"are you sure?"}
-    description={"your private key can be used to decrypt any file encrypted to you. if you are looking to receive files, you likely want to send your public key."}
-    onaccept={async () => await exportKey("private")}
+    title={confirmation?.title || ""}
+    description={confirmation?.description || ""}
+    onaccept={confirmation?.onaccept || function () {}}
 />
 
 <style>
