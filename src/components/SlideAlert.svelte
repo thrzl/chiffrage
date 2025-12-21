@@ -10,13 +10,19 @@
         class: className = undefined,
         ...restProps
     }: {
-        alert: { title: string; description: string } | undefined;
+        alert:
+            | { title: string; description: string }
+            | Promise<{ title: string; description: string } | undefined>
+            | undefined;
         icon?: Component<IconProps, {}, "">;
     } & HTMLAttributes<HTMLDivElement> = $props();
     let alertElement: HTMLDivElement | undefined = $state();
 
-    $effect(() => {
+    $effect(async () => {
         if (!alertElement) return;
+        if (alert instanceof Promise) {
+            alert = await alert;
+        }
 
         animate(
             alertElement,

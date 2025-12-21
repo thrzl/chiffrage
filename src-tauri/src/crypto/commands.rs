@@ -11,6 +11,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
 use tauri_plugin_opener::reveal_items_in_dir;
 use tokio::fs::metadata;
+use tokio::io::AsyncReadExt;
 
 #[derive(Deserialize)]
 #[serde(untagged)]
@@ -23,6 +24,29 @@ pub enum EncryptionMethod {
 pub enum DecryptionMethod {
     X25519,
     Scrypt,
+}
+
+#[tauri::command]
+pub async fn validate_key_text(text: String) -> Result<(), String> {
+    match bech32::decode(&text) {
+        Ok(_) => Ok(()),
+        Err(err) => Err(format!("this is not a valid age key. {err}")),
+    }
+}
+
+#[tauri::command]
+pub async fn validate_key_file(path: String) -> Result<(), String> {
+    let mut file = tokio::fs::File::open(&path)
+        .await
+        .map_err(|err| format!("could not open file: {err}"))?;
+    let mut buf = [0u8; 100];
+    let bytes = file
+        .read(&mut buf)
+        .await
+        .map_err(|err| format!("could not read file: {err}"))?;
+    let key_text = String::from_utf8(buf[..bytes].to_vec())
+        .map_err(|err| format!("could not decode text content: {err}"))?;
+    validate_key_text(key_text).await
 }
 
 #[tauri::command]

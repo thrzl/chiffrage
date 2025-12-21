@@ -76,12 +76,40 @@
     }
 
     let keys = ((await invoke("fetch_keys")) as Key[]).map((key) => key.name);
-    let alert = $derived.by(() => {
-        if (keys.includes(name)) {
-            return {
-                title: "key name already in use",
-                description: "a key with this name already exists",
-            };
+
+    let alert = $derived.by(async () => {
+        if (currentTab === "paste") {
+            if (keys.includes(name)) {
+                return {
+                    title: "key name already in use",
+                    description: "a key with this name already exists",
+                };
+            }
+            if (keyContent) {
+                try {
+                    bech32.decode(keyContent.trim());
+                } catch {
+                    return {
+                        title: "invalid key",
+                        description:
+                            "the contents of this key cannot be decoded. double-check your paste",
+                    };
+                }
+            }
+        }
+        if (currentTab === "file" && keyFile) {
+            try {
+                await invoke("validate_key_file", {
+                    path: keyFile,
+                });
+            } catch (error) {
+                if (error) {
+                    return {
+                        title: "invalid key file",
+                        description: error as string,
+                    };
+                }
+            }
         }
     });
     let submissionValid = $derived(
@@ -157,7 +185,10 @@
                     </Tabs.Root>
                 </div>
             </div>
+            {@debug alert}
+            <!-- {#await alert then alert} -->
             <SlideAlert bind:alert />
+            <!-- {/await} -->
             <Dialog.Footer>
                 <Dialog.Close
                     class={buttonVariants({

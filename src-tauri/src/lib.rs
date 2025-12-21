@@ -60,7 +60,9 @@ pub fn run() {
             store::authenticate,
             store::vault_unlocked,
             store::import_key_text,
-            store::check_keyfile_type
+            store::check_keyfile_type,
+            crypto::commands::validate_key_file,
+            crypto::commands::validate_key_text
         ])
         .setup(|app| {
             let app_data_dir = app
