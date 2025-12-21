@@ -34,7 +34,6 @@
             showMeter={false}
             showGenerate={false}
             autofocus
-            required
         />
         <Button
             class="w-full"
