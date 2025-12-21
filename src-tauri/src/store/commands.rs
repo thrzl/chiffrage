@@ -290,6 +290,7 @@ pub async fn authenticate(
                 "vault-unlock",
                 tauri::WebviewUrl::App("unlock".into()),
             )
+            .title("authentication required")
             .build()
             .expect("failed to open auth window")
         });
