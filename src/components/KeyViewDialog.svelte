@@ -1,14 +1,17 @@
 <script lang="ts">
     import * as Dialog from "$lib/components/ui/dialog/index";
     import Button from "$lib/components/ui/button/button.svelte";
-    import SquareAsterisk from "@lucide/svelte/icons/square-asterisk";
-    import FolderUp from "@lucide/svelte/icons/folder-up";
-    import Trash from "@lucide/svelte/icons/trash";
-    import Lock from "@lucide/svelte/icons/lock";
-    import Unlock from "@lucide/svelte/icons/lock-open";
+    import {
+        CopyIcon,
+        LockIcon,
+        LockOpenIcon,
+        TrashIcon,
+        FolderUpIcon,
+        SquareAsteriskIcon,
+    } from "@lucide/svelte";
     import Badge from "$lib/components/ui/badge/badge.svelte";
     import { toast } from "svelte-sonner";
-    import Textarea from "$lib/components/ui/textarea/textarea.svelte";
+    import * as InputGroup from "$lib/components/ui/input-group/index";
     import { invoke } from "@tauri-apps/api/core";
     import { ask, open, save } from "@tauri-apps/plugin-dialog";
     import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -117,35 +120,41 @@
                     >{key?.name}
                     {#if isPrivateKey}<Badge
                             class="bg-blue-500 text-white dark:bg-blue-600 ml-1"
-                            ><SquareAsterisk />private</Badge
+                            ><SquareAsteriskIcon />private</Badge
                         >{/if}</Dialog.Title
                 >
             </Dialog.Header>
             <div class="flex flex-col gap-2">
-                <section>
-                    <Label class="mb-2" for="public-key">public key</Label>
-                    <Textarea
+                <Label for="public-key">public key</Label>
+                <InputGroup.Root class="mb-4">
+                    <InputGroup.Textarea
                         id="public-key"
                         value={key?.contents.public}
-                        onclick={() => {
-                            navigator.clipboard.writeText(
-                                key?.contents.public || "",
-                            );
-                            toast.success("copied!");
-                        }}
                         readonly
                         class="resize-none"
                         wrap="hard"
                     />
-                </section>
+                    <InputGroup.Addon align="inline-end" class="h-full">
+                        <Button
+                            variant="ghost"
+                            onclick={() => {
+                                navigator.clipboard.writeText(
+                                    key?.contents.public || "",
+                                );
+                                toast.success("copied!");
+                            }}
+                            class="h-full"><CopyIcon /></Button
+                        >
+                    </InputGroup.Addon>
+                </InputGroup.Root>
                 <section id="actions">
                     <Label class="mb-2" for="actions">key actions</Label>
                     <div class="flex flex-row gap-2">
                         <Button class="grow" onclick={encrypt}
-                            ><Lock /> encrypt</Button
+                            ><LockIcon /> encrypt</Button
                         >
                         {#if isPrivateKey}<Button class="grow" onclick={decrypt}
-                                ><Unlock />decrypt</Button
+                                ><LockOpenIcon />decrypt</Button
                             >{/if}
                     </div>
                 </section>
@@ -156,12 +165,13 @@
                                 class="grow"
                                 variant={"destructive"}
                                 onclick={() => exportKey("private")}
-                                ><FolderUp /> export private</Button
+                                ><FolderUpIcon /> export private</Button
                             >{/if}
                         <Button
                             class="grow"
                             onclick={deleteKey}
-                            variant={"destructive"}><Trash /> delete key</Button
+                            variant={"destructive"}
+                            ><TrashIcon /> delete key</Button
                         >
                     </div>
                 </section>
