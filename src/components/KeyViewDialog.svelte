@@ -27,7 +27,6 @@
     let confirming = $state(false);
     let exportingKey = $state(false);
     let isPrivateKey = $derived(hasKey && key?.key_type === "Private");
-    console.log(`key: ${key?.id}`);
 
     async function deleteKey(e: Event) {
         e.preventDefault();
@@ -46,6 +45,7 @@
         }
         await invoke("delete_key", { id: key?.id });
         webviewWindow.emit("update-keys");
+        toast.success("key deleted successfully");
     }
 
     async function encrypt(e: Event) {
@@ -101,6 +101,7 @@
             keyType,
         });
         exportingKey = false;
+        toast.success("key exported successfully");
         revealItemInDir(destination);
     }
 </script>

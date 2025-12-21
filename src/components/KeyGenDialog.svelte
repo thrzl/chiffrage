@@ -19,6 +19,7 @@
         await invoke("generate_keypair", { name: name.trim() });
         emit("update-keys");
         open = false;
+        toast.success("key generated successfully");
     }
 
     let keys = ((await invoke("fetch_keys")) as Key[]).map((key) => key.name);
