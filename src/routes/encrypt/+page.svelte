@@ -10,13 +10,13 @@
     import Label from "$lib/components/ui/label/label.svelte";
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
     import {animate} from "motion/mini"
-    import { TrashIcon, TriangleAlert, EyeIcon, EyeClosedIcon } from "@lucide/svelte";
+    import { TrashIcon, TriangleAlert } from "@lucide/svelte";
     import {andList} from "human-list";
     import * as Select from "$lib/components/ui/select/index.js";
     import Button from "$lib/components/ui/button/button.svelte";
     import { toast } from "svelte-sonner";
-    import Input from "$lib/components/ui/input/input.svelte";
-    import * as InputGroup from "$lib/components/ui/input-group/index";
+    import PasswordBox from "../../components/PasswordBox.svelte";
+    import type { ZxcvbnResult } from "@zxcvbn-ts/core";
 
     let progress: FileProgress | null = $state(null);
     let chosenKeys: string[] = $state(new URLSearchParams(window.location.search).get("keys")?.split(",") ?? []);
@@ -24,8 +24,9 @@
     let encryptMethod: "pass" | "key" = $state("key")
 
     let password = $state("");
-    let showPassword = $state(false);
+    let strength = $state<ZxcvbnResult | null>(null);
     let alertElement: HTMLDivElement | undefined = $state();
+    let alert: {title: string, description: string} | undefined = $state(undefined);
 
     async function chooseFile(event: Event) {
         event.preventDefault();
@@ -65,12 +66,32 @@
     let privateKeys = keys.filter(key => key.key_type === "Private");
     let publicKeys = keys.filter(key => key.key_type === "Public");
     let keyMap = $derived(Object.fromEntries(keys.map(key => ([key.id, key]))));
-    function updateAlert() {
+
+  async function updateAlert() {
       if (!alertElement) return
-      let shouldAlert = !(chosenKeys.length === 0 || chosenKeys.some(id => keyMap[id].key_type === "Private"));
-        animate(alertElement, {
-          height: shouldAlert ? `${alertElement.scrollHeight}px` : 0
-        }, { duration: 0.2, ease: "easeOut" }).then(() => alertElement!.style.marginTop = shouldAlert ? "0.5rem" : "0")
+      // let shouldAlert = false;
+      if ((encryptMethod === "key" && chosenKeys.length === 0) || (encryptMethod === "pass" && password.length <= 3)) {
+        alert = undefined;
+        return animate(alertElement, {
+          height: "0px"
+        }, { duration: 0.2, ease: "easeOut" }).then(() => alertElement!.style.marginTop = "0")
+      }
+      if (encryptMethod === "key" && !(chosenKeys.length === 0 || chosenKeys.some(id => keyMap[id].key_type === "Private"))) {
+        alert = {title: "consider adding a private key", description: "if you do not encrypt to one of your own keys, you will not be able to decrypt this file later."}
+      } else if (encryptMethod === "pass" && strength && strength.guessesLog10 < 5) {
+        let feedback = strength.feedback;
+        alert = {title: "weak password", description: `${feedback.warning ? (feedback.warning.toLocaleLowerCase() + " "): ""}${feedback.suggestions[0].toLocaleLowerCase()}` || "this password is not very secure."}
+      } else {
+        console.log("no alert")
+        alert = undefined
+        return animate(alertElement, {
+          height: "0px"
+        }, { duration: 0.2, ease: "easeOut" }).then(() => alertElement!.style.marginTop = "0")
+      }
+      await new Promise(resolve => setTimeout(resolve, 10)); // small sleep just to allow the dom to update
+      animate(alertElement, {
+        height: `${alertElement.scrollHeight}px`
+      }, { duration: 0.2, ease: "easeOut" }).then(() => alertElement!.style.marginTop = "0.5rem")
     }
     // listen("update-keys", () => (keysFetch = invoke("fetch_keys")));
 </script>
@@ -85,7 +106,7 @@
             </Tabs.List>
         <div class="flex flex-row gap-2 justify-items-center justify-center mx-auto w-full">
             <Tabs.Content value="key" class="flex-grow w-[180px]">
-                <Select.Root type="multiple" name="target keys" bind:value={chosenKeys} onValueChange={updateAlert}>
+                <Select.Root type="multiple" name="target keys" bind:value={chosenKeys}>
                     <Select.Trigger class="flex-grow w-full">
                         <p>{@html chosenKeys.length > 0 ? andList(chosenKeys.map(id => `<span class="font-bold">${keyMap[id].name}</span>`)) : "choose recipients..."}</p>
                     </Select.Trigger>
@@ -129,14 +150,7 @@
                 </Select.Root>
             </Tabs.Content>
             <Tabs.Content value="pass" class="flex-grow w-[180px]">
-                <InputGroup.Root>
-                    <InputGroup.Input type={showPassword? "text" : "password"} name="pass" class={`${showPassword ? "font-mono" : ""}`} placeholder="enter passphrase..." bind:value={password}/>
-                    <InputGroup.Addon align="inline-end">
-                        <InputGroup.Button variant="ghost" onclick={() => showPassword = !showPassword}>
-                            {#if showPassword} <EyeIcon />{:else} <EyeClosedIcon />{/if}
-                        </InputGroup.Button>
-                    </InputGroup.Addon>
-                </InputGroup.Root>
+                <PasswordBox bind:password={password} bind:strength={strength} oninput={() => updateAlert()}/>
             </Tabs.Content>
                 <Button onclick={chooseFile} variant={"secondary"}
                     >{files
@@ -148,8 +162,8 @@
         <div bind:this={alertElement} class="text-left overflow-hidden mt-0 h-0">
         <Alert.Root>
             <TriangleAlert />
-            <Alert.Title>consider adding a private key</Alert.Title>
-            <Alert.Description>without encrypting to one of your own keys, it will not be possible for you to decrypt it later</Alert.Description>
+            <Alert.Title>{alert?.title}</Alert.Title>
+            <Alert.Description>{alert?.description}</Alert.Description>
         </Alert.Root></div>
         <Button
             onclick={encryptFile}
