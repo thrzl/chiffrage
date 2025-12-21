@@ -33,7 +33,6 @@ futures-io = "0.3.31"
 tokio-util = { version = "0.7.17", features = ["compat"] }
 futures-util = "0.3.31"
 cuid2 = "0.1.4"
-passforge = "0.1.1"
 bip39 = { version = "2.2.2", features = ["rand"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
