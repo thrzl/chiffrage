@@ -3,19 +3,22 @@
     import Button from "$lib/components/ui/button/button.svelte";
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
     import PasswordBox from "../../components/PasswordBox.svelte";
+    import SlideAlert from "../../components/SlideAlert.svelte";
+    import { OctagonXIcon } from "@lucide/svelte";
     import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
     let passwordInput: string = $state("");
     let isLoading: boolean = $state(false);
 
-    let error = $state("");
+    let alert: { title: string; description?: string } | undefined = $state();
 
     async function unlockVault(event: Event | undefined) {
         event?.preventDefault();
+        alert = undefined;
         if (!passwordInput) return;
         await once("auth-error", (e) => {
             isLoading = false;
-            error = e.payload as string;
+            alert = { title: e.payload as string };
         });
         isLoading = true;
         await emit("authenticate", passwordInput);
@@ -27,13 +30,19 @@
 
 <main class="container">
     <h1 class="text-lg font-bold mb-2">authentication required</h1>
-    <form class="gap-2 flex flex-col" onsubmit={unlockVault}>
+    <form class="flex flex-col" onsubmit={unlockVault}>
         <PasswordBox
             placeholder="enter your vault password..."
             bind:password={passwordInput}
             showMeter={false}
             showGenerate={false}
             autofocus
+            style="margin-bottom: 0.5rem"
+        />
+        <SlideAlert
+            bind:alert
+            class="border-red-800 bg-red-950 my-0"
+            icon={OctagonXIcon}
         />
         <Button
             class="w-full"
@@ -43,5 +52,4 @@
             >{#if isLoading}<Spinner />processing...{:else}unlock vault{/if}</Button
         >
     </form>
-    <p style:color="red">{error}</p>
 </main>

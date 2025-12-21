@@ -3,6 +3,7 @@
     import { zxcvbn, zxcvbnOptions } from "@zxcvbn-ts/core";
     import type { ZxcvbnResult } from "@zxcvbn-ts/core";
     import { invoke } from "@tauri-apps/api/core";
+    import type { HTMLAttributes } from "svelte/elements";
     let {
         password = $bindable(""),
         showMeter = true,
@@ -12,7 +13,8 @@
         strength = $bindable<ZxcvbnResult | null>(),
         oninput: callback,
         textAlign = "center",
-        autofocus = false
+        autofocus = false,
+        ...restProps
     }: {
         password: string;
         showMeter?: boolean;
@@ -23,7 +25,7 @@
         oninput?: undefined | ((e: Event) => void | Promise<void>);
         textAlign?: "left" | "center" | "right",
         autofocus?: boolean
-    } = $props();
+    } & HTMLAttributes<HTMLDivElement> = $props();
     let inputElement = $state<HTMLInputElement | null>(null);
     let inputGroupElement = $state<HTMLElement | null>(null);
     import { EyeIcon, EyeClosedIcon, RefreshCcwDotIcon } from "@lucide/svelte";
@@ -76,7 +78,7 @@
     $effect(() => {if (password.length > 3) {strength = zxcvbn(password)} else strength = null})
 </script>
 
-<InputGroup.Root bind:ref={inputGroupElement} class={showMeter ? "rounded-b-none" : ""} onfocusout={() => showPassword = false}>
+<InputGroup.Root {...restProps} bind:ref={inputGroupElement} class={showMeter ? "rounded-b-none" : ""} onfocusout={() => showPassword = false}>
     <InputGroup.Input
         type={showPassword ? "text" : "password"}
         name="pass"

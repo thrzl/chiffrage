@@ -5,11 +5,10 @@
     import { animate } from "motion/mini";
     import type { HTMLAttributes } from "svelte/elements";
 
-    type AlertMsg = { title: string; description: string } | undefined;
+    type AlertMsg = { title: string; description?: string } | undefined;
     let {
         alert = $bindable(),
         icon: Icon = TriangleAlertIcon,
-        class: className = undefined,
         ...restProps
     }: {
         alert: AlertMsg | Promise<AlertMsg>;
@@ -39,9 +38,9 @@
 </script>
 
 <div bind:this={alertElement} class="text-left overflow-hidden mb-0 h-0">
-    <Alert.Root class={className}>
+    <Alert.Root {...restProps}>
         <Icon />
         <Alert.Title>{(alert as AlertMsg)?.title}</Alert.Title>
-        <Alert.Description>{(alert as AlertMsg)?.description}</Alert.Description>
+        {#if (alert as AlertMsg)?.description}<Alert.Description>{(alert as AlertMsg)?.description}</Alert.Description>{/if}
     </Alert.Root>
 </div>
