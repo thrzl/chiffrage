@@ -1,5 +1,6 @@
 <script lang="ts">
     import * as Dialog from "$lib/components/ui/dialog/index";
+    import Confirm from "./Confirm.svelte";
     import Button from "$lib/components/ui/button/button.svelte";
     import {
         CopyIcon,
@@ -13,6 +14,7 @@
     import { toast } from "svelte-sonner";
     import * as InputGroup from "$lib/components/ui/input-group/index";
     import { invoke } from "@tauri-apps/api/core";
+    import Spinner from "$lib/components/ui/spinner/spinner.svelte";
     import { ask, open, save } from "@tauri-apps/plugin-dialog";
     import { revealItemInDir } from "@tauri-apps/plugin-opener";
     import { Channel } from "@tauri-apps/api/core";
@@ -20,10 +22,10 @@
     import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
     import Label from "$lib/components/ui/label/label.svelte";
     let webviewWindow = getCurrentWebviewWindow();
-    let name = $state("");
-    let error = $state("");
     let { key = $bindable() }: { key: Key | undefined } = $props();
     let hasKey = $derived(key !== undefined);
+    let confirming = $state(false);
+    let exportingKey = $state(false);
     let isPrivateKey = $derived(hasKey && key?.key_type === "Private");
     console.log(`key: ${key?.id}`);
 
@@ -81,14 +83,16 @@
         if (keyType === "private") {
             let authComplete = await invoke("authenticate");
             if (!authComplete) {
-                error = "authentication failed";
                 return toast.error("authentication failed");
             }
+            exportingKey = true;
         }
+
         const destination = await save({
             filters: [{ name: "age key file", extensions: ["age"] }],
         });
         if (!destination) {
+            exportingKey = false;
             return;
         }
         await invoke("export_key", {
@@ -96,6 +100,7 @@
             path: destination,
             keyType,
         });
+        exportingKey = false;
         revealItemInDir(destination);
     }
 </script>
@@ -109,10 +114,6 @@
     }}
 >
     <form>
-        <!-- <Dialog.Trigger
-            class={buttonVariants({ variant: "default" })}
-            >new keypair</Dialog.Trigger
-        > -->
         <Dialog.Content class="sm:max-w-[425px]">
             <Dialog.Header>
                 <Dialog.Description>key details</Dialog.Description>
@@ -164,8 +165,10 @@
                         {#if isPrivateKey}<Button
                                 class="grow"
                                 variant={"destructive"}
-                                onclick={() => exportKey("private")}
-                                ><FolderUpIcon /> export private</Button
+                                onclick={() => (confirming = true)}
+                                disabled={exportingKey}
+                                >{#if exportingKey}<Spinner /> exporting key...{:else}<FolderUpIcon
+                                    /> export private{/if}</Button
                             >{/if}
                         <Button
                             class="grow"
@@ -179,6 +182,12 @@
         </Dialog.Content>
     </form>
 </Dialog.Root>
+<Confirm
+    bind:open={confirming}
+    title={"are you sure?"}
+    description={"your private key can be used to decrypt any file encrypted to you. if you are looking to receive files, you likely want to send your public key."}
+    onaccept={async () => await exportKey("private")}
+/>
 
 <style>
     section {
