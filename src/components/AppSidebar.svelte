@@ -22,7 +22,7 @@
               <Sidebar.GroupContent>
                 <Sidebar.Menu>
                     <Sidebar.MenuItem>
-                      <Sidebar.MenuButton>
+                      <Sidebar.MenuButton class="cursor-pointer">
                         {#snippet child({ props })}
                           <a onclick={sidebar.toggle} {...props}>
                             <PanelLeft />
