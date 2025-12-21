@@ -13,6 +13,7 @@ use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
 /// can be any type that implements `age::Recipient`. `Send + Sync` for async compat
 pub type WildcardRecipient = dyn Recipient + Send + Sync;
+pub type WildcardIdentity = dyn Identity + Send + Sync;
 
 /// every time a new chunk is encrypted, the callback will be run with the amount of bytes that were encrypted
 pub async fn encrypt_file<F>(
@@ -65,7 +66,7 @@ where
 }
 
 pub async fn decrypt_file<F>(
-    identity: &impl Identity,
+    identity: &Box<WildcardIdentity>,
     file_path: &PathBuf,
     mut callback: F,
 ) -> Result<PathBuf, String>
@@ -84,7 +85,7 @@ where
     let mut file_writer = BufWriter::new(output);
 
     let mut decrypted_reader = {
-        let result = decryptor.decrypt_async(std::iter::once(identity as &dyn age::Identity));
+        let result = decryptor.decrypt_async(std::iter::once(&**identity as &dyn age::Identity));
         if let Ok(decryptor_reader) = result {
             decryptor_reader
         } else {
@@ -117,7 +118,7 @@ where
             accumulator = 0;
         }
     }
-
+    callback(accumulator); // ensure that it's sent at some point
     Ok(decrypted_output)
 }
 

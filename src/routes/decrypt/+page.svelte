@@ -5,16 +5,24 @@
     import type { Key, Progress as FileProgress } from "$lib/main";
     import * as Table from "$lib/components/ui/scroll-table";
     import * as Select from "$lib/components/ui/select/index";
+    import * as Tabs from "$lib/components/ui/tabs/index"
     import Label from "$lib/components/ui/label/label.svelte";
     import Button from "$lib/components/ui/button/button.svelte";
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
     import { Progress } from "$lib/components/ui/progress";
     import { TrashIcon } from "@lucide/svelte";
     import { getFileName, formatBytes } from "$lib/main";
+    import PasswordBox from "../../components/PasswordBox.svelte";
 
     let progress: FileProgress | null = $state(null);
+    let password = $state("");
     let chosenKey = $state("");
     let files: string[] | null = $state(null);
+    let decryptMethod: "Scrypt" | "X25519" = $state("X25519");
+    const methodMap = {
+      pass: "Scrypt",
+      key: "X25519"
+    }
 
     async function chooseFile(event: Event) {
         event.preventDefault();
@@ -25,7 +33,7 @@
     }
     async function decryptFile(event: Event) {
         event.preventDefault();
-        if (!(await invoke("vault_unlocked"))) {
+        if (decryptMethod === "X25519" && !(await invoke("vault_unlocked"))) {
             await invoke("authenticate");
         }
         progress = null;
@@ -34,9 +42,10 @@
             progress = msg;
         };
         invoke("decrypt_file", {
-            privateKey: chosenKey,
+            privateKey: decryptMethod === "X25519" ? chosenKey : password,
             reader: channel,
             files,
+            method: decryptMethod
         }).then(() => progress?.read_bytes === progress?.total_bytes)
         .catch(e => toast.error(e));
     }
@@ -49,9 +58,14 @@
     <h1 class="text-2xl font-bold mb-2">decrypt</h1>
 
     <form onsubmit={chooseFile} class="w-3/4 mx-auto">
-        <div class="flex flex-row gap-2 justify-items-center justify-center mx-auto">
+        <Tabs.Root bind:value={decryptMethod}><Tabs.List class="w-full">
+            <Tabs.Trigger value="X25519">keys</Tabs.Trigger>
+            <Tabs.Trigger value="Scrypt">passphrase</Tabs.Trigger>
+        </Tabs.List>
+        <div class="flex flex-row gap-2 justify-items-center justify-center mx-auto w-full">
+            <Tabs.Content value="X25519" class="flex-grow w-[180px]">
         <Select.Root type="single" name="target key" bind:value={chosenKey}>
-          <Select.Trigger class="w-[180px] flex-grow">
+          <Select.Trigger class="w-full">
               <p>{#if chosenKey}<span class="font-bold">{keyMap[chosenKey].name}</span>{:else}choose recipient...{/if}</p>
           </Select.Trigger>
           <Select.Content>
@@ -79,15 +93,20 @@
               </Select.Group>
           </Select.Content>
         </Select.Root>
+            </Tabs.Content>
+            <Tabs.Content value="Scrypt" class="flex-grow w-[180px]">
+                <PasswordBox bind:password={password} showMeter={false}/>
+            </Tabs.Content>
         <Button onclick={chooseFile} variant={"secondary"}
             >{files
                 ? `${files.length} files selected`
                 : "choose file(s)"}</Button
         >
         </div>
+        </Tabs.Root>
         <Button
             onclick={decryptFile}
-            disabled={chosenKey.length === 0 || !files || (progress && progress.read_bytes !== progress.total_bytes)}
+            disabled={(decryptMethod === "X25519" ? chosenKey.length  : password.length) === 0 || !files || (progress && progress.read_bytes !== progress.total_bytes)}
             class="w-full mt-2 rounded-b-none">{#if progress && progress.read_bytes !== progress.total_bytes}<Spinner/> decrypting {progress.current_file.replace(/\.age$/,"")}
                 {:else}decrypt{/if}</Button
         >

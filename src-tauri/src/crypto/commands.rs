@@ -1,10 +1,11 @@
-use crate::crypto::{self, WildcardRecipient};
+use crate::crypto::{self, WildcardIdentity, WildcardRecipient};
 use crate::AppState;
 use futures_util::future::join_all;
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
 use serde::Deserialize;
 use serde_json::json;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
@@ -14,8 +15,14 @@ use tokio::fs::metadata;
 #[derive(Deserialize)]
 #[serde(untagged)]
 pub enum EncryptionMethod {
-    PublicKeys(Vec<String>),
+    X25519(Vec<String>),
     Scrypt(String),
+}
+
+#[derive(Deserialize)]
+pub enum DecryptionMethod {
+    X25519,
+    Scrypt,
 }
 
 #[tauri::command]
@@ -26,7 +33,7 @@ pub async fn encrypt_file(
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
     let recipients: Vec<Box<WildcardRecipient>> = match recipient {
-        EncryptionMethod::PublicKeys(public_keys) => {
+        EncryptionMethod::X25519(public_keys) => {
             let state = state.lock().expect("failed to get lock on state");
             let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
             let vault = match vault_handle.lock() {
@@ -90,40 +97,55 @@ pub async fn decrypt_file(
     private_key: String,
     reader: tauri::ipc::Channel<serde_json::Value>,
     files: Vec<String>,
+    method: DecryptionMethod,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
-    let key_content = {
-        let state = state.lock().expect("failed to get lock on state");
-        let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
-        let vault = match vault_handle.lock() {
-            Ok(vault) => vault,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        let key_content = vault.get_key(&private_key).unwrap();
-        vault
-            .decrypt_secret(&key_content.contents.private.as_ref().unwrap())
-            .unwrap()
-            .clone()
+    let identity = match method {
+        DecryptionMethod::X25519 => {
+            let state = state.lock().expect("failed to get lock on state");
+            let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
+            let vault = match vault_handle.lock() {
+                Ok(vault) => vault,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            let key_metadata = vault.get_key(&private_key).unwrap();
+            let key_content = vault
+                .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())
+                .unwrap()
+                .clone();
+            Box::new(
+                key_content
+                    .expose_secret()
+                    .parse::<age::x25519::Identity>()?,
+            ) as Box<WildcardIdentity>
+        }
+        DecryptionMethod::Scrypt => {
+            Box::new(age::scrypt::Identity::new(SecretString::from(private_key)))
+                as Box<WildcardIdentity>
+        }
     };
-    let total_bytes: u64 = join_all(files.iter().map(async |path| {
-        metadata(path)
+    let file_sizes: HashMap<String, u64> = files
+        .clone()
+        .into_iter()
+        .zip(
+            join_all(files.clone().into_iter().map(async |path| {
+                metadata(path)
+                    .await
+                    .expect("failed to get file metadata")
+                    .len()
+            }))
             .await
-            .expect("failed to get file metadata")
-            .len()
-    }))
-    .await
-    .into_iter()
-    .sum();
+            .into_iter(),
+        )
+        .collect();
+    let total_bytes: u64 = file_sizes.values().sum();
     let total_read_bytes = Arc::new(AtomicUsize::new(0));
-    let reader = Arc::new(reader);
+    let reader_ptr = Arc::new(reader);
     let mut output_paths = Vec::new();
-    let identity = key_content
-        .expose_secret()
-        .parse::<age::x25519::Identity>()?;
     for file in files {
         let total_read_bytes = total_read_bytes.clone();
-        let reader = reader.clone();
-        let path = PathBuf::from(file);
+        let reader = reader_ptr.clone();
+        let path = PathBuf::from(file.clone());
         let output_path = crypto::decrypt_file(&identity, &path.clone(), move |processed_bytes| {
             total_read_bytes.fetch_add(processed_bytes, std::sync::atomic::Ordering::SeqCst);
             let _ = reader.send(json!({
@@ -133,6 +155,13 @@ pub async fn decrypt_file(
             }));
         })
         .await?;
+
+        let reader = reader_ptr.clone();
+        let _ = reader.send(json!({
+            "read_bytes": file_sizes.get(&file).unwrap(),
+            "total_bytes": total_bytes,
+            "current_file": PathBuf::from(file).file_name().unwrap().to_str().unwrap()
+        })); // ensure that it "completes" on the frontend
         output_paths.push(output_path)
     }
     reveal_items_in_dir(output_paths).expect("failed to reveal item");
