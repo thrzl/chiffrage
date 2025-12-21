@@ -76,8 +76,3 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
-
-      - name: sign release artifacts
-        uses: sigstore/gh-action-sigstore-python@v3.2.0
-        with:
-          release-signing-artifacts: true
