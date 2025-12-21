@@ -3,6 +3,7 @@
     import Button from "$lib/components/ui/button/button.svelte";
     import Input from "$lib/components/ui/input/input.svelte";
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
+    import PasswordBox from "../../components/PasswordBox.svelte";
 
     let passwordInput: string = $state("");
     let isLoading: boolean = $state(false);
@@ -24,10 +25,11 @@
 <main class="container">
     <h1 class="text-lg font-bold mb-2">authentication required</h1>
     <form class="gap-2 flex flex-col" onsubmit={unlockVault}>
-        <Input
-            type="password"
-            placeholder="enter your vault password"
-            bind:value={passwordInput}
+        <PasswordBox
+            placeholder="enter your vault password..."
+            bind:password={passwordInput}
+            showMeter={false}
+            showGenerate={false}
             autofocus
             required
         />

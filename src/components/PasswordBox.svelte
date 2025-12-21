@@ -11,7 +11,8 @@
         placeholder = "enter passphrase...",
         strength = $bindable<ZxcvbnResult | null>(),
         oninput: callback,
-        textAlign = "center"
+        textAlign = "center",
+        autofocus = false
     }: {
         password: string;
         showMeter?: boolean;
@@ -20,7 +21,8 @@
         placeholder?: string;
         strength?: ZxcvbnResult | null;
         oninput?: undefined | ((e: Event) => void | Promise<void>);
-        textAlign?: "left" | "center" | "right"
+        textAlign?: "left" | "center" | "right",
+        autofocus?: boolean
     } = $props();
     let inputElement = $state<HTMLInputElement | null>(null);
     let inputGroupElement = $state<HTMLElement | null>(null);
@@ -83,6 +85,7 @@
         bind:value={password}
         bind:ref={inputElement}
         oninput={callback}
+        {autofocus}
     />
     <InputGroup.Addon align="inline-end">
         <InputGroup.Button
