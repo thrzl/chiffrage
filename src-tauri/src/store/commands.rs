@@ -329,7 +329,6 @@ pub async fn authenticate(
         let password = SecretString::from(match rx.await {
             Ok(message) => {
                 if message.len() == 0 {
-                    println!("hi from rust! empty password. window was closed");
                     return Ok(false);
                 }
                 let raw_unwrap = serde_json::from_str::<String>(&message).unwrap();
