@@ -1,7 +1,6 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
-    import { open as openFile } from "@tauri-apps/plugin-dialog";
-    import { getFileName } from "$lib/main";
+    import type { Key } from "$lib/main";
     import * as Dialog from "$lib/components/ui/dialog/index";
     import * as Tabs from "$lib/components/ui/tabs/index.js";
     import { Label } from "$lib/components/ui/label/index";
@@ -14,6 +13,7 @@
     import ChooseFileButton from "./ChooseFileButton.svelte";
     let name = $state("");
     import { bech32 } from "bech32";
+    import SlideAlert from "./SlideAlert.svelte";
     let keyFile: string | null = $state(null);
     let keyContent: string | null = $state(null);
     let currentTab: "file" | "paste" = $state("file");
@@ -41,14 +41,6 @@
         keyFile = null;
         name = "";
         // keys = await invoke("fetch_keys");
-    }
-
-    function cannotSubmit() {
-        return (
-            name.replaceAll(" ", "") === "" ||
-            (currentTab === "file" && !keyFile) ||
-            (currentTab === "paste" && !keyContent)
-        );
     }
 
     async function import_key_text() {
@@ -82,6 +74,23 @@
         name = "";
         // keys = await invoke("fetch_keys");
     }
+
+    let keys = ((await invoke("fetch_keys")) as Key[]).map((key) => key.name);
+    let alert = $derived.by(() => {
+        if (keys.includes(name)) {
+            return {
+                title: "key name already in use",
+                description: "a key with this name already exists",
+            };
+        }
+    });
+    let submissionValid = $derived(
+        name.replaceAll(" ", "") !== "" &&
+            !(currentTab === "file" && !keyFile) &&
+            // @ts-ignore 2367
+            !(currentTab === "paste" && !keyContent) &&
+            !alert,
+    );
 </script>
 
 <Dialog.Root
@@ -148,6 +157,7 @@
                     </Tabs.Root>
                 </div>
             </div>
+            <SlideAlert bind:alert />
             <Dialog.Footer>
                 <Dialog.Close
                     class={buttonVariants({
@@ -159,7 +169,7 @@
                         variant: "default",
                     })}
                     onclick={import_key}
-                    disabled={cannotSubmit()}>import key</Button
+                    disabled={!submissionValid}>import key</Button
                 >
             </Dialog.Footer>
         </Dialog.Content>

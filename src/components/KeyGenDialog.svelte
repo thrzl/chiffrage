@@ -6,6 +6,8 @@
     import { buttonVariants } from "$lib/components/ui/button/index";
     import { emit } from "@tauri-apps/api/event";
     import { toast } from "svelte-sonner";
+    import type { Key } from "$lib/main";
+    import SlideAlert from "./SlideAlert.svelte";
     let name = $state("");
     let { open = $bindable() } = $props();
 
@@ -18,6 +20,17 @@
         emit("update-keys");
         open = false;
     }
+
+    let keys = ((await invoke("fetch_keys")) as Key[]).map((key) => key.name);
+    let alert = $derived.by(() => {
+        if (keys.includes(name)) {
+            return {
+                title: "key name already in use",
+                description: "a key with this name already exists",
+            };
+        }
+    });
+    let submissionValid = $derived(name.replaceAll(" ", "") !== "" && !alert);
 </script>
 
 <Dialog.Root
@@ -49,6 +62,7 @@
                     <Input id="name-1" name="name" required bind:value={name} />
                 </div>
             </div>
+            <SlideAlert bind:alert />
             <Dialog.Footer>
                 <Dialog.Close
                     class={buttonVariants({
@@ -61,8 +75,7 @@
                         variant: "default",
                     })}
                     onclick={generate_key}
-                    disabled={name.replaceAll(" ", "") === ""}
-                    >generate</Dialog.Close
+                    disabled={!submissionValid}>generate</Dialog.Close
                 >
             </Dialog.Footer>
         </Dialog.Content>
