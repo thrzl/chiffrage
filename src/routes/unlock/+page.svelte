@@ -1,9 +1,9 @@
 <script lang="ts">
     import { emit, once } from "@tauri-apps/api/event";
     import Button from "$lib/components/ui/button/button.svelte";
-    import Input from "$lib/components/ui/input/input.svelte";
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
     import PasswordBox from "../../components/PasswordBox.svelte";
+    import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
     let passwordInput: string = $state("");
     let isLoading: boolean = $state(false);
@@ -20,6 +20,9 @@
         isLoading = true;
         await emit("authenticate", passwordInput);
     }
+    document.addEventListener("keypress", async (e) => {
+        if (e.key === "Escape") await getCurrentWebviewWindow().close();
+    });
 </script>
 
 <main class="container">
