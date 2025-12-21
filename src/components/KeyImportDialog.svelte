@@ -11,6 +11,7 @@
     import { emit } from "@tauri-apps/api/event";
     import { toast } from "svelte-sonner";
     import Textarea from "$lib/components/ui/textarea/textarea.svelte";
+    import ChooseFileButton from "./ChooseFileButton.svelte";
     let name = $state("");
     let keyFile: string | null = $state(null);
     let keyContent: string | null = $state(null);
@@ -18,16 +19,19 @@
     let { open = $bindable() } = $props();
 
     async function import_key() {
-      if (currentTab === "file") await import_key_file();
-      else if (currentTab === "paste") await import_key_text()
+        if (currentTab === "file") await import_key_file();
+        else if (currentTab === "paste") await import_key_text();
     }
     async function import_key_file() {
         if (!name.replaceAll(" ", "")) return toast.error("no name set");
         if (!keyFile) return toast.error("no file selected");
 
-        if (await invoke("check_keyfile_type", {path: keyFile}) && !(await invoke("vault_unlocked"))) {
+        if (
+            (await invoke("check_keyfile_type", { path: keyFile })) &&
+            !(await invoke("vault_unlocked"))
+        ) {
             let authComplete = await invoke("authenticate");
-            if (!authComplete) return toast.error("authentication failed")
+            if (!authComplete) return toast.error("authentication failed");
         }
         await invoke("import_key", { name: name.trim(), path: keyFile });
         toast.success("imported key");
@@ -39,16 +43,23 @@
     }
 
     function cannotSubmit() {
-      return name.replaceAll(" ", "") === "" || (currentTab === "file" && !keyFile) || (currentTab === "paste" && !keyContent)
+        return (
+            name.replaceAll(" ", "") === "" ||
+            (currentTab === "file" && !keyFile) ||
+            (currentTab === "paste" && !keyContent)
+        );
     }
 
     async function import_key_text() {
         if (!name) return toast.error("no name set");
         if (!keyContent) return toast.error("no key content");
 
-        if (keyContent.startsWith("AGE-SECRET-KEY") && !(await invoke("vault_unlocked"))) {
+        if (
+            keyContent.startsWith("AGE-SECRET-KEY") &&
+            !(await invoke("vault_unlocked"))
+        ) {
             let authComplete = await invoke("authenticate");
-            if (!authComplete) return toast.error("authentication failed")
+            if (!authComplete) return toast.error("authentication failed");
         }
         await invoke("import_key_text", { name: name.trim(), keyContent });
         toast.success("imported key");
@@ -60,9 +71,22 @@
     }
 </script>
 
-<Dialog.Root bind:open={open} onOpenChange={(open) => { if (!open) {keyFile = null; name = ""}}}>
+<Dialog.Root
+    bind:open
+    onOpenChange={(open) => {
+        if (!open) {
+            keyFile = null;
+            name = "";
+        }
+    }}
+>
     <form>
-        <Dialog.Content class="sm:max-w-[425px]" onkeydown={async (event) => {if (event.key === "Enter") await import_key()}}>
+        <Dialog.Content
+            class="sm:max-w-[425px]"
+            onkeydown={async (event) => {
+                if (event.key === "Enter") await import_key();
+            }}
+        >
             <Dialog.Header>
                 <Dialog.Title>import key</Dialog.Title>
             </Dialog.Header>
@@ -72,8 +96,8 @@
                     <Input id="name-1" name="name" required bind:value={name} />
                     <Tabs.Root bind:value={currentTab}>
                         <Tabs.List class="w-full">
-                              <Tabs.Trigger value="file">file</Tabs.Trigger>
-                              <Tabs.Trigger value="paste">paste</Tabs.Trigger>
+                            <Tabs.Trigger value="file">file</Tabs.Trigger>
+                            <Tabs.Trigger value="paste">paste</Tabs.Trigger>
                         </Tabs.List>
                         <Tabs.Content value="file">
                             <Item.Root variant="outline" class="border-dashed">
@@ -84,37 +108,28 @@
                                     >
                                 </Item.Content>
                                 <Item.Actions>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onclick={async () => {
-                                            keyFile = await openFile({
-                                                directory: false,
-                                                multiple: false,
-                                                filters: [
-                                                    {
-                                                        name: "age keyfiles",
-                                                        extensions: [".age", ".txt"],
-                                                    },
-                                                ],
-                                            });
-                                            if (keyFile && !name) name = getFileName(keyFile)!.split(".").shift()!;
-                                        }}
-                                        class="truncate w-24"
-                                        >{keyFile
-                                            ? getFileName(keyFile)
-                                            : "choose file"}</Button
-                                    >
+                                    <ChooseFileButton
+                                        bind:file={keyFile}
+                                        bind:name
+                                    />
                                 </Item.Actions>
                             </Item.Root>
                         </Tabs.Content>
                         <Tabs.Content value="paste">
-                            <div class="border-dashed p-4 border text-sm rounded-sm gap-y-1 flex flex-col">
-                                    <p class="text-sm leading-snug font-medium">key text</p>
-                                    <p class="text-muted-foreground text-sm"
-                                        >paste your key content</p
-                                    >
-                                    <Textarea bind:value={keyContent} class="resize-none" wrap="hard"/>
+                            <div
+                                class="border-dashed p-4 border text-sm rounded-sm gap-y-1 flex flex-col"
+                            >
+                                <p class="text-sm leading-snug font-medium">
+                                    key text
+                                </p>
+                                <p class="text-muted-foreground text-sm">
+                                    paste your key content
+                                </p>
+                                <Textarea
+                                    bind:value={keyContent}
+                                    class="resize-none"
+                                    wrap="hard"
+                                />
                             </div>
                         </Tabs.Content>
                     </Tabs.Root>
@@ -124,8 +139,7 @@
                 <Dialog.Close
                     class={buttonVariants({
                         variant: "outline",
-                    })}
-                    >cancel</Dialog.Close
+                    })}>cancel</Dialog.Close
                 >
                 <Button
                     class={buttonVariants({
