@@ -9,7 +9,7 @@
     let { children } = $props();
 </script>
 
-<Toaster richColors position="bottom-center" />
+<Toaster richColors />
 <Sidebar.Provider style="--sidebar-width: 12rem">
     {#if new URL(page.url).pathname !== "/create-vault"}<AppSidebar/>{/if}
 <div id="main-container" class="dark">
