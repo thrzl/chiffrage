@@ -13,6 +13,7 @@
     import Textarea from "$lib/components/ui/textarea/textarea.svelte";
     import ChooseFileButton from "./ChooseFileButton.svelte";
     let name = $state("");
+    import { bech32 } from "bech32";
     let keyFile: string | null = $state(null);
     let keyContent: string | null = $state(null);
     let currentTab: "file" | "paste" = $state("file");
@@ -53,6 +54,18 @@
     async function import_key_text() {
         if (!name) return toast.error("no name set");
         if (!keyContent) return toast.error("no key content");
+        keyContent = keyContent.trim();
+        try {
+            bech32.decode(keyContent);
+        } catch {
+            return toast.error("invalid key", {
+                description: "make sure that you copied the correct thing",
+            });
+        }
+        // let keyRaw = keyContent
+        //     .toLowerCase()
+        //     .replace(/^age/, "")
+        //     .replace(/^AGE-SECRET-KEY-/, "");
 
         if (
             keyContent.startsWith("AGE-SECRET-KEY") &&
