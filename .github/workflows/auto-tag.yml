@@ -8,7 +8,6 @@ on:
     inputs: {}
   push:
     branches: [main]
-    paths: ["src-tauri/tauri.conf.json"]
 
 jobs:
   autorelease:
@@ -50,9 +49,7 @@ jobs:
       - name: create tag
         if: steps.get-tag.outputs.version
         id: create-tag
-        uses: laputansoft/github-tag-action@v4.6
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ steps.get-tag.outputs.version }}
-          name: ${{ steps.tag.outputs.version }}
-          body_path: body.md
+        uses: anothrNick/github-tag-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CUSTOM_TAG: ${{ steps.get-tag.outputs.version }}
