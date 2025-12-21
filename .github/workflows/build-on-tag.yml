@@ -1,7 +1,6 @@
 name: "publish"
 
 on:
-  create: {}
   workflow_dispatch:
     inputs:
       tagName:
@@ -19,6 +18,9 @@ jobs:
     permissions:
       contents: write
       id-token: write
+
+    outputs:
+      artifactPaths: ${{steps.build.outputs.artifactPaths}}
 
     strategy:
       fail-fast: true
@@ -57,7 +59,7 @@ jobs:
 
       - name: get last tag
         id: get-tag
-        run: echo "last-tag=git describe --tags --abbrev=0" >> "$GITHUB_OUTPUT"
+        run: echo "last-tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
 
       - name: build changelog
         id: build-changelog
@@ -68,6 +70,7 @@ jobs:
           toTag: ${{ env.TAG_NAME }}
 
       - uses: tauri-apps/tauri-action@v0.6.0
+        id: build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -91,8 +94,8 @@ jobs:
       - name: sign release artifacts
         uses: sigstore/gh-action-sigstore-python@v3.2.0
         with:
-          inputs: ${{ needs.build-tauri.outputs.artifactPaths }}
+          inputs: ${{ needs.publish-tauri.outputs.artifactPaths }}
 
       - uses: actions/attest-build-provenance@v3
         with:
-          subject-path: ${{ needs.build-tauri.outputs.artifactPaths }}
+          subject-path: ${{ needs.publish-tauri.outputs.artifactPaths }}
