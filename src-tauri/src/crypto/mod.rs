@@ -52,23 +52,23 @@ where
     let mut writer = encryptor
         .wrap_async_output(file_writer)
         .await
-        .expect("failed to initialize writer");
+        .map_err(|e| e.to_string())?;
 
     let mut buffer = vec![0u8; 1024 * 1024 * 16]; // 16 MB buffer
 
     loop {
-        let n = reader.read(&mut buffer).await.expect("failed to read file");
+        let n = reader.read(&mut buffer).await.map_err(|e| e.to_string())?;
         if n == 0 {
             break;
         }
         writer
             .write_all(&buffer[..n])
             .await
-            .expect("failed to write"); // only write the new bytes
+            .map_err(|e| e.to_string())?; // only write the new bytes
         callback(n); // this is not a critical function
     }
 
-    writer.close().await.expect("failed to write final chunk");
+    writer.close().await.map_err(|e| e.to_string())?;
     Ok(encrypted_output)
 }
 
@@ -93,12 +93,12 @@ where
     let decryptor: Decryptor<Box<dyn futures_io::AsyncBufRead + Unpin + Send + Sync>> =
         Decryptor::new_async_buffered(reader)
             .await
-            .expect("failed to initialize decryptor");
+            .map_err(|e| e.to_string())?;
 
     let decrypted_output = file_path.with_extension("");
     let output = File::create(&decrypted_output)
         .await
-        .expect("failed to get handle on output file");
+        .map_err(|e| e.to_string())?;
     let mut file_writer = BufWriter::new(output);
 
     let mut decrypted_reader = {
@@ -121,14 +121,14 @@ where
         let n = decrypted_reader
             .read(&mut buffer)
             .await
-            .expect("failed to read file");
+            .map_err(|e| e.to_string())?;
         if n == 0 {
             break;
         }
         file_writer
             .write_all(&buffer[..n])
             .await
-            .expect("failed to write"); // only write the new bytes
+            .map_err(|e| e.to_string())?; // only write the new bytes
         accumulator += n;
         if accumulator >= target_size {
             callback(accumulator);
