@@ -7,6 +7,11 @@ on:
         description: "tag to build"
         required: true
         default: "0.0.0"
+  workflow_call:
+    inputs:
+      tagName:
+        required: true
+        type: string
 
 # This is the example from the readme.
 # On each push to the `release` branch it will create or update a GitHub release, build your app, and upload the artifacts to the release.
