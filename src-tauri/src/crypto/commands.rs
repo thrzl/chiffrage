@@ -197,6 +197,9 @@ pub async fn generate_keypair(
     name: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
+    if name.len() == 0 {
+        return Err("no name set".to_string());
+    }
     let vault_handle = {
         let state = state.lock().unwrap();
         state.vault.as_ref().expect("failed to load vault").clone()

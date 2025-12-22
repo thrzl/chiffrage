@@ -10,6 +10,7 @@
     import SlideAlert from "./SlideAlert.svelte";
     let name = $state("");
     let { open = $bindable() } = $props();
+    let keys = ((await invoke("fetch_keys")) as Key[]).map((key) => key.name);
 
     async function generate_key() {
         if (!name.replaceAll(" ", "")) return toast.error("no name set");
@@ -19,12 +20,13 @@
         await invoke("generate_keypair", { name: name.trim() });
         emit("update-keys");
         open = false;
+        name = "";
         toast.success("key generated successfully");
+        keys = ((await invoke("fetch_keys")) as Key[]).map((key) => key.name);
     }
 
-    let keys = ((await invoke("fetch_keys")) as Key[]).map((key) => key.name);
     let alert = $derived.by(() => {
-        if (keys.includes(name)) {
+        if (keys.includes(name.trim())) {
             return {
                 title: "key name already in use",
                 description: "a key with this name already exists",
@@ -34,14 +36,7 @@
     let submissionValid = $derived(name.replaceAll(" ", "") !== "" && !alert);
 </script>
 
-<Dialog.Root
-    bind:open
-    onOpenChange={(open) => {
-        if (!open) {
-            name = "";
-        }
-    }}
->
+<Dialog.Root bind:open>
     <form>
         <Dialog.Content
             class="sm:max-w-106.25"

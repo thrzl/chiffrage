@@ -69,6 +69,7 @@
         await invoke("import_key_text", { name: name.trim(), keyContent });
         toast.success("imported key");
         emit("update-keys");
+        ((await invoke("fetch_keys")) as Key[]).map((key) => key.name);
         open = false;
         keyContent = "";
         name = "";
@@ -121,15 +122,7 @@
     );
 </script>
 
-<Dialog.Root
-    bind:open
-    onOpenChange={(open) => {
-        if (!open) {
-            keyFile = null;
-            name = "";
-        }
-    }}
->
+<Dialog.Root bind:open>
     <form>
         <Dialog.Content
             class="sm:max-w-106.25"
