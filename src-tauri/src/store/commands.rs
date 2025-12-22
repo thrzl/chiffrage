@@ -223,6 +223,9 @@ pub async fn import_key(
     path: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<String, String> {
+    if name.len() == 0 {
+        return Err("no name set".to_string());
+    }
     let mut key_file = File::open(path).await.expect("failed to open key file");
     let mut key_content = String::new();
 
