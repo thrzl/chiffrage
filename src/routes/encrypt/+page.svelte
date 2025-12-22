@@ -150,20 +150,18 @@
                 >
         </div>
             </Tabs.Root>
-            <Item.Root variant="outline" class="border-dashed">
+            <Item.Root variant="outline" class="bg-secondary mb-2 p-4">
                 <Item.Content class="text-left">
                     <Item.Title>
                         armor with ASCII?
                         <Tooltip.Provider delayDuration={200}>
                           <Tooltip.Root>
-                            <Tooltip.Trigger class={buttonVariants({ variant: "ghost" })}
-                              ><CircleQuestionMarkIcon/></Tooltip.Trigger
+                            <Tooltip.Trigger
+                              ><CircleQuestionMarkIcon class="h-4"/></Tooltip.Trigger
                             >
-                            <div style="--primary: var(--secondary) !important">
-                            <Tooltip.Content class="bg-secondary! text-secondary-foreground max-w-64" arrowClasses="h-0">
+                            <Tooltip.Content class="bg-secondary text-secondary-foreground max-w-64 border-outline border shadow-lg" arrowClasses="h-0">
                               <p>use ASCII characters instead of binary. slightly increased compatibility at the cost of higher file size.</p>
                             </Tooltip.Content>
-                            </div>
                           </Tooltip.Root>
                         </Tooltip.Provider>
                     </Item.Title>
