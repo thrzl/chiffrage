@@ -80,36 +80,57 @@ pub async fn encrypt_file(
             ]
         }
     };
-    let total_bytes: u64 = join_all(files.iter().map(async |path| {
-        metadata(path)
+    let file_sizes: HashMap<String, u64> = files
+        .clone()
+        .into_iter()
+        .zip(
+            join_all(files.clone().into_iter().map(async |path| {
+                metadata(path)
+                    .await
+                    .expect("failed to get file metadata")
+                    .len()
+            }))
             .await
-            .expect("failed to get file metadata")
-            .len()
-    }))
-    .await
-    .into_iter()
-    .sum();
-    let total_read_bytes = Arc::new(AtomicUsize::new(0));
-    let reader = Arc::new(reader);
+            .into_iter(),
+        )
+        .collect();
+    let total_bytes: u64 = file_sizes.values().sum();
+    let total_read_bytes_ptr = Arc::new(AtomicUsize::new(0));
+    let reader_ptr = Arc::new(reader);
     let mut output_paths = Vec::new();
 
+    let timer = Arc::new(timer::Timer::new());
     for file in files {
-        let total_read_bytes = total_read_bytes.clone();
-        let path = PathBuf::from(file);
-        let reader = reader.clone();
+        let total_read_bytes = total_read_bytes_ptr.clone();
+        let path = PathBuf::from(file.clone());
+        let reader = reader_ptr.clone();
+        let timer = timer.clone();
+        let _guard = timer.schedule_repeating(chrono::Duration::milliseconds(100), move || {
+            let _ = reader.send(
+                json!({ // its okay if it doesnt send i'd rather the files just encrypt
+                    "read_bytes": total_read_bytes,
+                    "total_bytes": total_bytes,
+                    "current_file": path.file_name().unwrap().to_str().unwrap()
+                }),
+            );
+        });
+
+        let total_read_bytes = total_read_bytes_ptr.clone();
+        let path = PathBuf::from(file.clone());
         let output_path =
             crypto::encrypt_file(&recipients, &path.clone(), move |processed_bytes| {
                 total_read_bytes.fetch_add(processed_bytes, std::sync::atomic::Ordering::SeqCst);
-                let _ = reader.send(
-                    json!({ // its okay if it doesnt send i'd rather the files just encrypt
-                        "read_bytes": total_read_bytes,
-                        "total_bytes": total_bytes,
-                        "current_file": path.file_name().unwrap().to_str().unwrap()
-                    }),
-                );
             })
             .await
             .expect("failed to encrypt file");
+        drop(_guard);
+        let _ = reader_ptr.clone().send(
+            json!({ // its okay if it doesnt send i'd rather the files just encrypt
+                "read_bytes": file_sizes.get(&file).unwrap(),
+                "total_bytes": total_bytes,
+                "current_file": path.file_name().unwrap().to_str().unwrap()
+            }),
+        );
         output_paths.push(output_path)
     }
     reveal_items_in_dir(output_paths).expect("failed to reveal item");
@@ -163,23 +184,31 @@ pub async fn decrypt_file(
         )
         .collect();
     let total_bytes: u64 = file_sizes.values().sum();
-    let total_read_bytes = Arc::new(AtomicUsize::new(0));
+    let total_read_bytes_ptr = Arc::new(AtomicUsize::new(0));
     let reader_ptr = Arc::new(reader);
     let mut output_paths = Vec::new();
+    let timer = Arc::new(timer::Timer::new());
     for file in files {
-        let total_read_bytes = total_read_bytes.clone();
+        let total_read_bytes = total_read_bytes_ptr.clone();
         let reader = reader_ptr.clone();
         let path = PathBuf::from(file.clone());
-        let output_path = crypto::decrypt_file(&identity, &path.clone(), move |processed_bytes| {
+        let timer = timer.clone();
+        let _guard = timer.schedule_repeating(chrono::Duration::milliseconds(100), move || {
+            let _ = reader.send(
+                json!({ // its okay if it doesnt send i'd rather the files just encrypt
+                    "read_bytes": total_read_bytes,
+                    "total_bytes": total_bytes,
+                    "current_file": path.file_name().unwrap().to_str().unwrap()
+                }),
+            );
+        });
+        let total_read_bytes = total_read_bytes_ptr.clone();
+        let path = PathBuf::from(file.clone());
+        let output_path = crypto::decrypt_file(&identity, &path, move |processed_bytes| {
             total_read_bytes.fetch_add(processed_bytes, std::sync::atomic::Ordering::SeqCst);
-            let _ = reader.send(json!({
-                "read_bytes": total_read_bytes,
-                "total_bytes": total_bytes,
-                "current_file": path.file_name().unwrap().to_str().unwrap()
-            }));
         })
         .await?;
-
+        drop(_guard);
         let reader = reader_ptr.clone();
         let _ = reader.send(json!({
             "read_bytes": file_sizes.get(&file).unwrap(),
