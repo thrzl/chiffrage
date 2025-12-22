@@ -20,7 +20,7 @@ jobs:
       id-token: write
 
     outputs:
-      artifactPaths: ${{steps.build.outputs.artifactPaths}}
+      artifact-name: chiffrage-bin-${{ matrix.platform }}
 
     strategy:
       fail-fast: true
@@ -57,31 +57,17 @@ jobs:
       - name: install frontend dependencies
         run: bun install
 
-      - name: get last tag
-        id: get-tag
-        run: echo "last-tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+      - name: build binaries
+        run: bun tauri build ${{ matrix.args }}
 
-      - name: build changelog
-        id: build-changelog
-        uses: mikepenz/release-changelog-builder-action@v6.0.1
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fromTag: ${{ steps.get-tag.outputs.version }}
-          toTag: ${{ env.TAG_NAME }}
+          name: chiffrage-artifacts-${{ matrix.platform }}
+          path: src-tauri/target/release/bundle/**/*
 
-      - uses: tauri-apps/tauri-action@v0.6.0
-        id: build
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ env.TAG_NAME }}
-          releaseName: ${{ env.TAG_NAME }}
-          releaseBody: ${{steps.build-changelog.outputs.changelog}}
-          releaseDraft: false
-          prerelease: false
-          args: ${{ matrix.args }}
 
-  sign-release:
+  release:
     permissions:
       contents: write
       id-token: write
@@ -91,11 +77,24 @@ jobs:
     needs: [publish-tauri]
 
     steps:
+      - name: download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
       - name: sign release artifacts
         uses: sigstore/gh-action-sigstore-python@v3.2.0
         with:
-          inputs: ${{ needs.publish-tauri.outputs.artifactPaths }}
+          inputs: artifacts/**
 
       - uses: actions/attest-build-provenance@v3
         with:
-          subject-path: ${{ needs.publish-tauri.outputs.artifactPaths }}
+          subject-path: artifacts/**
+
+      - name: make release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ inputs.tagName }}
+        run: |
+          export CHANGELOG=$(git log --oneline "$(git describe --tags --abbrev=0)"..HEAD)
+          gh release create $TAG_NAME artifacts/* -n $CHANGELOG
