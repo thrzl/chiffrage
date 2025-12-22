@@ -15,6 +15,7 @@ use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 pub type WildcardRecipient = dyn Recipient + Send + Sync;
 pub type WildcardIdentity = dyn Identity + Send + Sync;
 
+const MEGABYTE: usize = 1024 * 1024;
 /// every time a new chunk is encrypted, the callback will be run with the amount of bytes that were encrypted
 pub async fn encrypt_file<F>(
     recipients: &Vec<Box<WildcardRecipient>>,
@@ -54,7 +55,7 @@ where
         .await
         .map_err(|e| e.to_string())?;
 
-    let mut buffer = vec![0u8; 1024 * 1024 * 16]; // 16 MB buffer
+    let mut buffer = vec![0u8; MEGABYTE * 16]; // 16 MB buffer
 
     loop {
         let n = reader.read(&mut buffer).await.map_err(|e| e.to_string())?;
@@ -81,12 +82,19 @@ pub async fn decrypt_file<F>(
 where
     F: FnMut(usize) + Send,
 {
-    let file = File::open(file_path).await.expect("failed to open file");
+    let mut file = File::open(file_path).await.expect("failed to open file");
+    let file_size = file.metadata().await.map_err(|e| e.to_string())?.len() as usize;
+    if file_size > MEGABYTE * 100 {
+        return Err("files over 100 MB are not supported".to_string());
+    }
+    let mut contents = Vec::with_capacity(MEGABYTE * if armor { 100 } else { 0 }); // don't allocate anything if not necessary
     let reader: Box<dyn futures_io::AsyncBufRead + Unpin + Send + Sync> = if armor {
-        Box::new(age::armor::ArmoredReader::from_async_reader(
-            BufReader::new(file).compat(),
-        ))
+        file.read_to_end(&mut contents)
+            .await
+            .map_err(|e| e.to_string())?;
+        Box::new(age::armor::ArmoredReader::from_async_reader(&contents[..]))
     } else {
+        drop(contents);
         Box::new(BufReader::new(file).compat())
     };
 
@@ -113,9 +121,9 @@ where
         }
     };
 
-    let target_size = 1024 * 1024 * 4; // only send at most every 4MB
+    let target_size = MEGABYTE * 4; // only send at most every 4MB
     let mut accumulator: usize = 0;
-    let mut buffer = vec![0u8; 1024 * 1024 * 16]; // 16 MB buffer
+    let mut buffer = vec![0u8; MEGABYTE * 16]; // 16 MB buffer
 
     loop {
         let n = decrypted_reader
