@@ -12,7 +12,7 @@
     import { TrashIcon, CircleQuestionMarkIcon } from "@lucide/svelte";
     import {andList} from "human-list";
     import * as Select from "$lib/components/ui/select/index.js";
-    import {Button, buttonVariants} from "$lib/components/ui/button/index";
+    import {Button} from "$lib/components/ui/button/index";
     import { toast } from "svelte-sonner";
     import PasswordBox from "../../components/PasswordBox.svelte";
     import type { ZxcvbnResult } from "@zxcvbn-ts/core";

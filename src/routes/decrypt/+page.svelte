@@ -6,10 +6,6 @@
     import * as Table from "$lib/components/ui/scroll-table";
     import * as Select from "$lib/components/ui/select/index";
     import * as Tabs from "$lib/components/ui/tabs/index"
-    import * as Tooltip from "$lib/components/ui/tooltip/index";
-    import * as Item from "$lib/components/ui/item/index";
-    import Switch from "$lib/components/ui/switch/switch.svelte";
-    import {CircleQuestionMarkIcon} from "@lucide/svelte";
 
     import Label from "$lib/components/ui/label/label.svelte";
     import Button from "$lib/components/ui/button/button.svelte";
