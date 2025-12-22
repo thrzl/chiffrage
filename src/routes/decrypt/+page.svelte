@@ -6,6 +6,11 @@
     import * as Table from "$lib/components/ui/scroll-table";
     import * as Select from "$lib/components/ui/select/index";
     import * as Tabs from "$lib/components/ui/tabs/index"
+    import * as Tooltip from "$lib/components/ui/tooltip/index";
+    import * as Item from "$lib/components/ui/item/index";
+    import Switch from "$lib/components/ui/switch/switch.svelte";
+    import {CircleQuestionMarkIcon} from "@lucide/svelte";
+
     import Label from "$lib/components/ui/label/label.svelte";
     import Button from "$lib/components/ui/button/button.svelte";
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
@@ -19,6 +24,7 @@
     let chosenKey = $state(new URLSearchParams(window.location.search).get("key") ?? "");
     let files: string[] | null = $state(null);
     let decryptMethod: "Scrypt" | "X25519" = $state("X25519");
+    let armor = $state(false);
     const methodMap = {
       pass: "Scrypt",
       key: "X25519"
@@ -45,9 +51,20 @@
             privateKey: decryptMethod === "X25519" ? chosenKey : password,
             reader: channel,
             files,
-            method: decryptMethod
+            method: decryptMethod,
+            armor
         }).then(() => progress?.read_bytes === progress?.total_bytes)
-        .catch(e => toast.error(e));
+        .catch(e => {
+          e = e.toLowerCase() + ".";
+          let description = undefined;
+          if (e === "header is invalid.") {
+            description = `are you sure this is a valid age-encrypted file? is it ${armor && "not "}ascii-armored?`
+          } else {
+            description = e;
+            e = "decryption error"
+          }
+          toast.error(e, {description});
+        });
     }
     let keyFetch: Key[] = $state(await invoke("fetch_keys"));
     let keys = keyFetch.filter(key => key.key_type === "Private");
@@ -104,6 +121,29 @@
         >
         </div>
         </Tabs.Root>
+        <Item.Root variant="outline" class="bg-secondary mt-2 p-4">
+            <Item.Content class="text-left">
+                <Item.Title>
+                    decrypt ASCII armor?
+                    <Tooltip.Provider delayDuration={200}>
+                      <Tooltip.Root>
+                        <Tooltip.Trigger
+                          ><CircleQuestionMarkIcon class="h-4"/></Tooltip.Trigger
+                        >
+                        <Tooltip.Content class="bg-secondary text-secondary-foreground max-w-64 border-outline border shadow-lg" arrowClasses="h-0">
+                          <p>for files encrypted with ASCII characters instead of binary.</p>
+                        </Tooltip.Content>
+                      </Tooltip.Root>
+                    </Tooltip.Provider>
+                </Item.Title>
+            </Item.Content>
+            <Item.Actions>
+                <Switch
+                    bind:checked={armor}
+                    style={armor ? "--primary: lightgreen" : ""}
+                />
+            </Item.Actions>
+        </Item.Root>
         <Button
             onclick={decryptFile}
             disabled={(decryptMethod === "X25519" ? chosenKey.length  : password.length) === 0 || !files || (progress && progress.read_bytes !== progress.total_bytes)}
