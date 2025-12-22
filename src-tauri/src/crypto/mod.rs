@@ -82,7 +82,7 @@ where
     F: FnMut(usize) + Send,
 {
     let file = File::open(file_path).await.expect("failed to open file");
-    let reader: Box<dyn futures_io::AsyncBufRead + Unpin> = if armor {
+    let reader: Box<dyn futures_io::AsyncBufRead + Unpin + Send + Sync> = if armor {
         Box::new(age::armor::ArmoredReader::from_async_reader(
             BufReader::new(file).compat(),
         ))
@@ -90,7 +90,7 @@ where
         Box::new(BufReader::new(file).compat())
     };
 
-    let decryptor: Decryptor<Box<dyn futures_io::AsyncBufRead + Unpin>> =
+    let decryptor: Decryptor<Box<dyn futures_io::AsyncBufRead + Unpin + Send + Sync>> =
         Decryptor::new_async_buffered(reader)
             .await
             .expect("failed to initialize decryptor");
