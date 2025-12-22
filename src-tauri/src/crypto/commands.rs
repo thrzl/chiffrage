@@ -7,6 +7,7 @@ use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
 use tauri_plugin_opener::reveal_items_in_dir;
@@ -32,6 +33,25 @@ pub async fn validate_key_text(text: String) -> Result<(), String> {
         Ok(_) => Ok(()),
         Err(err) => Err(format!("this is not a valid age key. {err}")),
     }
+}
+
+#[tauri::command]
+pub fn armor_check_text(text: String) -> bool {
+    text.starts_with("-----BEGIN AGE ENCRYPTED FILE-----")
+}
+
+pub async fn armor_check_file(path: &String) -> Result<bool, String> {
+    let mut file = tokio::fs::File::open(&path)
+        .await
+        .map_err(|err| format!("could not open file: {err}"))?;
+    let mut buf = [0u8; 34];
+    let bytes = file
+        .read(&mut buf)
+        .await
+        .map_err(|err| format!("could not read file: {err}"))?;
+    let key_text = String::from_utf8(buf[..bytes].to_vec())
+        .map_err(|err| format!("could not decode text content: {err}"))?;
+    Ok(armor_check_text(key_text))
 }
 
 #[tauri::command]
@@ -145,10 +165,8 @@ pub async fn decrypt_file(
     reader: tauri::ipc::Channel<serde_json::Value>,
     files: Vec<String>,
     method: DecryptionMethod,
-    armor: Option<bool>,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
-    let armor = armor.unwrap_or(false);
     let identity = match method {
         DecryptionMethod::X25519 => {
             let state = state.lock().expect("failed to get lock on state");
@@ -195,29 +213,32 @@ pub async fn decrypt_file(
     for file in files {
         let total_read_bytes = total_read_bytes_ptr.clone();
         let reader = reader_ptr.clone();
-        let path = PathBuf::from(file.clone());
         let timer = timer.clone();
+        let path_ptr = Arc::new(PathBuf::from_str(&file).unwrap());
+        let path = path_ptr.clone();
         let _guard = timer.schedule_repeating(chrono::Duration::milliseconds(100), move || {
             let _ = reader.send(
                 json!({ // its okay if it doesnt send i'd rather the files just encrypt
-                    "read_bytes": total_read_bytes,
-                    "total_bytes": total_bytes,
+                    "read_bytes": &total_read_bytes,
+                    "total_bytes": &total_bytes,
                     "current_file": path.file_name().unwrap().to_str().unwrap()
                 }),
             );
         });
+        let is_armored = armor_check_file(&file).await?;
         let total_read_bytes = total_read_bytes_ptr.clone();
-        let path = PathBuf::from(file.clone());
-        let output_path = crypto::decrypt_file(&identity, &path, armor, move |processed_bytes| {
-            total_read_bytes.fetch_add(processed_bytes, std::sync::atomic::Ordering::SeqCst);
-        })
-        .await?;
+        let path = path_ptr;
+        let output_path =
+            crypto::decrypt_file(&identity, &path, is_armored, move |processed_bytes| {
+                total_read_bytes.fetch_add(processed_bytes, std::sync::atomic::Ordering::SeqCst);
+            })
+            .await?;
         drop(_guard);
         let reader = reader_ptr.clone();
         let _ = reader.send(json!({
             "read_bytes": file_sizes.get(&file).unwrap(),
             "total_bytes": total_bytes,
-            "current_file": PathBuf::from(file).file_name().unwrap().to_str().unwrap()
+            "current_file": path.file_name().unwrap().to_str().unwrap()
         })); // ensure that it "completes" on the frontend
         output_paths.push(output_path)
     }
