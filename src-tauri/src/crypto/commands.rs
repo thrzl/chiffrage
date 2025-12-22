@@ -55,7 +55,9 @@ pub async fn encrypt_file(
     reader: tauri::ipc::Channel<serde_json::Value>,
     files: Vec<String>,
     state: tauri::State<'_, Mutex<AppState>>,
+    armor: Option<bool>,
 ) -> Result<(), String> {
+    let armor = armor.unwrap_or(false);
     let recipients: Vec<Box<WildcardRecipient>> = match recipient {
         EncryptionMethod::X25519(public_keys) => {
             let state = state.lock().expect("failed to get lock on state");
@@ -118,7 +120,7 @@ pub async fn encrypt_file(
         let total_read_bytes = total_read_bytes_ptr.clone();
         let path = PathBuf::from(file.clone());
         let output_path =
-            crypto::encrypt_file(&recipients, &path.clone(), move |processed_bytes| {
+            crypto::encrypt_file(&recipients, &path.clone(), armor, move |processed_bytes| {
                 total_read_bytes.fetch_add(processed_bytes, std::sync::atomic::Ordering::SeqCst);
             })
             .await
@@ -143,8 +145,10 @@ pub async fn decrypt_file(
     reader: tauri::ipc::Channel<serde_json::Value>,
     files: Vec<String>,
     method: DecryptionMethod,
+    armor: Option<bool>,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
+    let armor = armor.unwrap_or(false);
     let identity = match method {
         DecryptionMethod::X25519 => {
             let state = state.lock().expect("failed to get lock on state");
@@ -204,7 +208,7 @@ pub async fn decrypt_file(
         });
         let total_read_bytes = total_read_bytes_ptr.clone();
         let path = PathBuf::from(file.clone());
-        let output_path = crypto::decrypt_file(&identity, &path, move |processed_bytes| {
+        let output_path = crypto::decrypt_file(&identity, &path, armor, move |processed_bytes| {
             total_read_bytes.fetch_add(processed_bytes, std::sync::atomic::Ordering::SeqCst);
         })
         .await?;

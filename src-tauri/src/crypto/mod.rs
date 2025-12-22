@@ -19,6 +19,7 @@ pub type WildcardIdentity = dyn Identity + Send + Sync;
 pub async fn encrypt_file<F>(
     recipients: &Vec<Box<WildcardRecipient>>,
     file_path: &PathBuf,
+    armor: bool,
     mut callback: F,
 ) -> Result<PathBuf, String>
 where
@@ -33,7 +34,13 @@ where
     let output = File::create(&encrypted_output)
         .await
         .expect("failed to get handle on output file");
-    let file_writer = BufWriter::new(output).compat_write();
+    let format = if armor {
+        age::armor::Format::AsciiArmor
+    } else {
+        age::armor::Format::Binary
+    };
+    let file_writer =
+        age::armor::ArmoredWriter::wrap_async_output(BufWriter::new(output).compat_write(), format);
 
     let encryptor = age::Encryptor::with_recipients(
         recipients
@@ -68,15 +75,25 @@ where
 pub async fn decrypt_file<F>(
     identity: &Box<WildcardIdentity>,
     file_path: &PathBuf,
+    armor: bool,
     mut callback: F,
 ) -> Result<PathBuf, String>
 where
     F: FnMut(usize) + Send,
 {
     let file = File::open(file_path).await.expect("failed to open file");
-    let decryptor = Decryptor::new_async_buffered(BufReader::new(file).compat())
-        .await
-        .expect("failed to initialize decryptor");
+    let reader: Box<dyn futures_io::AsyncBufRead + Unpin> = if armor {
+        Box::new(age::armor::ArmoredReader::from_async_reader(
+            BufReader::new(file).compat(),
+        ))
+    } else {
+        Box::new(BufReader::new(file).compat())
+    };
+
+    let decryptor: Decryptor<Box<dyn futures_io::AsyncBufRead + Unpin>> =
+        Decryptor::new_async_buffered(reader)
+            .await
+            .expect("failed to initialize decryptor");
 
     let decrypted_output = file_path.with_extension("");
     let output = File::create(&decrypted_output)
