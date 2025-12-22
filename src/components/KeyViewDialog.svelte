@@ -150,10 +150,16 @@
                 <section id="actions">
                     <Label class="mb-2" for="actions">key actions</Label>
                     <div class="flex flex-row gap-2">
-                        <Button class="grow" onclick={encrypt}
+                        <Button
+                            class="grow"
+                            onclick={() =>
+                                (window.location.href = `/encrypt?keys=${key?.id}`)}
                             ><LockIcon /> encrypt</Button
                         >
-                        {#if isPrivateKey}<Button class="grow" onclick={decrypt}
+                        {#if isPrivateKey}<Button
+                                class="grow"
+                                onclick={() =>
+                                    (window.location.href = `/decrypt?key=${key?.id}`)}
                                 ><LockOpenIcon />decrypt</Button
                             >{/if}
                     </div>

@@ -16,7 +16,7 @@
 
     let progress: FileProgress | null = $state(null);
     let password = $state("");
-    let chosenKey = $state("");
+    let chosenKey = $state(new URLSearchParams(window.location.search).get("key") ?? "");
     let files: string[] | null = $state(null);
     let decryptMethod: "Scrypt" | "X25519" = $state("X25519");
     const methodMap = {
