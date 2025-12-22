@@ -6,6 +6,11 @@
     import * as Table from "$lib/components/ui/scroll-table";
     import * as Select from "$lib/components/ui/select/index";
     import * as Tabs from "$lib/components/ui/tabs/index"
+    import * as Tooltip from "$lib/components/ui/tooltip/index";
+    import * as Item from "$lib/components/ui/item/index";
+    import Switch from "$lib/components/ui/switch/switch.svelte";
+    import {CircleQuestionMarkIcon} from "@lucide/svelte";
+
     import Label from "$lib/components/ui/label/label.svelte";
     import Button from "$lib/components/ui/button/button.svelte";
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
@@ -19,10 +24,6 @@
     let chosenKey = $state(new URLSearchParams(window.location.search).get("key") ?? "");
     let files: string[] | null = $state(null);
     let decryptMethod: "Scrypt" | "X25519" = $state("X25519");
-    const methodMap = {
-      pass: "Scrypt",
-      key: "X25519"
-    }
 
     async function chooseFile(event: Event) {
         event.preventDefault();
@@ -30,6 +31,7 @@
             multiple: true,
             directory: false,
         });
+
     }
     async function decryptFile(event: Event) {
         event.preventDefault();
@@ -45,9 +47,19 @@
             privateKey: decryptMethod === "X25519" ? chosenKey : password,
             reader: channel,
             files,
-            method: decryptMethod
+            method: decryptMethod,
         }).then(() => progress?.read_bytes === progress?.total_bytes)
-        .catch(e => toast.error(e));
+        .catch(e => {
+          e = e.toLowerCase() + ".";
+          let description = undefined;
+          if (e === "header is invalid.") {
+            description = `are you sure this is a valid age-encrypted file?`
+          } else {
+            description = e;
+            e = "decryption error"
+          }
+          toast.error(e, {description});
+        });
     }
     let keyFetch: Key[] = $state(await invoke("fetch_keys"));
     let keys = keyFetch.filter(key => key.key_type === "Private");

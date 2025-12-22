@@ -15,10 +15,12 @@ use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 pub type WildcardRecipient = dyn Recipient + Send + Sync;
 pub type WildcardIdentity = dyn Identity + Send + Sync;
 
+const MEGABYTE: usize = 1024 * 1024;
 /// every time a new chunk is encrypted, the callback will be run with the amount of bytes that were encrypted
 pub async fn encrypt_file<F>(
     recipients: &Vec<Box<WildcardRecipient>>,
     file_path: &PathBuf,
+    armor: bool,
     mut callback: F,
 ) -> Result<PathBuf, String>
 where
@@ -33,7 +35,13 @@ where
     let output = File::create(&encrypted_output)
         .await
         .expect("failed to get handle on output file");
-    let file_writer = BufWriter::new(output).compat_write();
+    let format = if armor {
+        age::armor::Format::AsciiArmor
+    } else {
+        age::armor::Format::Binary
+    };
+    let file_writer =
+        age::armor::ArmoredWriter::wrap_async_output(BufWriter::new(output).compat_write(), format);
 
     let encryptor = age::Encryptor::with_recipients(
         recipients
@@ -45,43 +53,60 @@ where
     let mut writer = encryptor
         .wrap_async_output(file_writer)
         .await
-        .expect("failed to initialize writer");
+        .map_err(|e| e.to_string())?;
 
-    let mut buffer = vec![0u8; 1024 * 1024 * 16]; // 16 MB buffer
+    let mut buffer = vec![0u8; MEGABYTE * 16]; // 16 MB buffer
 
     loop {
-        let n = reader.read(&mut buffer).await.expect("failed to read file");
+        let n = reader.read(&mut buffer).await.map_err(|e| e.to_string())?;
         if n == 0 {
             break;
         }
         writer
             .write_all(&buffer[..n])
             .await
-            .expect("failed to write"); // only write the new bytes
+            .map_err(|e| e.to_string())?; // only write the new bytes
         callback(n); // this is not a critical function
     }
 
-    writer.close().await.expect("failed to write final chunk");
+    writer.close().await.map_err(|e| e.to_string())?;
     Ok(encrypted_output)
 }
 
 pub async fn decrypt_file<F>(
     identity: &Box<WildcardIdentity>,
     file_path: &PathBuf,
+    armor: bool,
     mut callback: F,
 ) -> Result<PathBuf, String>
 where
     F: FnMut(usize) + Send,
 {
-    let file = File::open(file_path).await.expect("failed to open file");
-    let decryptor = Decryptor::new_async_buffered(BufReader::new(file).compat())
-        .await
-        .expect("failed to initialize decryptor");
+    let mut file = File::open(file_path).await.expect("failed to open file");
+    let file_size = file.metadata().await.map_err(|e| e.to_string())?.len() as usize;
+    if file_size > MEGABYTE * 100 {
+        return Err("files over 100 MB are not supported".to_string());
+    }
+    let mut contents = Vec::with_capacity(MEGABYTE * if armor { 100 } else { 0 }); // don't allocate anything if not necessary
+    let reader: Box<dyn futures_io::AsyncBufRead + Unpin + Send + Sync> = if armor {
+        file.read_to_end(&mut contents)
+            .await
+            .map_err(|e| e.to_string())?;
+        Box::new(age::armor::ArmoredReader::from_async_reader(&contents[..]))
+    } else {
+        drop(contents);
+        Box::new(BufReader::new(file).compat())
+    };
+
+    let decryptor: Decryptor<Box<dyn futures_io::AsyncBufRead + Unpin + Send + Sync>> =
+        Decryptor::new_async_buffered(reader)
+            .await
+            .map_err(|e| e.to_string())?;
 
     let decrypted_output = file_path.with_extension("");
     let output = File::create(&decrypted_output)
         .await
-        .expect("failed to get handle on output file");
+        .map_err(|e| e.to_string())?;
     let mut file_writer = BufWriter::new(output);
 
     let mut decrypted_reader = {
@@ -96,22 +121,22 @@ where
         }
     };
 
-    let target_size = 1024 * 1024 * 4; // only send at most every 4MB
+    let target_size = MEGABYTE * 4; // only send at most every 4MB
     let mut accumulator: usize = 0;
-    let mut buffer = vec![0u8; 1024 * 1024 * 16]; // 16 MB buffer
+    let mut buffer = vec![0u8; MEGABYTE * 16]; // 16 MB buffer
 
     loop {
         let n = decrypted_reader
             .read(&mut buffer)
             .await
-            .expect("failed to read file");
+            .map_err(|e| e.to_string())?;
         if n == 0 {
             break;
         }
         file_writer
             .write_all(&buffer[..n])
             .await
-            .expect("failed to write"); // only write the new bytes
+            .map_err(|e| e.to_string())?; // only write the new bytes
         accumulator += n;
         if accumulator >= target_size {
             callback(accumulator);

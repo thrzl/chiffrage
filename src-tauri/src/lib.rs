@@ -62,7 +62,8 @@ pub fn run() {
             store::import_key_text,
             store::check_keyfile_type,
             crypto::commands::validate_key_file,
-            crypto::commands::validate_key_text
+            crypto::commands::validate_key_text,
+            crypto::commands::armor_check_text
         ])
         .setup(|app| {
             let app_data_dir = app

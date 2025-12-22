@@ -5,21 +5,25 @@
     import {formatBytes, getFileName} from "$lib/main"
     import * as Table from "$lib/components/ui/scroll-table/index";
     import * as Tabs from "$lib/components/ui/tabs/index";
+    import * as Item from "$lib/components/ui/item/index";
     import Progress from "$lib/components/ui/progress/progress.svelte";
     import Label from "$lib/components/ui/label/label.svelte";
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
-    import { TrashIcon } from "@lucide/svelte";
+    import { TrashIcon, CircleQuestionMarkIcon } from "@lucide/svelte";
     import {andList} from "human-list";
     import * as Select from "$lib/components/ui/select/index.js";
-    import Button from "$lib/components/ui/button/button.svelte";
+    import {Button, buttonVariants} from "$lib/components/ui/button/index";
     import { toast } from "svelte-sonner";
     import PasswordBox from "../../components/PasswordBox.svelte";
     import type { ZxcvbnResult } from "@zxcvbn-ts/core";
     import SlideAlert from "../../components/SlideAlert.svelte";
+    import Switch from "$lib/components/ui/switch/switch.svelte";
+    import * as Tooltip from "$lib/components/ui/tooltip/index";
 
     let progress: FileProgress | null = $state(null);
     let chosenKeys: string[] = $state(new URLSearchParams(window.location.search).get("keys")?.split(",") ?? []);
     let files: string[] | null = $state(null);
+    let armor = $state(false)
     let encryptMethod: "pass" | "key" = $state("key")
 
     let password = $state("");
@@ -57,6 +61,7 @@
             recipient: encryptMethod === "key" ? chosenKeys : password,
             reader: channel,
             files,
+            armor
         });
         if (error) toast.error(error)
     }
@@ -145,6 +150,29 @@
                 >
         </div>
             </Tabs.Root>
+            <Item.Root variant="outline" class="bg-secondary mb-2 p-4">
+                <Item.Content class="text-left">
+                    <Item.Title>
+                        armor with ASCII?
+                        <Tooltip.Provider delayDuration={200}>
+                          <Tooltip.Root>
+                            <Tooltip.Trigger
+                              ><CircleQuestionMarkIcon class="h-4"/></Tooltip.Trigger
+                            >
+                            <Tooltip.Content class="bg-secondary text-secondary-foreground max-w-64 border-outline border shadow-lg" arrowClasses="h-0">
+                              <p>use ASCII characters instead of binary. slightly increased compatibility at the cost of higher file size.</p>
+                            </Tooltip.Content>
+                          </Tooltip.Root>
+                        </Tooltip.Provider>
+                    </Item.Title>
+                </Item.Content>
+                <Item.Actions>
+                    <Switch
+                        bind:checked={armor}
+                        style={armor ? "--primary: lightgreen" : ""}
+                    />
+                </Item.Actions>
+            </Item.Root>
         <SlideAlert bind:alert />
         <Button
             onclick={encryptFile}
