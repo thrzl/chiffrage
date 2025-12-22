@@ -242,6 +242,11 @@ pub async fn decrypt_file(
         })); // ensure that it "completes" on the frontend
         output_paths.push(output_path)
     }
+    let _ = reader_ptr.send(json!({
+        "read_bytes": total_bytes,
+        "total_bytes": total_bytes,
+        "current_file": ""
+    })); // ensure that it "completes" on the frontend
     reveal_items_in_dir(output_paths).expect("failed to reveal item");
     Ok(())
 }
