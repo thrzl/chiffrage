@@ -112,24 +112,24 @@ jobs:
         uses: sigstore/gh-action-sigstore-python@v3.2.0
         with:
           inputs: |
-            artifacts/src-tauri/target/**/*.dmg
-            artifacts/src-tauri/target/**/*.app.zip
-            artifacts/src-tauri/target/**/*.exe
-            artifacts/src-tauri/target/**/*.msi
-            artifacts/src-tauri/target/**/*.rpm
-            artifacts/src-tauri/target/**/*.deb
-            artifacts/src-tauri/target/**/*.AppImage
+            artifacts/**/*.dmg
+            artifacts/**/*.app.zip
+            artifacts/**/*.exe
+            artifacts/**/*.msi
+            artifacts/**/*.rpm
+            artifacts/**/*.deb
+            artifacts/**/*.AppImage
 
       - uses: actions/attest-build-provenance@v3
         with:
           subject-path: |
-            artifacts/src-tauri/target/**/*.dmg
-            artifacts/src-tauri/target/**/*.app.zip
-            artifacts/src-tauri/target/**/*.exe
-            artifacts/src-tauri/target/**/*.msi
-            artifacts/src-tauri/target/**/*.rpm
-            artifacts/src-tauri/target/**/*.deb
-            artifacts/src-tauri/target/**/*.AppImage
+            artifacts/**/*.dmg
+            artifacts/**/*.app.zip
+            artifacts/**/*.exe
+            artifacts/**/*.msi
+            artifacts/**/*.rpm
+            artifacts/**/*.deb
+            artifacts/**/*.AppImage
 
       - name: make release
         env:
