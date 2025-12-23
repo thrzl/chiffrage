@@ -111,11 +111,11 @@ jobs:
       - name: sign release artifacts
         uses: sigstore/gh-action-sigstore-python@v3.2.0
         with:
-          inputs: artifacts/**
+          inputs: artifacts/**/*
 
       - uses: actions/attest-build-provenance@v3
         with:
-          subject-path: artifacts/**
+          subject-path: artifacts/**/*
 
       - name: make release
         env:
