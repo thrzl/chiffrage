@@ -74,7 +74,6 @@ pub async fn encrypt_text(
     recipient: EncryptionMethod,
     text: String,
     state: tauri::State<'_, Mutex<AppState>>,
-    armor: Option<bool>,
 ) -> Result<String, String> {
     let recipients: Vec<Box<WildcardRecipient>> = match recipient {
         EncryptionMethod::X25519(public_keys) => {
