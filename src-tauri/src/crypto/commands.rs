@@ -70,6 +70,75 @@ pub async fn validate_key_file(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn encrypt_text(
+    recipient: EncryptionMethod,
+    text: String,
+    state: tauri::State<'_, Mutex<AppState>>,
+    armor: Option<bool>,
+) -> Result<String, String> {
+    let recipients: Vec<Box<WildcardRecipient>> = match recipient {
+        EncryptionMethod::X25519(public_keys) => {
+            let state = state.lock().expect("failed to get lock on state");
+            let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
+            let vault = match vault_handle.lock() {
+                Ok(vault) => vault,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            let key_contents = public_keys
+                .iter()
+                .map(|key| vault.get_key(key).unwrap().contents.public.clone())
+                .collect::<Vec<String>>();
+            crypto::keys_to_x25519_recipients(&key_contents)?
+                .into_iter()
+                .map(|recipient| Box::new(recipient) as Box<WildcardRecipient>)
+                .collect()
+        }
+        EncryptionMethod::Scrypt(password) => {
+            vec![
+                Box::new(age::scrypt::Recipient::new(SecretString::from(password)))
+                    as Box<WildcardRecipient>,
+            ]
+        }
+    };
+    return crypto::encrypt_armored_text(&recipients, text).await;
+}
+
+#[tauri::command]
+pub async fn decrypt_text(
+    private_key: String,
+    text: String,
+    method: DecryptionMethod,
+    state: tauri::State<'_, Mutex<AppState>>,
+) -> Result<String, String> {
+    let identity = match method {
+        DecryptionMethod::X25519 => {
+            let state = state.lock().expect("failed to get lock on state");
+            let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
+            let vault = match vault_handle.lock() {
+                Ok(vault) => vault,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            let key_metadata = vault.get_key(&private_key).unwrap();
+            let key_content = vault
+                .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())
+                .unwrap()
+                .clone();
+            Box::new(
+                key_content
+                    .expose_secret()
+                    .parse::<age::x25519::Identity>()?,
+            ) as Box<WildcardIdentity>
+        }
+        DecryptionMethod::Scrypt => {
+            Box::new(age::scrypt::Identity::new(SecretString::from(private_key)))
+                as Box<WildcardIdentity>
+        }
+    };
+
+    return crypto::decrypt_armored_text(&identity, text).await;
+}
+
+#[tauri::command]
 pub async fn encrypt_file(
     recipient: EncryptionMethod,
     reader: tauri::ipc::Channel<serde_json::Value>,
