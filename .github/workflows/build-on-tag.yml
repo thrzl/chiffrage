@@ -74,7 +74,7 @@ jobs:
       - name: zip mac .app bundles
         if: matrix.platform == 'macos-latest' # This must match the platform value defined above.
         run: |
-          find artifacts -name "*.app" -type d | while read app; do
+          find src-tauri/target -name "*.app" -type d | while read app; do
             ditto -c -k --sequesterRsrc --keepParent "$app" "$app.zip"
             rm -rf "$app"
           done
@@ -91,7 +91,6 @@ jobs:
             src-tauri/target/**/*.rpm
             src-tauri/target/**/*.deb
             src-tauri/target/**/*.AppImage
-          overwrite: true
 
   release:
     permissions:
@@ -107,6 +106,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts/
+
+      - run: ls -R artifacts/
 
       - name: sign release artifacts
         uses: sigstore/gh-action-sigstore-python@v3.2.0
