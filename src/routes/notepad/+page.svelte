@@ -41,6 +41,8 @@
             let description = undefined;
             if (errorText === "header is invalid.") {
                 description = `are you sure this is a valid age-encrypted file?`;
+            } else if (errorText === "no matching keys found.") {
+                description = "incorrect key";
             } else {
                 description = errorText;
                 e = "decryption error";
@@ -153,9 +155,11 @@
         <div class="flex-row flex gap-2">
             <Button
                 onclick={encryptText}
-                disabled={(cryptoMethod === "X25519"
-                    ? chosenKey.length
-                    : password.length) === 0 || !input}
+                disabled={decryptPossible ||
+                    (cryptoMethod === "X25519"
+                        ? chosenKey.length
+                        : password.length) === 0 ||
+                    !input}
                 class="mt-2 grow">encrypt</Button
             >
             <Button
