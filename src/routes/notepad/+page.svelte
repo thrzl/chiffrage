@@ -21,9 +21,7 @@
     let input: string = $state("");
     let output: string = $state("");
     let decryptPossible: boolean = $derived(
-        await invoke("armor_check_text", {
-            text: input,
-        }),
+        input.startsWith("-----BEGIN AGE ENCRYPTED FILE-----"),
     );
     let processing = $state(false);
 
