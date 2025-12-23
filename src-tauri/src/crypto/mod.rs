@@ -73,6 +73,53 @@ where
     Ok(encrypted_output)
 }
 
+pub async fn decrypt_armored_text(
+    identity: &Box<WildcardIdentity>,
+    text: String,
+) -> Result<String, String> {
+    let decryptor = Decryptor::new_async_buffered(age::armor::ArmoredReader::from_async_reader(
+        &text.as_bytes()[..],
+    ))
+    .await
+    .map_err(|e| e.to_string())?;
+    let mut reader = decryptor
+        .decrypt_async(std::iter::once(&**identity as &dyn age::Identity))
+        .map_err(|e| e.to_string())?;
+    let mut decrypted = vec![];
+    reader
+        .read_to_end(&mut decrypted)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(String::from_utf8(decrypted).map_err(|e| e.to_string())?)
+}
+
+pub async fn encrypt_armored_text(
+    recipients: &Vec<Box<WildcardRecipient>>,
+    text: String,
+) -> Result<String, String> {
+    let mut encrypted = vec![];
+    let encryptor = age::Encryptor::with_recipients(
+        recipients
+            .iter()
+            .map(|recipient| &**recipient as &dyn Recipient), // bro wtf
+    )
+    .expect("encryptor initialization failed");
+    let mut writer = age::armor::ArmoredWriter::wrap_async_output(
+        &mut encrypted,
+        age::armor::Format::AsciiArmor,
+    );
+    let mut writer = encryptor
+        .wrap_async_output(&mut writer)
+        .await
+        .map_err(|e| e.to_string())?;
+    writer
+        .write_all(text.as_bytes())
+        .await
+        .map_err(|e| e.to_string())?;
+    writer.close().await.map_err(|e| e.to_string())?;
+    Ok(String::from_utf8(encrypted).map_err(|e| e.to_string())?)
+}
+
 pub async fn decrypt_file<F>(
     identity: &Box<WildcardIdentity>,
     file_path: &PathBuf,
