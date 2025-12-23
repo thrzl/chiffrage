@@ -19,6 +19,11 @@
     let decryptMethod: "Scrypt" | "X25519" = $state("X25519");
     let input: string = $state("");
     let output: string = $state("");
+    let decryptPossible: boolean = $derived(
+        await invoke("armor_check_text", {
+            text: input,
+        }),
+    );
 
     async function decryptText(event: Event) {
         event.preventDefault();
@@ -157,7 +162,9 @@
                 onclick={decryptText}
                 disabled={(decryptMethod === "X25519"
                     ? chosenKey.length
-                    : password.length) === 0 || !input}
+                    : password.length) === 0 ||
+                    !input ||
+                    !decryptPossible}
                 class="mt-2 grow">decrypt</Button
             >
         </div>
