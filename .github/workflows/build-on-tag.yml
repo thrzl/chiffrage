@@ -71,13 +71,21 @@ jobs:
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
 
+      - name: zip mac .app bundles
+        if: matrix.platform == 'macos-latest' # This must match the platform value defined above.
+        run: |
+          find artifacts -name "*.app" -type d | while read app; do
+            ditto -c -k --sequesterRsrc --keepParent "$app" "$app.zip"
+            rm -rf "$app"
+          done
+
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: chiffrage-artifacts-${{ matrix.platform }}
           path: |
             src-tauri/target/**/release/bundle/**/*.dmg
-            src-tauri/target/**/release/bundle/**/*.app
+            src-tauri/target/**/release/bundle/**/*.app.zip
             src-tauri/target/**/release/bundle/**/*.exe
             src-tauri/target/**/release/bundle/**/*.msi
             src-tauri/target/**/release/bundle/**/*.rpm
