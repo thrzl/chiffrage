@@ -76,6 +76,7 @@ jobs:
         with:
           name: chiffrage-artifacts-${{ matrix.platform }}
           path: src-tauri/target/**/release/bundle/**/*
+          overwrite: true
 
   release:
     permissions:
