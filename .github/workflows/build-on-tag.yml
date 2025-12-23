@@ -142,11 +142,11 @@ jobs:
           TAG_NAME: ${{ inputs.tagName }}
         run: |
           gh release create $TAG_NAME \
-            artifacts/**/*.dmg \
-            artifacts/**/*.app.zip \
-            artifacts/**/*.exe \
-            artifacts/**/*.msi \
-            artifacts/**/*.rpm \
-            artifacts/**/*.deb \
-            artifacts/**/*.AppImage \
+            $(find artifacts -type f -name '*.dmg') \
+            $(find artifacts -type f -name '*.app.zip') \
+            $(find artifacts -type f -name '*.exe') \
+            $(find artifacts -type f -name '*.msi') \
+            $(find artifacts -type f -name '*.rpm') \
+            $(find artifacts -type f -name '*.deb') \
+            $(find artifacts -type f -name '*.AppImage') \
             --generate-notes
