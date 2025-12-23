@@ -30,11 +30,9 @@ pub enum DecryptionMethod {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AgeFileType {
-    Identity,
-    Recipient,
+    Key,
     EncryptedIdentity,
-    ArmoredFile,
-    BinaryFile,
+    EncryptedFile,
 }
 
 #[tauri::command]
@@ -48,17 +46,15 @@ pub async fn get_file_type(path: String) -> Result<AgeFileType, String> {
         .map_err(|err| format!("could not read file: {err}"))?;
 
     if buf.starts_with(b"age-encryption.org/v1") {
-        return Ok(AgeFileType::BinaryFile);
+        return Ok(AgeFileType::EncryptedFile);
     }
 
     let file_text = String::from_utf8(buf.to_vec()).map_err(|e| e.to_string())?;
 
     if file_text.starts_with("-----BEGIN AGE ENCRYPTED FILE-----") {
-        return Ok(AgeFileType::ArmoredFile);
-    } else if file_text.starts_with("AGE-SECRET-KEY") {
-        return Ok(AgeFileType::Identity);
-    } else if file_text.starts_with("age") {
-        return Ok(AgeFileType::Recipient);
+        return Ok(AgeFileType::EncryptedFile);
+    } else if file_text.starts_with("AGE-SECRET-KEY") || file_text.starts_with("age") {
+        return Ok(AgeFileType::Key);
     }
 
     Err("failed to detect file type".to_string())
