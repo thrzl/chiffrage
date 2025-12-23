@@ -75,7 +75,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: chiffrage-artifacts-${{ matrix.platform }}
-          path: src-tauri/target/**/release/bundle/**/*.{dmg,app,exe,msi,rpm,deb,AppImage}
+          path: |
+            src-tauri/target/**/release/bundle/**/*.dmg
+            src-tauri/target/**/release/bundle/**/*.app
+            src-tauri/target/**/release/bundle/**/*.exe
+            src-tauri/target/**/release/bundle/**/*.msi
+            src-tauri/target/**/release/bundle/**/*.rpm
+            src-tauri/target/**/release/bundle/**/*.deb
+            src-tauri/target/**/release/bundle/**/*.AppImage
           overwrite: true
 
   release:
