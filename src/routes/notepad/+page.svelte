@@ -11,6 +11,7 @@
     import Textarea from "$lib/components/ui/textarea/textarea.svelte";
     import { CopyIcon } from "@lucide/svelte";
     import PasswordBox from "../../components/PasswordBox.svelte";
+    import { Spinner } from "$lib/components/ui/spinner";
 
     let password = $state("");
     let chosenKey = $state(
@@ -24,12 +25,14 @@
             text: input,
         }),
     );
+    let processing = $state(false);
 
     async function decryptText(event: Event) {
         event.preventDefault();
         if (cryptoMethod === "X25519" && !(await invoke("vault_unlocked"))) {
             await invoke("authenticate");
         }
+        processing = true;
         try {
             output = await invoke("decrypt_text", {
                 privateKey: cryptoMethod === "X25519" ? chosenKey : password,
@@ -49,19 +52,21 @@
             }
             toast.error(errorText, { description });
         }
+        processing = false;
     }
     async function encryptText(event: Event) {
         event.preventDefault();
+        processing = true;
         try {
             output = await invoke("encrypt_text", {
                 recipient: cryptoMethod === "X25519" ? chosenKey : password,
                 text: input,
             });
-            console.log("text encrypted:", output);
         } catch (e) {
             let errorText = (e as string).toLowerCase() + ".";
             toast.error("encryption error", { description: errorText });
         }
+        processing = false;
     }
     let keyFetch: Key[] = $state(await invoke("fetch_keys"));
     let keys = keyFetch.filter((key) => key.key_type === "Private");
@@ -120,7 +125,11 @@
                     </Select.Root>
                 </Tabs.Content>
                 <Tabs.Content value="Scrypt" class="grow w-45">
-                    <PasswordBox bind:password />
+                    <PasswordBox
+                        bind:password
+                        showMeter={!decryptPossible}
+                        showGenerate={!decryptPossible}
+                    />
                 </Tabs.Content>
             </div>
         </Tabs.Root>
@@ -154,22 +163,19 @@
         </InputGroup.Root>
         <div class="flex-row flex gap-2">
             <Button
-                onclick={encryptText}
-                disabled={decryptPossible ||
+                onclick={decryptPossible ? decryptText : encryptText}
+                disabled={processing ||
                     (cryptoMethod === "X25519"
                         ? chosenKey.length
                         : password.length) === 0 ||
                     !input}
-                class="mt-2 grow">encrypt</Button
-            >
-            <Button
-                onclick={decryptText}
-                disabled={(cryptoMethod === "X25519"
-                    ? chosenKey.length
-                    : password.length) === 0 ||
-                    !input ||
-                    !decryptPossible}
-                class="mt-2 grow">decrypt</Button
+                class="mt-2 grow"
+                >{#if processing}<Spinner />
+                    {decryptPossible ? "decrypt" : "encrypt"}ing...{:else}{input
+                        ? decryptPossible
+                            ? "decrypt"
+                            : "encrypt"
+                        : "encrypt or decrypt"}{/if}</Button
             >
         </div>
     </form>
