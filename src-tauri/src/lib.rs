@@ -64,8 +64,8 @@ pub fn run() {
             crypto::commands::validate_key_file,
             crypto::commands::validate_key_text,
             crypto::commands::armor_check_text,
-            crypto::commands::decrypt_armored_text,
-            crypto::commands::encrypt_armored_text
+            crypto::commands::decrypt_text,
+            crypto::commands::encrypt_text
         ])
         .setup(|app| {
             let app_data_dir = app
