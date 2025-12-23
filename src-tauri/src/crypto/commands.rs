@@ -28,6 +28,7 @@ pub enum DecryptionMethod {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum AgeFileType {
     Identity,
     Recipient,
