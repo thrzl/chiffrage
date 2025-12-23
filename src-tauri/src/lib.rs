@@ -91,13 +91,11 @@ pub fn run() {
                 },
                 first_open,
             }));
-            let mut args = std::env::args();
-            if !first_open
-                && args
-                    .all(|file_path| PathBuf::from_str(&file_path).is_ok_and(|path| path.exists()))
-            {
-                app.emit("file-open", args.collect::<Vec<String>>())?;
-            };
+            if let Some(path) = std::env::args().nth(1) {
+                if !first_open {
+                    app.emit("file-open", path)?;
+                };
+            }
             Ok(())
         })
         .run(tauri::generate_context!())
