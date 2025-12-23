@@ -79,7 +79,8 @@ jobs:
         if: matrix.platform == 'macos-latest' # This must match the platform value defined above.
         run: |
           find src-tauri/target -name "*.app" -type d | while read app; do
-            ditto -c -k --sequesterRsrc --keepParent "$app" "$app-${{ matrix.arch }}.zip"
+            base="${app%.app}"
+            ditto -c -k --sequesterRsrc --keepParent "$app" "${base}-${{ matrix.arch }}.app.zip"
           done
 
       - name: upload artifacts
