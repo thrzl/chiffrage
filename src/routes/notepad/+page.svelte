@@ -16,7 +16,7 @@
     let chosenKey = $state(
         new URLSearchParams(window.location.search).get("key") ?? "",
     );
-    let decryptMethod: "Scrypt" | "X25519" = $state("X25519");
+    let cryptoMethod: "Scrypt" | "X25519" = $state("X25519");
     let input: string = $state("");
     let output: string = $state("");
     let decryptPossible: boolean = $derived(
@@ -27,14 +27,14 @@
 
     async function decryptText(event: Event) {
         event.preventDefault();
-        if (decryptMethod === "X25519" && !(await invoke("vault_unlocked"))) {
+        if (cryptoMethod === "X25519" && !(await invoke("vault_unlocked"))) {
             await invoke("authenticate");
         }
         try {
-            await invoke("decrypt_text", {
-                privateKey: decryptMethod === "X25519" ? chosenKey : password,
+            output = await invoke("decrypt_text", {
+                privateKey: cryptoMethod === "X25519" ? chosenKey : password,
                 text: input,
-                method: decryptMethod,
+                method: cryptoMethod,
             });
         } catch (e) {
             let errorText = (e as string).toLowerCase() + ".";
@@ -51,11 +51,11 @@
     async function encryptText(event: Event) {
         event.preventDefault();
         try {
-            await invoke("encrypt_text", {
-                privateKey: decryptMethod === "X25519" ? chosenKey : password,
+            output = await invoke("encrypt_text", {
+                recipient: cryptoMethod === "X25519" ? chosenKey : password,
                 text: input,
-                method: decryptMethod,
             });
+            console.log("text encrypted:", output);
         } catch (e) {
             let errorText = (e as string).toLowerCase() + ".";
             toast.error("encryption error", { description: errorText });
@@ -70,7 +70,7 @@
     <h1 class="text-2xl font-bold mb-2">notepad</h1>
 
     <form class="w-4/5 mx-auto flex flex-col">
-        <Tabs.Root bind:value={decryptMethod}
+        <Tabs.Root bind:value={cryptoMethod}
             ><Tabs.List class="w-full">
                 <Tabs.Trigger value="X25519">keys</Tabs.Trigger>
                 <Tabs.Trigger value="Scrypt">passphrase</Tabs.Trigger>
@@ -153,14 +153,14 @@
         <div class="flex-row flex gap-2">
             <Button
                 onclick={encryptText}
-                disabled={(decryptMethod === "X25519"
+                disabled={(cryptoMethod === "X25519"
                     ? chosenKey.length
                     : password.length) === 0 || !input}
                 class="mt-2 grow">encrypt</Button
             >
             <Button
                 onclick={decryptText}
-                disabled={(decryptMethod === "X25519"
+                disabled={(cryptoMethod === "X25519"
                     ? chosenKey.length
                     : password.length) === 0 ||
                     !input ||
