@@ -111,11 +111,25 @@ jobs:
       - name: sign release artifacts
         uses: sigstore/gh-action-sigstore-python@v3.2.0
         with:
-          inputs: artifacts/**/*
+          inputs: |
+            artifacts/src-tauri/target/**/release/bundle/**/*.dmg
+            artifacts/src-tauri/target/**/release/bundle/**/*.app.zip
+            artifacts/src-tauri/target/**/release/bundle/**/*.exe
+            artifacts/src-tauri/target/**/release/bundle/**/*.msi
+            artifacts/src-tauri/target/**/release/bundle/**/*.rpm
+            artifacts/src-tauri/target/**/release/bundle/**/*.deb
+            artifacts/src-tauri/target/**/release/bundle/**/*.AppImage
 
       - uses: actions/attest-build-provenance@v3
         with:
-          subject-path: artifacts/**/*
+          subject-path: |
+            artifacts/src-tauri/target/**/release/bundle/**/*.dmg
+            artifacts/src-tauri/target/**/release/bundle/**/*.app.zip
+            artifacts/src-tauri/target/**/release/bundle/**/*.exe
+            artifacts/src-tauri/target/**/release/bundle/**/*.msi
+            artifacts/src-tauri/target/**/release/bundle/**/*.rpm
+            artifacts/src-tauri/target/**/release/bundle/**/*.deb
+            artifacts/src-tauri/target/**/release/bundle/**/*.AppImage
 
       - name: make release
         env:
@@ -123,4 +137,12 @@ jobs:
           TAG_NAME: ${{ inputs.tagName }}
         run: |
           export CHANGELOG=$(git log --oneline "$(git describe --tags --abbrev=0)"..HEAD)
-          gh release create $TAG_NAME artifacts/* -n $CHANGELOG
+          gh release create $TAG_NAME \
+            artifacts/src-tauri/target/**/release/bundle/**/*.dmg \
+            artifacts/src-tauri/target/**/release/bundle/**/*.app.zip \
+            artifacts/src-tauri/target/**/release/bundle/**/*.exe \
+            artifacts/src-tauri/target/**/release/bundle/**/*.msi \
+            artifacts/src-tauri/target/**/release/bundle/**/*.rpm \
+            artifacts/src-tauri/target/**/release/bundle/**/*.deb \
+            artifacts/src-tauri/target/**/release/bundle/**/*.AppImage \
+            -n "$CHANGELOG"
