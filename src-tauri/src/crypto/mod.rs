@@ -116,6 +116,7 @@ pub async fn encrypt_armored_text(
         .write_all(text.as_bytes())
         .await
         .map_err(|e| e.to_string())?;
+    writer.close().await.map_err(|e| e.to_string())?;
     Ok(String::from_utf8(encrypted).map_err(|e| e.to_string())?)
 }
 
