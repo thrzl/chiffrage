@@ -2,14 +2,14 @@
     import * as Sidebar from "$lib/components/ui/sidebar/index.js";
     import HelpDialog from "./HelpDialog.svelte";
     import Button from "$lib/components/ui/button/button.svelte";
-    import { VaultIcon, FileLockIcon, FileKeyIcon, PanelLeft, CircleQuestionMarkIcon } from "@lucide/svelte";
+    import { VaultIcon, FileLockIcon, FileKeyIcon, PanelLeft, CircleQuestionMarkIcon, StickyNoteIcon } from "@lucide/svelte";
     import {page} from "$app/state"
 
     const items = [
         { title: "keys", url: "/", icon: VaultIcon },
         { title: "encrypt", url: "/encrypt", icon: FileLockIcon },
         { title: "decrypt", url: "/decrypt", icon: FileKeyIcon },
-        // { title: "settings", url: "settings", icon: SettingsIcon }
+        { title: "notepad", url: "/notepad", icon: StickyNoteIcon },
     ];
     const sidebar = Sidebar.useSidebar();
     let helpOpen = $state(false);
