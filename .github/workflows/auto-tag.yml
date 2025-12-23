@@ -66,13 +66,11 @@ jobs:
 
   build:
     needs: autorelease
-    uses: ./.github/workflows/build-on-tag.yml
+    uses: ./.github/workflows/build.yml
     secrets: inherit
     if: needs.autorelease.outputs.version
     permissions:
-      contents: write
-      id-token: write
-      attestations: write
-      artifact-metadata: write
+      contents: read
+      actions: write
     with:
       tagName: "v${{ needs.autorelease.outputs.version }}"
