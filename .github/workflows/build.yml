@@ -1,4 +1,4 @@
-name: "publish"
+name: "build binaries"
 
 on:
   workflow_dispatch:
