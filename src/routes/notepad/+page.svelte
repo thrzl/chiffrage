@@ -12,11 +12,11 @@
     import { CopyIcon } from "@lucide/svelte";
     import PasswordBox from "../../components/PasswordBox.svelte";
     import { Spinner } from "$lib/components/ui/spinner";
+    import { andList } from "human-list";
 
     let password = $state("");
-    let chosenKey = $state(
-        new URLSearchParams(window.location.search).get("key") ?? "",
-    );
+    let chosenKeys: string[] = $state([]);
+    let chosenKey = $derived(chosenKeys[0]);
     let cryptoMethod: "Scrypt" | "X25519" = $state("X25519");
     let input: string = $state("");
     let output: string = $state("");
@@ -33,7 +33,8 @@
         processing = true;
         try {
             output = await invoke("decrypt_text", {
-                privateKey: cryptoMethod === "X25519" ? chosenKey : password,
+                privateKey:
+                    cryptoMethod === "X25519" ? chosenKeys[0] : password,
                 text: input,
                 method: cryptoMethod,
             });
@@ -57,7 +58,7 @@
         processing = true;
         try {
             output = await invoke("encrypt_text", {
-                recipient: cryptoMethod === "X25519" ? chosenKey : password,
+                recipient: cryptoMethod === "X25519" ? chosenKeys : password,
                 text: input,
             });
         } catch (e) {
@@ -84,43 +85,88 @@
                 class="flex flex-row gap-2 justify-items-center justify-center mx-auto w-full"
             >
                 <Tabs.Content value="X25519" class="grow w-45">
-                    <Select.Root
-                        type="single"
-                        name="target key"
-                        bind:value={chosenKey}
-                    >
-                        <Select.Trigger class="w-full mb-2">
-                            <p>
-                                {#if chosenKey}<span class="font-bold"
-                                        >{keyMap[chosenKey].name}</span
-                                    >{:else}choose recipient...{/if}
-                            </p>
-                        </Select.Trigger>
-                        <Select.Content>
-                            <Select.Group>
-                                <Select.Label>private keys</Select.Label>
-                                {#if keys.length > 0}
-                                    {#each keys as key}
+                    {#if decryptPossible}
+                        <Select.Root
+                            type="single"
+                            name="target key"
+                            bind:value={chosenKey}
+                        >
+                            <Select.Trigger class="w-full mb-2">
+                                <p>
+                                    {#if chosenKeys}<span class="font-bold"
+                                            >{keyMap[chosenKey].name}</span
+                                        >{:else}choose identity...{/if}
+                                </p>
+                            </Select.Trigger>
+                            <Select.Content>
+                                <Select.Group>
+                                    <Select.Label>private keys</Select.Label>
+                                    {#if keys.length > 0}
+                                        {#each keys as key}
+                                            <Select.Item
+                                                value={key.id}
+                                                label={key.name}
+                                            >
+                                                {key.name}
+                                            </Select.Item>
+                                        {/each}
+                                    {/if}
+                                    {#if keys.length === 0}
                                         <Select.Item
-                                            value={key.id}
-                                            label={key.name}
+                                            value={"#"}
+                                            label={"no key"}
+                                            disabled
                                         >
-                                            {key.name}
+                                            {"no private keys"}
                                         </Select.Item>
-                                    {/each}
-                                {/if}
-                                {#if keys.length === 0}
-                                    <Select.Item
-                                        value={"#"}
-                                        label={"no key"}
-                                        disabled
-                                    >
-                                        {"no private keys"}
-                                    </Select.Item>
-                                {/if}
-                            </Select.Group>
-                        </Select.Content>
-                    </Select.Root>
+                                    {/if}
+                                </Select.Group>
+                            </Select.Content>
+                        </Select.Root>
+                    {:else}
+                        <Select.Root
+                            type="multiple"
+                            name="target key"
+                            bind:value={chosenKeys}
+                        >
+                            <Select.Trigger class="w-full mb-2">
+                                <p>
+                                    {@html chosenKeys.length > 0
+                                        ? andList(
+                                              chosenKeys.map(
+                                                  (id) =>
+                                                      `<span class="font-bold">${keyMap[id].name}</span>`,
+                                              ),
+                                          )
+                                        : "choose recipients..."}
+                                </p>
+                            </Select.Trigger>
+                            <Select.Content>
+                                <Select.Group>
+                                    <Select.Label>private keys</Select.Label>
+                                    {#if keys.length > 0}
+                                        {#each keys as key}
+                                            <Select.Item
+                                                value={key.id}
+                                                label={key.name}
+                                            >
+                                                {key.name}
+                                            </Select.Item>
+                                        {/each}
+                                    {/if}
+                                    {#if keys.length === 0}
+                                        <Select.Item
+                                            value={"#"}
+                                            label={"no key"}
+                                            disabled
+                                        >
+                                            {"no private keys"}
+                                        </Select.Item>
+                                    {/if}
+                                </Select.Group>
+                            </Select.Content>
+                        </Select.Root>
+                    {/if}
                 </Tabs.Content>
                 <Tabs.Content value="Scrypt" class="grow w-45">
                     <PasswordBox
@@ -164,7 +210,7 @@
                 onclick={decryptPossible ? decryptText : encryptText}
                 disabled={processing ||
                     (cryptoMethod === "X25519"
-                        ? chosenKey.length
+                        ? chosenKeys.length
                         : password.length) === 0 ||
                     !input}
                 class="mt-2 grow"
