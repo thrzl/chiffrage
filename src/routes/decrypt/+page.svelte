@@ -15,10 +15,11 @@
     import { getFileName, formatBytes } from "$lib/main";
     import PasswordBox from "../../components/PasswordBox.svelte";
 
+    const searchParams = new URLSearchParams(window.location.search);
     let progress: FileProgress | null = $state(null);
     let password = $state("");
-    let chosenKey = $state(new URLSearchParams(window.location.search).get("key") ?? "");
-    let files: string[] | null = $state(null);
+    let chosenKey = $state(searchParams.get("key") ?? "");
+    let files: string[] | null = $state(searchParams.get("file") ? [searchParams.get("file")!] : null);
     let decryptMethod: "Scrypt" | "X25519" = $state("X25519");
 
     async function chooseFile(event: Event) {

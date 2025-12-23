@@ -11,8 +11,9 @@
     import KeyViewDialog from "../components/KeyViewDialog.svelte";
     import { RefreshCcwDotIcon, FolderKeyIcon } from "@lucide/svelte";
 
+    let keyFile = $state(new URLSearchParams(window.location.href).get("file"));
     let keygenDialogOpen = $state(false);
-    let keyImportDialogOpen = $state(false);
+    let keyImportDialogOpen = $state(keyFile !== null);
     let selectedKey: Key | undefined = $state(undefined);
     if (!(await invoke("vault_exists"))) {
         window.location.href = "/create-vault";
@@ -105,7 +106,7 @@
 </main>
 
 <KeyViewDialog bind:key={selectedKey} />
-<KeyImportDialog bind:open={keyImportDialogOpen} />
+<KeyImportDialog bind:open={keyImportDialogOpen} bind:keyFile />
 <KeyGenDialog bind:open={keygenDialogOpen} />
 
 <style>

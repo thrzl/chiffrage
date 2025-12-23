@@ -14,10 +14,12 @@
     let name = $state("");
     import { bech32 } from "bech32";
     import SlideAlert from "./SlideAlert.svelte";
-    let keyFile: string | null = $state(null);
     let keyContent: string | null = $state(null);
     let currentTab: "file" | "paste" = $state("file");
-    let { open = $bindable() } = $props();
+    let {
+        open = $bindable(),
+        keyFile = $bindable(),
+    }: { open: boolean; keyFile: string | null } = $props();
 
     async function import_key() {
         if (currentTab === "file") await import_key_file();
