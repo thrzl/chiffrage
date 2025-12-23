@@ -84,13 +84,13 @@ jobs:
         with:
           name: chiffrage-artifacts-${{ matrix.platform }}
           path: |
-            src-tauri/target/**/release/bundle/**/*.dmg
-            src-tauri/target/**/release/bundle/**/*.app.zip
-            src-tauri/target/**/release/bundle/**/*.exe
-            src-tauri/target/**/release/bundle/**/*.msi
-            src-tauri/target/**/release/bundle/**/*.rpm
-            src-tauri/target/**/release/bundle/**/*.deb
-            src-tauri/target/**/release/bundle/**/*.AppImage
+            src-tauri/target/**/*.dmg
+            src-tauri/target/**/*.app.zip
+            src-tauri/target/**/*.exe
+            src-tauri/target/**/*.msi
+            src-tauri/target/**/*.rpm
+            src-tauri/target/**/*.deb
+            src-tauri/target/**/*.AppImage
           overwrite: true
 
   release:
@@ -112,24 +112,24 @@ jobs:
         uses: sigstore/gh-action-sigstore-python@v3.2.0
         with:
           inputs: |
-            artifacts/src-tauri/target/**/release/bundle/**/*.dmg
-            artifacts/src-tauri/target/**/release/bundle/**/*.app.zip
-            artifacts/src-tauri/target/**/release/bundle/**/*.exe
-            artifacts/src-tauri/target/**/release/bundle/**/*.msi
-            artifacts/src-tauri/target/**/release/bundle/**/*.rpm
-            artifacts/src-tauri/target/**/release/bundle/**/*.deb
-            artifacts/src-tauri/target/**/release/bundle/**/*.AppImage
+            artifacts/src-tauri/target/**/*.dmg
+            artifacts/src-tauri/target/**/*.app.zip
+            artifacts/src-tauri/target/**/*.exe
+            artifacts/src-tauri/target/**/*.msi
+            artifacts/src-tauri/target/**/*.rpm
+            artifacts/src-tauri/target/**/*.deb
+            artifacts/src-tauri/target/**/*.AppImage
 
       - uses: actions/attest-build-provenance@v3
         with:
           subject-path: |
-            artifacts/src-tauri/target/**/release/bundle/**/*.dmg
-            artifacts/src-tauri/target/**/release/bundle/**/*.app.zip
-            artifacts/src-tauri/target/**/release/bundle/**/*.exe
-            artifacts/src-tauri/target/**/release/bundle/**/*.msi
-            artifacts/src-tauri/target/**/release/bundle/**/*.rpm
-            artifacts/src-tauri/target/**/release/bundle/**/*.deb
-            artifacts/src-tauri/target/**/release/bundle/**/*.AppImage
+            artifacts/src-tauri/target/**/*.dmg
+            artifacts/src-tauri/target/**/*.app.zip
+            artifacts/src-tauri/target/**/*.exe
+            artifacts/src-tauri/target/**/*.msi
+            artifacts/src-tauri/target/**/*.rpm
+            artifacts/src-tauri/target/**/*.deb
+            artifacts/src-tauri/target/**/*.AppImage
 
       - name: make release
         env:
@@ -138,11 +138,11 @@ jobs:
         run: |
           export CHANGELOG=$(git log --oneline "$(git describe --tags --abbrev=0)"..HEAD)
           gh release create $TAG_NAME \
-            artifacts/src-tauri/target/**/release/bundle/**/*.dmg \
-            artifacts/src-tauri/target/**/release/bundle/**/*.app.zip \
-            artifacts/src-tauri/target/**/release/bundle/**/*.exe \
-            artifacts/src-tauri/target/**/release/bundle/**/*.msi \
-            artifacts/src-tauri/target/**/release/bundle/**/*.rpm \
-            artifacts/src-tauri/target/**/release/bundle/**/*.deb \
-            artifacts/src-tauri/target/**/release/bundle/**/*.AppImage \
+            artifacts/src-tauri/target/**/*.dmg \
+            artifacts/src-tauri/target/**/*.app.zip \
+            artifacts/src-tauri/target/**/*.exe \
+            artifacts/src-tauri/target/**/*.msi \
+            artifacts/src-tauri/target/**/*.rpm \
+            artifacts/src-tauri/target/**/*.deb \
+            artifacts/src-tauri/target/**/*.AppImage \
             -n "$CHANGELOG"
