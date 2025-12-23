@@ -88,13 +88,14 @@ jobs:
         with:
           name: chiffrage-artifacts-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
-            src-tauri/target/**/*.dmg
-            src-tauri/target/**/*.app.zip
-            src-tauri/target/**/*.exe
-            src-tauri/target/**/*.msi
-            src-tauri/target/**/*.rpm
-            src-tauri/target/**/*.deb
-            src-tauri/target/**/*.AppImage
+            src-tauri/target/**/release/bundle/*.dmg
+            src-tauri/target/**/release/bundle/*.app.zip
+            src-tauri/target/release/chiffrage.exe
+            src-tauri/target/release/bundle/*.exe
+            src-tauri/target/release/bundle/*.msi
+            src-tauri/target/release/bundle/rpm/*.rpm
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/appimage/*.AppImage
 
   release:
     permissions:
@@ -115,7 +116,7 @@ jobs:
         with:
           path: artifacts/
 
-      - run: ls -R artifacts/
+      - run: ls -l -R artifacts/
 
       - name: sign release artifacts
         uses: sigstore/gh-action-sigstore-python@v3.2.0
@@ -145,12 +146,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ inputs.tagName }}
         run: |
-          gh release create $TAG_NAME \
-            $(find artifacts -type f -name '*.dmg') \
-            $(find artifacts -type f -name '*.app.zip') \
-            $(find artifacts -type f -name '*.exe') \
-            $(find artifacts -type f -name '*.msi') \
-            $(find artifacts -type f -name '*.rpm') \
-            $(find artifacts -type f -name '*.deb') \
-            $(find artifacts -type f -name '*.AppImage') \
+          gh release create $TAG_NAME $(find artifacts/src-tauri/target -path '*/release/bundle/*' -type f bash)
             --generate-notes
