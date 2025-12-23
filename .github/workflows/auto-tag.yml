@@ -9,6 +9,7 @@ on:
     inputs: {}
   push:
     branches: [main]
+    paths: ["src-tauri/tauri.conf.json"]
 
 jobs:
   autorelease:
