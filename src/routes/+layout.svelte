@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import "../app.css";
     import "./layout.css"
     import { Toaster } from "$lib/components/ui/sonner";
@@ -7,12 +7,29 @@
     import {page} from "$app/state"
     import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
     import { onMount } from "svelte";
+    import { listen } from "@tauri-apps/api/event";
+    import { invoke } from "@tauri-apps/api/core";
 
     let { children } = $props();
     onMount(async () => {
       let window = getCurrentWebviewWindow()
       await window.show()
     })
+
+    type AgeFileType = "key" | "encryptedFile"
+    // @ts-ignore 2345
+    listen("file-open", async (path: string) => {
+      let fileType: AgeFileType = await invoke("get_file_type", {path});
+      switch (fileType) {
+        case "key":
+          window.location.href = `/?file=${path}`
+
+        case "encryptedFile":
+          window.location.href = `/?file=${path}`
+      }
+    })
+
+
 </script>
 
 <Toaster richColors />
