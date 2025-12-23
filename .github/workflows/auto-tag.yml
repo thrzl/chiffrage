@@ -68,5 +68,10 @@ jobs:
     uses: ./.github/workflows/build-on-tag.yml
     secrets: inherit
     if: needs.autorelease.outputs.version
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
     with:
       tagName: "v${{ needs.autorelease.outputs.version }}"
