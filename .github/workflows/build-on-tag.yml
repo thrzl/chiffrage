@@ -141,7 +141,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ inputs.tagName }}
         run: |
-          export CHANGELOG=$(git log --oneline "$(git describe --tags --abbrev=0)"..HEAD)
           gh release create $TAG_NAME \
             artifacts/src-tauri/target/**/*.dmg \
             artifacts/src-tauri/target/**/*.app.zip \
@@ -150,4 +149,4 @@ jobs:
             artifacts/src-tauri/target/**/*.rpm \
             artifacts/src-tauri/target/**/*.deb \
             artifacts/src-tauri/target/**/*.AppImage \
-            -n "$CHANGELOG"
+            --generate-notes
