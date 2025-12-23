@@ -146,5 +146,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ inputs.tagName }}
         run: |
-          gh release create $TAG_NAME $(find artifacts/src-tauri/target -path '*/release/bundle/*' -type f)
-            --generate-notes
+          gh release create $TAG_NAME $(find artifacts -path '*/release/bundle/*' -type f) --generate-notes
