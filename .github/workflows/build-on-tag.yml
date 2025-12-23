@@ -32,12 +32,16 @@ jobs:
       matrix:
         include:
           - platform: "macos-latest" # for Arm based macs (M1 and above).
+            arch: aarch64
             args: "--target aarch64-apple-darwin"
           - platform: "macos-latest" # for Intel based macs.
+            arch: x86_64
             args: "--target x86_64-apple-darwin"
           - platform: "ubuntu-22.04" # for Tauri v1 you could replace this with ubuntu-20.04.
+            arch: x86_64
             args: ""
           - platform: "windows-latest"
+            arch: x86_64
             args: ""
 
     runs-on: ${{ matrix.platform }}
@@ -82,7 +86,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: chiffrage-artifacts-${{ matrix.platform }}
+          name: chiffrage-artifacts-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
             src-tauri/target/**/*.dmg
             src-tauri/target/**/*.app.zip
@@ -137,7 +141,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ inputs.tagName }}
         run: |
-          export CHANGELOG=$(git log --oneline "$(git describe --tags --abbrev=0)"..HEAD)
           gh release create $TAG_NAME \
             artifacts/**/*.dmg \
             artifacts/**/*.app.zip \
