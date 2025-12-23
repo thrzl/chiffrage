@@ -3,7 +3,7 @@ use crate::AppState;
 use futures_util::future::join_all;
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -25,6 +25,39 @@ pub enum EncryptionMethod {
 pub enum DecryptionMethod {
     X25519,
     Scrypt,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AgeFileType {
+    Key,
+    EncryptedIdentity,
+    EncryptedFile,
+}
+
+#[tauri::command]
+pub async fn get_file_type(path: String) -> Result<AgeFileType, String> {
+    let mut file = tokio::fs::File::open(&path)
+        .await
+        .map_err(|err| format!("could not open file: {err}"))?;
+    let mut buf = [0u8; 32];
+    file.read(&mut buf)
+        .await
+        .map_err(|err| format!("could not read file: {err}"))?;
+
+    if buf.starts_with(b"age-encryption.org/v1") {
+        return Ok(AgeFileType::EncryptedFile);
+    }
+
+    let file_text = String::from_utf8(buf.to_vec()).map_err(|e| e.to_string())?;
+
+    if file_text.starts_with("-----BEGIN AGE ENCRYPTED FILE-----") {
+        return Ok(AgeFileType::EncryptedFile);
+    } else if file_text.starts_with("AGE-SECRET-KEY") || file_text.starts_with("age") {
+        return Ok(AgeFileType::Key);
+    }
+
+    Err("failed to detect file type".to_string())
 }
 
 #[tauri::command]

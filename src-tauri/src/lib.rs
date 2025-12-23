@@ -1,10 +1,12 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod crypto;
 mod store;
+use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 use crate::store::Vault;
 
@@ -65,7 +67,8 @@ pub fn run() {
             crypto::commands::validate_key_text,
             crypto::commands::armor_check_text,
             crypto::commands::decrypt_text,
-            crypto::commands::encrypt_text
+            crypto::commands::encrypt_text,
+            crypto::commands::get_file_type
         ])
         .setup(|app| {
             let app_data_dir = app
@@ -88,6 +91,11 @@ pub fn run() {
                 },
                 first_open,
             }));
+            if let Some(path) = std::env::args().nth(1) {
+                if !first_open {
+                    app.emit("file-open", path)?;
+                };
+            }
             Ok(())
         })
         .run(tauri::generate_context!())
