@@ -47,7 +47,7 @@
     #vault-badge {
         position: fixed;
         top: 5;
-        right: 5
-        width: min-content
+        right: 5;
+        width: min-content;
     }
 </style>
