@@ -167,7 +167,7 @@ export type DecryptionMethod = "X25519" | "Scrypt"
  */
 export type EncryptedSecret = { nonce: number[]; ciphertext: number[] }
 export type EncryptionMethod = string[] | string
-export type FileOperationProgress = { read_bytes: bigint; total_bytes: bigint; current_file: string }
+export type FileOperationProgress = { read_bytes: number; total_bytes: number; current_file: string }
 /**
  * representation of a key object. id is a cuid2
  */
@@ -181,7 +181,7 @@ export type KeyMetadata = { id: string; name: string; key_type: KeyType; date_cr
  */
 export type KeyPair = { public: string; private: EncryptedSecret | null }
 export type KeyType = "Public" | "Private"
-export type SystemTime = { duration_since_epoch: bigint; duration_since_unix_epoch: number }
+export type SystemTime = { duration_since_epoch: number; duration_since_unix_epoch: number }
 export type TAURI_CHANNEL<TSend> = null
 
 /** tauri-specta globals **/
