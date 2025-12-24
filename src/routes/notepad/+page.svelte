@@ -1,7 +1,6 @@
 <script lang="ts">
-    import { invoke } from "@tauri-apps/api/core";
     import { toast } from "svelte-sonner";
-    import type { Key } from "$lib/main";
+    import { commands } from "$lib/bindings";
     import * as InputGroup from "$lib/components/ui/input-group";
     import * as Select from "$lib/components/ui/select/index";
     import * as Tabs from "$lib/components/ui/tabs/index";
@@ -27,19 +26,17 @@
 
     async function decryptText(event: Event) {
         event.preventDefault();
-        if (cryptoMethod === "X25519" && !(await invoke("vault_unlocked"))) {
-            await invoke("authenticate");
+        if (cryptoMethod === "X25519" && !commands.vaultUnlocked()) {
+            await commands.authenticate();
         }
         processing = true;
-        try {
-            output = await invoke("decrypt_text", {
-                privateKey:
-                    cryptoMethod === "X25519" ? chosenKeys[0] : password,
-                text: input,
-                method: cryptoMethod,
-            });
-        } catch (e) {
-            let errorText = (e as string).toLowerCase() + ".";
+        let decryptRes = await commands.decryptText(
+            cryptoMethod === "X25519" ? chosenKeys[0] : password,
+            input,
+            cryptoMethod,
+        );
+        if (decryptRes.status === "error") {
+            let errorText = decryptRes.error.toLowerCase() + ".";
             let description = undefined;
             if (errorText === "header is invalid.") {
                 description = `are you sure this is a valid age-encrypted file?`;
@@ -47,27 +44,30 @@
                 description = "incorrect key";
             } else {
                 description = errorText;
-                e = "decryption error";
+                errorText = "decryption error";
             }
             toast.error(errorText, { description });
+        } else {
+            output = decryptRes.data;
         }
         processing = false;
     }
     async function encryptText(event: Event) {
         event.preventDefault();
         processing = true;
-        try {
-            output = await invoke("encrypt_text", {
-                recipient: cryptoMethod === "X25519" ? chosenKeys : password,
-                text: input,
-            });
-        } catch (e) {
-            let errorText = (e as string).toLowerCase() + ".";
+        let encryptRes = await commands.encryptText(
+            cryptoMethod === "X25519" ? chosenKeys : password,
+            input,
+        );
+        if (encryptRes.status === "error") {
+            let errorText = encryptRes.error.toLowerCase() + ".";
             toast.error("encryption error", { description: errorText });
+            return;
         }
+        output = encryptRes.data;
         processing = false;
     }
-    let keyFetch: Key[] = $state(await invoke("fetch_keys"));
+    let keyFetch = $state(await commands.fetchKeys());
     let keys = keyFetch.filter((key) => key.key_type === "Private");
     let keyMap = $derived(Object.fromEntries(keys.map((key) => [key.id, key])));
 </script>
@@ -93,7 +93,7 @@
                         >
                             <Select.Trigger class="w-full mb-2">
                                 <p>
-                                    {#if chosenKeys}<span class="font-bold"
+                                    {#if chosenKey}<span class="font-bold"
                                             >{keyMap[chosenKey].name}</span
                                         >{:else}choose identity...{/if}
                                 </p>

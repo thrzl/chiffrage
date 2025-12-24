@@ -1,8 +1,8 @@
 <script lang="ts">
-    import { invoke, Channel } from "@tauri-apps/api/core";
+    import { Channel } from "@tauri-apps/api/core";
+    import { commands, type FileOperationProgress } from "$lib/bindings";
     import { open } from "@tauri-apps/plugin-dialog";
     import { toast } from "svelte-sonner";
-    import type { Key, Progress as FileProgress } from "$lib/main";
     import * as Table from "$lib/components/ui/scroll-table";
     import * as Select from "$lib/components/ui/select/index";
     import * as Tabs from "$lib/components/ui/tabs/index"
@@ -15,7 +15,7 @@
     import { getFileName, formatBytes } from "$lib/main";
     import PasswordBox from "../../components/PasswordBox.svelte";
 
-    let progress: FileProgress | null = $state(null);
+    let progress: FileOperationProgress | null = $state(null);
     let password = $state("");
     let chosenKey = $state(new URLSearchParams(window.location.search).get("key") ?? "");
     let files: string[] | null = $state(null);
@@ -31,22 +31,23 @@
     }
     async function decryptFile(event: Event) {
         event.preventDefault();
-        if (decryptMethod === "X25519" && !(await invoke("vault_unlocked"))) {
-            await invoke("authenticate");
+        if (decryptMethod === "X25519" && !await commands.vaultUnlocked()) {
+            await commands.authenticate();
         }
-        progress = null;
-        const channel = new Channel<FileProgress>();
+        const channel = new Channel<FileOperationProgress>();
         channel.onmessage = (msg) => {
             progress = msg;
         };
-        invoke("decrypt_file", {
-            privateKey: decryptMethod === "X25519" ? chosenKey : password,
-            reader: channel,
-            files,
-            method: decryptMethod,
-        }).then(() => progress?.read_bytes === progress?.total_bytes)
-        .catch(e => {
-          e = e.toLowerCase() + ".";
+        let decryptRes = await commands.decryptFile(
+            decryptMethod === "X25519" ? chosenKey : password,
+            channel,
+            files ?? [],
+            decryptMethod,
+        );
+        if (decryptRes.status === "ok") {progress?.read_bytes === progress?.total_bytes}
+        else {
+          progress = null;
+          let e = decryptRes.error.toLowerCase() + ".";
           let description = undefined;
           if (e === "header is invalid.") {
             description = `are you sure this is a valid age-encrypted file?`
@@ -55,9 +56,9 @@
             e = "decryption error"
           }
           toast.error(e, {description});
-        });
+        };
     }
-    let keyFetch: Key[] = $state(await invoke("fetch_keys"));
+    let keyFetch = $state(await commands.fetchKeys());
     let keys = keyFetch.filter(key => key.key_type === "Private");
     let keyMap = $derived(Object.fromEntries(keys.map(key => ([key.id, key]))));
 </script>

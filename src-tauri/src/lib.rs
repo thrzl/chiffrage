@@ -1,10 +1,12 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod crypto;
 mod store;
+use specta_typescript::{BigIntExportBehavior, Typescript};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use tauri::Manager;
+use tauri_specta::{collect_commands, Builder};
 
 use crate::store::Vault;
 
@@ -25,49 +27,56 @@ struct AppState {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn is_first_open(state: tauri::State<Mutex<AppState>>) -> bool {
     return state.lock().unwrap().first_open;
 }
 
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let command_builder = tauri_specta::Builder::<tauri::Wry>::new().commands(collect_commands![
+        is_first_open,
+        store::fetch_keys,
+        store::load_vault,
+        store::create_vault,
+        store::vault_exists,
+        crypto::generate_keypair,
+        crypto::commands::encrypt_file,
+        crypto::commands::decrypt_file,
+        crypto::generate_passphrase,
+        store::export_key,
+        store::import_key,
+        store::delete_key,
+        store::fetch_key,
+        store::authenticate,
+        store::vault_unlocked,
+        store::import_key_text,
+        store::check_keyfile_type,
+        crypto::commands::validate_key_file,
+        crypto::commands::validate_key_text,
+        crypto::commands::armor_check_text,
+        crypto::commands::decrypt_text,
+        crypto::commands::encrypt_text
+    ]);
+
+    #[cfg(debug_assertions)] // <- Only export on non-release builds
+    command_builder
+        .export(
+            Typescript::new().bigint(BigIntExportBehavior::Number),
+            "../src/lib/bindings.ts",
+        )
+        .expect("Failed to export typescript bindings");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             app.get_webview_window("main").unwrap().set_focus().unwrap();
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![
-            greet,
-            is_first_open,
-            store::fetch_keys,
-            store::load_vault,
-            store::create_vault,
-            store::vault_exists,
-            crypto::generate_keypair,
-            crypto::commands::encrypt_file,
-            crypto::commands::decrypt_file,
-            crypto::generate_passphrase,
-            store::export_key,
-            store::import_key,
-            store::delete_key,
-            store::fetch_key,
-            store::authenticate,
-            store::vault_unlocked,
-            store::import_key_text,
-            store::check_keyfile_type,
-            crypto::commands::validate_key_file,
-            crypto::commands::validate_key_text,
-            crypto::commands::armor_check_text,
-            crypto::commands::decrypt_text,
-            crypto::commands::encrypt_text
-        ])
-        .setup(|app| {
+        .invoke_handler(command_builder.invoke_handler())
+        .setup(move |app| {
+            command_builder.mount_events(app);
+
             let app_data_dir = app
                 .path()
                 .app_data_dir()

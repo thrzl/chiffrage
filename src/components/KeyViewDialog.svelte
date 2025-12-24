@@ -13,16 +13,14 @@
     import Badge from "$lib/components/ui/badge/badge.svelte";
     import { toast } from "svelte-sonner";
     import * as InputGroup from "$lib/components/ui/input-group/index";
-    import { invoke } from "@tauri-apps/api/core";
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
-    import { open, save } from "@tauri-apps/plugin-dialog";
+    import { save } from "@tauri-apps/plugin-dialog";
     import { revealItemInDir } from "@tauri-apps/plugin-opener";
-    import { Channel } from "@tauri-apps/api/core";
-    import type { Key } from "$lib/main";
+    import { commands, type KeyMetadata } from "$lib/bindings";
     import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
     import Label from "$lib/components/ui/label/label.svelte";
     let webviewWindow = getCurrentWebviewWindow();
-    let { key = $bindable() }: { key: Key | undefined } = $props();
+    let { key = $bindable() }: { key: KeyMetadata | undefined } = $props();
     let hasKey = $derived(key !== undefined);
     let confirmation:
         | {
@@ -36,50 +34,21 @@
     let isPrivateKey = $derived(hasKey && key?.key_type === "Private");
 
     async function deleteKey() {
-        if (!(await invoke("authenticate"))) {
+        if (!key) return;
+        if ((await commands.authenticate()).status !== "ok") {
             toast.error("authentication failed");
             return;
         }
-        await invoke("delete_key", { id: key?.id });
+        await commands.deleteKey(key.id);
         webviewWindow.emit("update-keys");
         toast.success("key deleted successfully");
     }
 
-    async function encrypt(e: Event) {
-        e.preventDefault();
-
-        const file = await open({ directory: false, multiple: false });
-        if (!file) return;
-        const channel = new Channel<number>();
-        channel.onmessage = (message) => {
-            // progress = message;
-        };
-        await invoke("encrypt_file_cmd", {
-            publicKeys: [key?.id],
-            reader: channel,
-            file,
-        });
-    }
-    async function decrypt(event: Event) {
-        event.preventDefault();
-        // progress = 0;
-        const file = await open({ directory: false, multiple: false });
-        if (!file) return;
-        const channel = new Channel<number>();
-        channel.onmessage = (message) => {
-            // progress = message;
-        };
-        await invoke("decrypt_file_cmd", {
-            privateKey: key?.id,
-            reader: channel,
-            file,
-        });
-    }
-
     async function exportKey(keyType: "public" | "private") {
+        if (!key) return;
         if (keyType === "private") {
-            let authComplete = await invoke("authenticate");
-            if (!authComplete) {
+            let authComplete = await commands.authenticate();
+            if (authComplete.status !== "ok") {
                 toast.error("authentication failed");
                 return;
             }
@@ -93,11 +62,7 @@
             exportingKey = false;
             return;
         }
-        await invoke("export_key", {
-            key: key?.id,
-            path: destination,
-            keyType,
-        });
+        await commands.exportKey(key.id, destination, keyType);
         exportingKey = false;
         toast.success("key exported successfully");
         revealItemInDir(destination);

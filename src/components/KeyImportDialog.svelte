@@ -1,6 +1,4 @@
 <script lang="ts">
-    import { invoke } from "@tauri-apps/api/core";
-    import type { Key } from "$lib/main";
     import * as Dialog from "$lib/components/ui/dialog/index";
     import * as Tabs from "$lib/components/ui/tabs/index.js";
     import { Label } from "$lib/components/ui/label/index";
@@ -11,6 +9,7 @@
     import { toast } from "svelte-sonner";
     import Textarea from "$lib/components/ui/textarea/textarea.svelte";
     import ChooseFileButton from "./ChooseFileButton.svelte";
+    import { commands } from "$lib/bindings";
     let name = $state("");
     import { bech32 } from "bech32";
     import SlideAlert from "./SlideAlert.svelte";
@@ -28,13 +27,13 @@
         if (!keyFile) return toast.error("no file selected");
 
         if (
-            (await invoke("check_keyfile_type", { path: keyFile })) &&
-            !(await invoke("vault_unlocked"))
+            (await commands.checkKeyfileType(keyFile)) &&
+            !(await commands.vaultUnlocked())
         ) {
-            let authComplete = await invoke("authenticate");
+            let authComplete = await commands.authenticate();
             if (!authComplete) return toast.error("authentication failed");
         }
-        await invoke("import_key", { name: name.trim(), path: keyFile });
+        await commands.importKey(name.trim(), keyFile);
         toast.success("imported key");
         emit("update-keys");
         open = false;
@@ -61,22 +60,22 @@
 
         if (
             keyContent.startsWith("AGE-SECRET-KEY") &&
-            !(await invoke("vault_unlocked"))
+            !(await commands.vaultUnlocked())
         ) {
-            let authComplete = await invoke("authenticate");
+            let authComplete = await commands.authenticate();
             if (!authComplete) return toast.error("authentication failed");
         }
-        await invoke("import_key_text", { name: name.trim(), keyContent });
+        await commands.importKeyText(name.trim(), keyContent);
         toast.success("imported key");
         emit("update-keys");
-        ((await invoke("fetch_keys")) as Key[]).map((key) => key.name);
+        keys = (await commands.fetchKeys()).map((key) => key.name);
         open = false;
         keyContent = "";
         name = "";
         // keys = await invoke("fetch_keys");
     }
 
-    let keys = ((await invoke("fetch_keys")) as Key[]).map((key) => key.name);
+    let keys = (await commands.fetchKeys()).map((key) => key.name);
 
     let alert = $derived.by(async () => {
         if (keys.includes(name)) {
@@ -100,9 +99,7 @@
         }
         if (currentTab === "file" && keyFile) {
             try {
-                await invoke("validate_key_file", {
-                    path: keyFile,
-                });
+                await commands.validateKeyFile(keyFile);
             } catch (error) {
                 if (error) {
                     return {

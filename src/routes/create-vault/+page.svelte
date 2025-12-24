@@ -1,9 +1,9 @@
 <script lang="ts">
-    import { invoke } from "@tauri-apps/api/core";
     import type { ZxcvbnResult } from "@zxcvbn-ts/core";
     import Button from "$lib/components/ui/button/button.svelte";
     import PasswordBox from "../../components/PasswordBox.svelte";
     import SlideAlert from "../../components/SlideAlert.svelte";
+    import { commands } from "$lib/bindings";
 
     let password: string = $state("");
 
@@ -17,14 +17,15 @@
             };
             return;
         }
-        let error: string | undefined = await invoke("create_vault", {
-            password: password,
-        });
-        if (error) {
-            alert = { title: "unable to create vault", description: error };
+        let result = await commands.createVault(password);
+        if (result.status === "error") {
+            alert = {
+                title: "unable to create vault",
+                description: result.error,
+            };
             return;
         }
-        await invoke("load_vault", { password: password });
+        await commands.loadVault();
         password =
             "don't read the password please that would not be nice and i really don't think you should do that";
         window.location.href = "/";

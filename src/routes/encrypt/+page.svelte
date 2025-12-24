@@ -1,7 +1,7 @@
 <script lang="ts">
-    import { invoke, Channel } from "@tauri-apps/api/core";
+    import { Channel } from "@tauri-apps/api/core";
+    import { commands, type FileOperationProgress } from "$lib/bindings";
     import { open } from "@tauri-apps/plugin-dialog";
-    import type { Key, Progress as FileProgress } from "$lib/main";
     import {formatBytes, getFileName} from "$lib/main"
     import * as Table from "$lib/components/ui/scroll-table/index";
     import * as Tabs from "$lib/components/ui/tabs/index";
@@ -20,7 +20,7 @@
     import Switch from "$lib/components/ui/switch/switch.svelte";
     import * as Tooltip from "$lib/components/ui/tooltip/index";
 
-    let progress: FileProgress | null = $state(null);
+    let progress: FileOperationProgress | null = $state(null);
     let chosenKeys: string[] = $state(new URLSearchParams(window.location.search).get("keys")?.split(",") ?? []);
     let files: string[] | null = $state(null);
     let armor = $state(false)
@@ -53,19 +53,19 @@
             return;
         }
         progress = null;
-        const channel = new Channel<FileProgress>();
+        const channel = new Channel<FileOperationProgress>();
         channel.onmessage = (msg) => {
             progress = msg;
         };
-        let error: string = await invoke("encrypt_file", {
-            recipient: encryptMethod === "key" ? chosenKeys : password,
-            reader: channel,
+        let encryptRes = await commands.encryptFile(
+            encryptMethod === "key" ? chosenKeys : password,
+            channel,
             files,
             armor
-        });
-        if (error) toast.error(error)
+        );
+        if (encryptRes.status === "error") toast.error(encryptRes.error)
     }
-    let keys: Key[] = $state(await invoke("fetch_keys"));
+    let keys = $state(await commands.fetchKeys());
     let privateKeys = keys.filter(key => key.key_type === "Private");
     let publicKeys = keys.filter(key => key.key_type === "Public");
     let keyMap = $derived(Object.fromEntries(keys.map(key => ([key.id, key]))));
