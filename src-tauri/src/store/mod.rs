@@ -17,14 +17,14 @@ use secrecy::{ExposeSecret, SecretBox, SecretString};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::PathBuf, str::FromStr, time::SystemTime};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 pub enum KeyType {
     Public,
     Private,
 }
 
 /// representation of a key object. id is a cuid2
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 pub struct KeyMetadata {
     pub id: String,
     pub name: String,
@@ -60,7 +60,7 @@ impl KeyMetadata {
 /// `public` contains the public key in plaintext
 ///
 /// `private` is `Option<EncryptedSecret>`, being an object containing a `nonce` and `ciphertext` (both `Vec<u8>`)
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 pub struct KeyPair {
     pub public: String,
     pub private: Option<EncryptedSecret>,
@@ -83,7 +83,7 @@ impl From<Recipient> for KeyPair {
 }
 
 /// a type storing an XChaCha20Poly1305 `ciphertext` and `nonce`. both are of type `Vec<u8>`.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 pub struct EncryptedSecret {
     nonce: Vec<u8>,
     ciphertext: Vec<u8>,

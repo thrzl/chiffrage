@@ -11,6 +11,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::oneshot;
 
 #[tauri::command]
+#[specta::specta]
 pub fn vault_exists(app_handle: tauri::AppHandle) -> bool {
     let res = app_handle
         .path()
@@ -22,6 +23,7 @@ pub fn vault_exists(app_handle: tauri::AppHandle) -> bool {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn vault_unlocked(state: tauri::State<Mutex<AppState>>) -> bool {
     let state = state.lock().unwrap_or_else(|poisoned| {
         state.clear_poison();
@@ -37,6 +39,7 @@ pub fn vault_unlocked(state: tauri::State<Mutex<AppState>>) -> bool {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn load_vault(
     state: tauri::State<Mutex<AppState>>,
     app_handle: tauri::AppHandle,
@@ -52,6 +55,7 @@ pub fn load_vault(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn create_vault(password: String, app_handle: tauri::AppHandle) -> Result<(), String> {
     let password = SecretString::from(password);
     let vault_path = app_handle.path().app_data_dir().unwrap().join("vault.cb");
@@ -63,6 +67,7 @@ pub async fn create_vault(password: String, app_handle: tauri::AppHandle) -> Res
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn fetch_keys(state: tauri::State<Mutex<AppState>>) -> Vec<KeyMetadata> {
     let items = {
         let state = state
@@ -89,6 +94,7 @@ pub fn fetch_keys(state: tauri::State<Mutex<AppState>>) -> Vec<KeyMetadata> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn fetch_key(name: String, state: tauri::State<Mutex<AppState>>) -> Option<KeyMetadata> {
     let state = state
         .lock()
@@ -102,6 +108,7 @@ pub fn fetch_key(name: String, state: tauri::State<Mutex<AppState>>) -> Option<K
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete_key(id: String, state: tauri::State<'_, Mutex<AppState>>) -> Result<(), String> {
     let state = state
         .lock()
@@ -115,6 +122,7 @@ pub fn delete_key(id: String, state: tauri::State<'_, Mutex<AppState>>) -> Resul
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn export_key(
     key: String,
     path: String,
@@ -156,6 +164,7 @@ pub async fn export_key(
 
 /// returns `true` if the key is private
 #[tauri::command]
+#[specta::specta]
 pub async fn check_keyfile_type(path: String) -> Result<bool, String> {
     let mut key_file = File::open(path).await.expect("failed to open key file");
     let mut key_content = String::new();
@@ -166,6 +175,7 @@ pub async fn check_keyfile_type(path: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn import_key_text(
     name: String,
     key_content: String,
@@ -218,6 +228,7 @@ pub async fn import_key_text(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn import_key(
     name: String,
     path: String,
@@ -281,6 +292,7 @@ pub async fn import_key(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn authenticate(
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, Mutex<AppState>>,

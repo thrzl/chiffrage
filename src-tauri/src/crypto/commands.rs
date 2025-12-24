@@ -4,30 +4,37 @@ use futures_util::future::join_all;
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
 use serde::Deserialize;
-use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri_plugin_opener::reveal_items_in_dir;
 use tokio::fs::metadata;
 use tokio::io::AsyncReadExt;
 
-#[derive(Deserialize)]
+#[derive(serde::Serialize, specta::Type)]
+pub struct FileOperationProgress {
+    read_bytes: u64,
+    total_bytes: u64,
+    current_file: String,
+}
+
+#[derive(Deserialize, specta::Type)]
 #[serde(untagged)]
 pub enum EncryptionMethod {
     X25519(Vec<String>),
     Scrypt(String),
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, specta::Type)]
 pub enum DecryptionMethod {
     X25519,
     Scrypt,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn validate_key_text(text: String) -> Result<(), String> {
     match bech32::decode(&text) {
         Ok(_) => Ok(()),
@@ -36,6 +43,7 @@ pub async fn validate_key_text(text: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn armor_check_text(text: String) -> bool {
     text.starts_with("-----BEGIN AGE ENCRYPTED FILE-----")
 }
@@ -55,6 +63,7 @@ pub async fn armor_check_file(path: &String) -> Result<bool, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn validate_key_file(path: String) -> Result<(), String> {
     let mut file = tokio::fs::File::open(&path)
         .await
@@ -70,6 +79,7 @@ pub async fn validate_key_file(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn encrypt_text(
     recipient: EncryptionMethod,
     text: String,
@@ -103,6 +113,7 @@ pub async fn encrypt_text(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn decrypt_text(
     private_key: String,
     text: String,
@@ -138,9 +149,10 @@ pub async fn decrypt_text(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn encrypt_file(
     recipient: EncryptionMethod,
-    reader: tauri::ipc::Channel<serde_json::Value>,
+    reader: tauri::ipc::Channel<FileOperationProgress>,
     files: Vec<String>,
     state: tauri::State<'_, Mutex<AppState>>,
     armor: Option<bool>,
@@ -185,7 +197,7 @@ pub async fn encrypt_file(
         )
         .collect();
     let total_bytes: u64 = file_sizes.values().sum();
-    let total_read_bytes_ptr = Arc::new(AtomicUsize::new(0));
+    let total_read_bytes_ptr = Arc::new(AtomicU64::new(0));
     let reader_ptr = Arc::new(reader);
     let mut output_paths = Vec::new();
 
@@ -196,31 +208,30 @@ pub async fn encrypt_file(
         let reader = reader_ptr.clone();
         let timer = timer.clone();
         let _guard = timer.schedule_repeating(chrono::Duration::milliseconds(100), move || {
-            let _ = reader.send(
-                json!({ // its okay if it doesnt send i'd rather the files just encrypt
-                    "read_bytes": total_read_bytes,
-                    "total_bytes": total_bytes,
-                    "current_file": path.file_name().unwrap().to_str().unwrap()
-                }),
-            );
+            let _ = reader.send(FileOperationProgress {
+                // its okay if it doesnt send i'd rather the files just encrypt
+                read_bytes: total_read_bytes.load(Ordering::SeqCst),
+                total_bytes: total_bytes,
+                current_file: path.file_name().unwrap().to_str().unwrap().to_string(),
+            });
         });
 
         let total_read_bytes = total_read_bytes_ptr.clone();
         let path = PathBuf::from(file.clone());
         let output_path =
             crypto::encrypt_file(&recipients, &path.clone(), armor, move |processed_bytes| {
-                total_read_bytes.fetch_add(processed_bytes, std::sync::atomic::Ordering::SeqCst);
+                total_read_bytes
+                    .fetch_add(processed_bytes as u64, std::sync::atomic::Ordering::SeqCst);
             })
             .await
             .expect("failed to encrypt file");
         drop(_guard);
-        let _ = reader_ptr.clone().send(
-            json!({ // its okay if it doesnt send i'd rather the files just encrypt
-                "read_bytes": file_sizes.get(&file).unwrap(),
-                "total_bytes": total_bytes,
-                "current_file": path.file_name().unwrap().to_str().unwrap()
-            }),
-        );
+        let _ = reader_ptr.clone().send(FileOperationProgress {
+            // its okay if it doesnt send i'd rather the files just encrypt
+            read_bytes: *file_sizes.get(&file).unwrap(),
+            total_bytes: total_bytes,
+            current_file: path.file_name().unwrap().to_str().unwrap().to_string(),
+        });
         output_paths.push(output_path)
     }
     reveal_items_in_dir(output_paths).expect("failed to reveal item");
@@ -228,9 +239,10 @@ pub async fn encrypt_file(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn decrypt_file(
     private_key: String,
-    reader: tauri::ipc::Channel<serde_json::Value>,
+    reader: tauri::ipc::Channel<FileOperationProgress>,
     files: Vec<String>,
     method: DecryptionMethod,
     state: tauri::State<'_, Mutex<AppState>>,
@@ -274,7 +286,7 @@ pub async fn decrypt_file(
         )
         .collect();
     let total_bytes: u64 = file_sizes.values().sum();
-    let total_read_bytes_ptr = Arc::new(AtomicUsize::new(0));
+    let total_read_bytes_ptr = Arc::new(AtomicU64::new(0));
     let reader_ptr = Arc::new(reader);
     let mut output_paths = Vec::new();
     let timer = Arc::new(timer::Timer::new());
@@ -285,41 +297,41 @@ pub async fn decrypt_file(
         let path_ptr = Arc::new(PathBuf::from_str(&file).unwrap());
         let path = path_ptr.clone();
         let _guard = timer.schedule_repeating(chrono::Duration::milliseconds(100), move || {
-            let _ = reader.send(
-                json!({ // its okay if it doesnt send i'd rather the files just encrypt
-                    "read_bytes": &total_read_bytes,
-                    "total_bytes": &total_bytes,
-                    "current_file": path.file_name().unwrap().to_str().unwrap()
-                }),
-            );
+            let _ = reader.send(FileOperationProgress {
+                // its okay if it doesnt send i'd rather the files just encrypt
+                read_bytes: total_read_bytes.load(Ordering::SeqCst),
+                total_bytes: total_bytes,
+                current_file: path.file_name().unwrap().to_str().unwrap().to_string(),
+            });
         });
         let is_armored = armor_check_file(&file).await?;
         let total_read_bytes = total_read_bytes_ptr.clone();
         let path = path_ptr;
         let output_path =
             crypto::decrypt_file(&identity, &path, is_armored, move |processed_bytes| {
-                total_read_bytes.fetch_add(processed_bytes, std::sync::atomic::Ordering::SeqCst);
+                total_read_bytes.fetch_add(processed_bytes as u64, Ordering::SeqCst);
             })
             .await?;
         drop(_guard);
         let reader = reader_ptr.clone();
-        let _ = reader.send(json!({
-            "read_bytes": file_sizes.get(&file).unwrap(),
-            "total_bytes": total_bytes,
-            "current_file": path.file_name().unwrap().to_str().unwrap()
-        })); // ensure that it "completes" on the frontend
+        let _ = reader.send(FileOperationProgress {
+            read_bytes: *file_sizes.get(&file).unwrap(),
+            total_bytes: total_bytes,
+            current_file: path.file_name().unwrap().to_str().unwrap().to_string(),
+        }); // ensure that it "completes" on the frontend
         output_paths.push(output_path)
     }
-    let _ = reader_ptr.send(json!({
-        "read_bytes": total_bytes,
-        "total_bytes": total_bytes,
-        "current_file": ""
-    })); // ensure that it "completes" on the frontend
+    let _ = reader_ptr.send(FileOperationProgress {
+        read_bytes: total_bytes,
+        total_bytes: total_bytes,
+        current_file: "".to_string(),
+    }); // ensure that it "completes" on the frontend
     reveal_items_in_dir(output_paths).expect("failed to reveal item");
     Ok(())
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn generate_keypair(
     name: String,
     state: tauri::State<'_, Mutex<AppState>>,
@@ -350,6 +362,7 @@ pub async fn generate_keypair(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn generate_passphrase() -> String {
     bip39::Mnemonic::generate(12)
         .expect("failed to generate mnemonic")
