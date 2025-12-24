@@ -47,6 +47,8 @@
                 errorText = "decryption error";
             }
             toast.error(errorText, { description });
+        } else {
+            output = decryptRes.data;
         }
         processing = false;
     }
@@ -60,7 +62,9 @@
         if (encryptRes.status === "error") {
             let errorText = encryptRes.error.toLowerCase() + ".";
             toast.error("encryption error", { description: errorText });
+            return;
         }
+        output = encryptRes.data;
         processing = false;
     }
     let keyFetch = $state(await commands.fetchKeys());
