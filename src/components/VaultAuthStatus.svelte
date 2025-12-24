@@ -31,7 +31,7 @@
     style="margin: 0"
 >
     <Button
-        class="rounded-full py-1 line-height-none h-auto pointer-cursor"
+        class="rounded-full py-1 line-height-none h-auto pointer-cursor font-mono text-xs"
         variant={vaultUnlocked ? "default" : "outline"}
         onclick={toggleVault}
     >
