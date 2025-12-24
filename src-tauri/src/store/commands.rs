@@ -1,4 +1,4 @@
-use crate::store::{KeyMetadata, Vault};
+use crate::store::{KeyMetadata, Vault, VaultStatusUpdate};
 use crate::AppState;
 use age::x25519::{Identity, Recipient};
 use secrecy::ExposeSecret;
@@ -367,7 +367,27 @@ pub async fn authenticate(
             break;
         };
     }
+    let _ = app_handle.emit("vault-status-update", VaultStatusUpdate::Unlocked);
     let _ = webview.close();
 
     Ok(true)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn lock_vault(
+    state: tauri::State<'_, Mutex<AppState>>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), ()> {
+    let state = state.lock().unwrap_or_else(|p| p.into_inner());
+    let mut vault = state
+        .vault
+        .as_ref()
+        .clone()
+        .expect("vault not initialized")
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    vault.delete_vault_key();
+    let _ = app_handle.emit("vault-status-update", VaultStatusUpdate::Locked);
+    Ok(())
 }

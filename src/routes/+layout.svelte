@@ -4,6 +4,7 @@
     import { Toaster } from "$lib/components/ui/sonner";
     import * as Sidebar from "$lib/components/ui/sidebar/index.js";
     import AppSidebar from "../components/AppSidebar.svelte";
+    import VaultAuthStatus from "../components/VaultAuthStatus.svelte"
     import {page} from "$app/state"
     import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
     import { onMount } from "svelte";
@@ -16,6 +17,9 @@
 </script>
 
 <Toaster richColors />
+{#if !["/create-vault", "/unlock"].includes(page.route.id) }
+<VaultAuthStatus />
+{/if}
 <Sidebar.Provider style="--sidebar-width: 12rem">
     {#if new URL(page.url).pathname !== "/create-vault"}<AppSidebar/>{/if}
 <div id="main-container" class="dark">

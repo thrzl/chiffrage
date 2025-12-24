@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use tauri::Manager;
-use tauri_specta::collect_commands;
+use tauri_specta::{collect_commands, collect_events};
 
 use crate::store::Vault;
 
@@ -34,30 +34,33 @@ fn is_first_open(state: tauri::State<Mutex<AppState>>) -> bool {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let command_builder = tauri_specta::Builder::<tauri::Wry>::new().commands(collect_commands![
-        is_first_open,
-        store::fetch_keys,
-        store::load_vault,
-        store::create_vault,
-        store::vault_exists,
-        crypto::generate_keypair,
-        crypto::commands::encrypt_file,
-        crypto::commands::decrypt_file,
-        crypto::generate_passphrase,
-        store::export_key,
-        store::import_key,
-        store::delete_key,
-        store::fetch_key,
-        store::authenticate,
-        store::vault_unlocked,
-        store::import_key_text,
-        store::check_keyfile_type,
-        crypto::commands::validate_key_file,
-        crypto::commands::validate_key_text,
-        crypto::commands::armor_check_text,
-        crypto::commands::decrypt_text,
-        crypto::commands::encrypt_text
-    ]);
+    let command_builder = tauri_specta::Builder::<tauri::Wry>::new()
+        .commands(collect_commands![
+            is_first_open,
+            store::fetch_keys,
+            store::load_vault,
+            store::create_vault,
+            store::vault_exists,
+            crypto::generate_keypair,
+            crypto::commands::encrypt_file,
+            crypto::commands::decrypt_file,
+            crypto::generate_passphrase,
+            store::export_key,
+            store::import_key,
+            store::delete_key,
+            store::fetch_key,
+            store::authenticate,
+            store::vault_unlocked,
+            store::import_key_text,
+            store::check_keyfile_type,
+            store::lock_vault,
+            crypto::commands::validate_key_file,
+            crypto::commands::validate_key_text,
+            crypto::commands::armor_check_text,
+            crypto::commands::decrypt_text,
+            crypto::commands::encrypt_text
+        ])
+        .events(collect_events![store::VaultStatusUpdate]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
     command_builder
