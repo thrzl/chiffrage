@@ -131,6 +131,9 @@ impl Vault {
     pub fn get_vault_key(&self) -> Result<&SecretBox<[u8; 32]>, String> {
         self.key.as_ref().ok_or("vault is locked".to_string())
     }
+    pub fn delete_vault_key(&mut self) {
+        self.key = None;
+    }
     pub fn new_key(
         &self,
         name: String,

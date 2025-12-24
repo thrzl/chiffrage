@@ -371,3 +371,18 @@ pub async fn authenticate(
 
     Ok(true)
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn lock_vault(state: tauri::State<'_, Mutex<AppState>>) -> Result<(), ()> {
+    let state = state.lock().unwrap_or_else(|p| p.into_inner());
+    let mut vault = state
+        .vault
+        .as_ref()
+        .clone()
+        .expect("vault not initialized")
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    vault.delete_vault_key();
+    Ok(())
+}
