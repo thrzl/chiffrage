@@ -93,7 +93,7 @@
                         >
                             <Select.Trigger class="w-full mb-2">
                                 <p>
-                                    {#if chosenKeys}<span class="font-bold"
+                                    {#if chosenKey}<span class="font-bold"
                                             >{keyMap[chosenKey].name}</span
                                         >{:else}choose identity...{/if}
                                 </p>
