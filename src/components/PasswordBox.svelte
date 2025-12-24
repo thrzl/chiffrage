@@ -2,8 +2,8 @@
     import * as InputGroup from "$lib/components/ui/input-group/index";
     import { zxcvbn, zxcvbnOptions } from "@zxcvbn-ts/core";
     import type { ZxcvbnResult } from "@zxcvbn-ts/core";
-    import { invoke } from "@tauri-apps/api/core";
     import type { HTMLAttributes } from "svelte/elements";
+    import { commands } from "$lib/bindings"
     let {
         password = $bindable(""),
         showMeter = true,
@@ -71,7 +71,7 @@
                 : "red",
     );
     async function generatePassphrase() {
-      password = await invoke("generate_passphrase");
+      password = await commands.generatePassphrase();
       strength = zxcvbn(password);
       showPassword = true;
     }
