@@ -70,7 +70,7 @@ jobs:
     secrets: inherit
     if: needs.autorelease.outputs.version
     permissions:
-      contents: read
+      contents: write
       actions: write
     with:
       tagName: "v${{ needs.autorelease.outputs.version }}"
