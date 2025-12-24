@@ -17,8 +17,9 @@
 </script>
 
 <Toaster richColors />
-
+{#if !["/create-vault", "/unlock"].includes(page.route.id) }
 <VaultAuthStatus />
+{/if}
 <Sidebar.Provider style="--sidebar-width: 12rem">
     {#if new URL(page.url).pathname !== "/create-vault"}<AppSidebar/>{/if}
 <div id="main-container" class="dark">
