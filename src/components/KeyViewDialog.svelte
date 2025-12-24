@@ -14,7 +14,7 @@
     import { toast } from "svelte-sonner";
     import * as InputGroup from "$lib/components/ui/input-group/index";
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
-    import { open, save } from "@tauri-apps/plugin-dialog";
+    import { save } from "@tauri-apps/plugin-dialog";
     import { revealItemInDir } from "@tauri-apps/plugin-opener";
     import { commands, type KeyMetadata } from "$lib/bindings";
     import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
