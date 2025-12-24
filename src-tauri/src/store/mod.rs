@@ -73,6 +73,13 @@ impl KeyPair {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub enum VaultStatusUpdate {
+    Unlocked,
+    Locked,
+}
+
 impl From<Recipient> for KeyPair {
     fn from(recipient: Recipient) -> KeyPair {
         KeyPair {

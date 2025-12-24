@@ -1,9 +1,28 @@
 <script>
-    import Badge from "$lib/components/ui/badge/badge.svelte";
     import Button from "$lib/components/ui/button/button.svelte";
     import { EyeClosedIcon, EyeIcon } from "@lucide/svelte";
     import { toast } from "svelte-sonner";
-    let { vaultUnlocked = $bindable(false) } = $props();
+    import { commands, events } from "$lib/bindings";
+    let vaultUnlocked = $state(await commands.vaultUnlocked());
+    events.vaultStatusUpdate.listen((e) => {
+        vaultUnlocked = e.payload === "unlocked";
+    });
+
+    async function toggleVault() {
+        if (vaultUnlocked) {
+            await commands.lockVault();
+            toast.success("vault locked successfully");
+        } else {
+            let result = await commands.authenticate();
+            if (result.status === "ok") {
+                toast.success("vault unlocked successfully");
+                return;
+            }
+            toast.success("failed to unlock vault", {
+                description: result.error,
+            });
+        }
+    }
 </script>
 
 <div
@@ -14,7 +33,7 @@
     <Button
         class="rounded-full py-1 line-height-none h-auto pointer-cursor"
         variant={vaultUnlocked ? "default" : "outline"}
-        onclick={() => (vaultUnlocked = !vaultUnlocked)}
+        onclick={toggleVault}
     >
         {#if vaultUnlocked}
             <EyeIcon /> vault unlocked

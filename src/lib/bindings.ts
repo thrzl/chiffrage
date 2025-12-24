@@ -114,6 +114,14 @@ async checkKeyfileType(path: string) : Promise<Result<boolean, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async lockVault() : Promise<Result<null, null>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("lock_vault") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async validateKeyFile(path: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("validate_key_file", { path }) };
@@ -154,6 +162,11 @@ async encryptText(recipient: EncryptionMethod, text: string) : Promise<Result<st
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+vaultStatusUpdate: VaultStatusUpdate
+}>({
+vaultStatusUpdate: "vault-status-update"
+})
 
 /** user-defined constants **/
 
@@ -182,7 +195,7 @@ export type KeyMetadata = { id: string; name: string; key_type: KeyType; date_cr
 export type KeyPair = { public: string; private: EncryptedSecret | null }
 export type KeyType = "Public" | "Private"
 export type SystemTime = { duration_since_epoch: number; duration_since_unix_epoch: number }
-export type TAURI_CHANNEL<TSend> = null
+export type VaultStatusUpdate = "unlocked" | "locked"
 
 /** tauri-specta globals **/
 
