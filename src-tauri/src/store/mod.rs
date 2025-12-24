@@ -128,49 +128,49 @@ impl Vault {
         self.key = Some(key);
         Ok(())
     }
-    pub fn get_vault_key(&self) -> &SecretBox<[u8; 32]> {
-        self.key.as_ref().expect("no key")
+    pub fn get_vault_key(&self) -> Result<&SecretBox<[u8; 32]>, String> {
+        self.key.as_ref().ok_or("vault is locked".to_string())
     }
     pub fn new_key(
         &self,
         name: String,
         public: String,
         private: Option<SecretString>,
-    ) -> KeyMetadata {
+    ) -> Result<KeyMetadata, String> {
         let private = match private {
-            Some(private_key) => Some(Vault::encrypt_secret(&self.get_vault_key(), private_key)),
+            Some(private_key) => Some(Vault::encrypt_secret(self.get_vault_key()?, private_key)),
             None => None,
         };
-        KeyMetadata::from_keypair(name, KeyPair { public, private })
+        Ok(KeyMetadata::from_keypair(name, KeyPair { public, private }))
     }
 
     pub fn delete_key(&mut self, id: String) {
         let _ = self.file.secrets.remove(&id);
     }
 
-    pub fn generate_key(&self, name: String) -> KeyMetadata {
+    pub fn generate_key(&self, name: String) -> Result<KeyMetadata, String> {
         let identity = Identity::generate();
         let keypair = KeyPair {
             public: identity.to_public().to_string(),
             private: Some(Vault::encrypt_secret(
-                &self.get_vault_key(),
+                self.get_vault_key()?,
                 SecretString::from(identity.to_string()),
             )),
         };
-        KeyMetadata {
+        Ok(KeyMetadata {
             id: create_id(),
             name,
             key_type: KeyType::Private,
             date_created: SystemTime::now(),
             contents: keypair,
-        }
+        })
     }
 
     pub fn decrypt_secret(
         &self,
         encrypted_secret: &EncryptedSecret,
     ) -> Result<SecretString, String> {
-        let mut cipher = XChaCha20Poly1305::new(self.get_vault_key().expose_secret().into());
+        let mut cipher = XChaCha20Poly1305::new(self.get_vault_key()?.expose_secret().into());
         let nonce = XNonce::from_slice(&encrypted_secret.nonce);
 
         let decrypted_bytes = cipher.decrypt(nonce, encrypted_secret.ciphertext.as_ref());

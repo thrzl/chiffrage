@@ -130,8 +130,7 @@ pub async fn decrypt_text(
             };
             let key_metadata = vault.get_key(&private_key).unwrap();
             let key_content = vault
-                .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())
-                .unwrap()
+                .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())?
                 .clone();
             Box::new(
                 key_content
@@ -348,7 +347,7 @@ pub async fn generate_keypair(
             Ok(vault) => vault,
             Err(poisoned) => poisoned.into_inner(),
         };
-        let keypair = vault.generate_key(name);
+        let keypair = vault.generate_key(name)?;
         vault.put_key(keypair)?;
     }
     tauri::async_runtime::spawn_blocking(move || {

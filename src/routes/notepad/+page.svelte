@@ -26,7 +26,7 @@
 
     async function decryptText(event: Event) {
         event.preventDefault();
-        if (cryptoMethod === "X25519" && !commands.vaultUnlocked()) {
+        if (cryptoMethod === "X25519" && !(await commands.vaultUnlocked())) {
             await commands.authenticate();
         }
         processing = true;
@@ -210,7 +210,7 @@
                 onclick={decryptPossible ? decryptText : encryptText}
                 disabled={processing ||
                     (cryptoMethod === "X25519"
-                        ? chosenKeys.length
+                        ? !chosenKey
                         : password.length) === 0 ||
                     !input}
                 class="mt-2 grow"

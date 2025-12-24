@@ -202,7 +202,7 @@ pub async fn import_key_text(
                 name,
                 identity.to_public().to_string(),
                 Some(SecretString::from(identity.to_string())),
-            );
+            )?;
             vault.put_key(key)?;
         } else {
             let key = vault.new_key(
@@ -211,7 +211,7 @@ pub async fn import_key_text(
                     .expect("failed to parse public key")
                     .to_string(),
                 None,
-            );
+            )?;
             vault.put_key(key)?;
         }
     }
@@ -266,7 +266,7 @@ pub async fn import_key(
                 name,
                 identity.to_public().to_string(),
                 Some(SecretString::from(identity.to_string())),
-            );
+            )?;
             vault.put_key(key)?;
         } else {
             let key = vault.new_key(
@@ -275,7 +275,7 @@ pub async fn import_key(
                     .expect("failed to parse public key")
                     .to_string(),
                 None,
-            );
+            )?;
             vault.put_key(key)?;
         }
     }

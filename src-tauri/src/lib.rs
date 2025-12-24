@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use tauri::Manager;
-use tauri_specta::{collect_commands, Builder};
+use tauri_specta::collect_commands;
 
 use crate::store::Vault;
 
