@@ -1,7 +1,6 @@
 <script lang="ts">
-    import { invoke } from "@tauri-apps/api/core";
     import { listen } from "@tauri-apps/api/event";
-    import type { Key } from "$lib/main";
+    import { commands, type KeyMetadata } from "$lib/bindings";
     import { Button } from "$lib/components/ui/button/index";
     import * as Table from "$lib/components/ui/scroll-table/index";
     import * as Empty from "$lib/components/ui/empty/index";
@@ -13,15 +12,16 @@
 
     let keygenDialogOpen = $state(false);
     let keyImportDialogOpen = $state(false);
-    let selectedKey: Key | undefined = $state(undefined);
-    if (!(await invoke("vault_exists"))) {
+    let selectedKey: KeyMetadata | undefined = $state(undefined);
+    if (!(await commands.vaultExists())) {
         window.location.href = "/create-vault";
     }
-    let keys: Key[] = $state(await invoke("fetch_keys"));
+    let keys = $state(await commands.fetchKeys());
     listen("update-keys", async () => {
-        keys = await invoke("fetch_keys");
+        keys = await commands.fetchKeys();
         selectedKey = undefined;
     });
+    console.log("hi");
 </script>
 
 <main class="container">
@@ -72,6 +72,7 @@
                         <Table.Cell>{key.name}</Table.Cell>
                         <Table.Cell
                             >{new Date(
+                                // @ts-ignore 2339
                                 key.date_created.secs_since_epoch * 1000,
                             ).toLocaleDateString()}</Table.Cell
                         >

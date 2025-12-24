@@ -1,28 +1,33 @@
 <script lang="ts">
-    import { invoke } from "@tauri-apps/api/core";
     import * as Dialog from "$lib/components/ui/dialog/index";
     import { Label } from "$lib/components/ui/label/index";
     import { Input } from "$lib/components/ui/input/index";
     import { buttonVariants } from "$lib/components/ui/button/index";
     import { emit } from "@tauri-apps/api/event";
     import { toast } from "svelte-sonner";
-    import type { Key } from "$lib/main";
+    import { commands } from "$lib/bindings";
     import SlideAlert from "./SlideAlert.svelte";
     let name = $state("");
     let { open = $bindable() } = $props();
-    let keys = ((await invoke("fetch_keys")) as Key[]).map((key) => key.name);
+    let keys = (await commands.fetchKeys()).map((key) => key.name);
 
     async function generate_key() {
         if (!name.replaceAll(" ", "")) return toast.error("no name set");
-        if (!(await invoke("vault_unlocked"))) {
-            await invoke("authenticate");
+        if (!(await commands.vaultUnlocked())) {
+            await commands.authenticate();
         }
-        await invoke("generate_keypair", { name: name.trim() });
+        let generationResult = await commands.generateKeypair(name.trim());
+        if (generationResult.status === "error") {
+            toast.error("key generation failed", {
+                description: generationResult.error,
+            });
+            return;
+        }
         emit("update-keys");
         open = false;
         name = "";
         toast.success("key generated successfully");
-        keys = ((await invoke("fetch_keys")) as Key[]).map((key) => key.name);
+        keys = (await commands.fetchKeys()).map((key) => key.name);
     }
 
     let alert = $derived.by(() => {
