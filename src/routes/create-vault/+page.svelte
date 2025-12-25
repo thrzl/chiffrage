@@ -47,7 +47,7 @@
     );
 </script>
 
-<main class="container">
+<main class="container px-24">
     <p>welcome, let's make a vault to store your keys!</p>
     <h1 class="text-2xl font-bold mb-2 tracking-tight">choose a password</h1>
     <PasswordBox bind:password bind:strength />
