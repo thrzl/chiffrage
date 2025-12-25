@@ -11,3 +11,7 @@
 * {
     letter-spacing: -0.025em;
 }
+
+button {
+    cursor: pointer;
+}
