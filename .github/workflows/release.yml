@@ -63,4 +63,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ inputs.tagName }}
         run: |
-          gh release create $TAG_NAME $(find artifacts -path '*/release/bundle/*' -type f) -n $(git log --oneline "$(git describe --tags --abbrev=0)"..HEAD)
+          gh release create $TAG_NAME $(find artifacts -path '*/release/bundle/*' -type f) --notes $(git log --oneline "$(git describe --tags --abbrev=0)"..HEAD)
