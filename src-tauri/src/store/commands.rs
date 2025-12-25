@@ -29,6 +29,9 @@ pub fn vault_unlocked(state: tauri::State<Mutex<AppState>>) -> bool {
         state.clear_poison();
         poisoned.into_inner()
     });
+    if state.vault.is_none() {
+        return false
+    }
     let vault = state
         .vault
         .as_ref()
