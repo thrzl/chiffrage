@@ -30,7 +30,7 @@ pub fn vault_unlocked(state: tauri::State<Mutex<AppState>>) -> bool {
         poisoned.into_inner()
     });
     if state.vault.is_none() {
-        return false
+        return false;
     }
     let vault = state
         .vault
@@ -64,7 +64,7 @@ pub async fn create_vault(password: String, app_handle: tauri::AppHandle) -> Res
     let vault_path = app_handle.path().app_data_dir().unwrap().join("vault.cb");
 
     let vault_location = vault_path.to_str().unwrap();
-    let vault = Vault::create_vault(vault_location, &password);
+    let vault = Vault::create_vault(vault_location, &password)?;
     vault.save_vault();
     Ok(())
 }
