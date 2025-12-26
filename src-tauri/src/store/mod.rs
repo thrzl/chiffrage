@@ -3,8 +3,10 @@
 // you can open (or create) a vault with:
 // Vault::load_vault()
 mod commands;
+use age::secrecy::zeroize::Zeroize;
 use age::x25519::{Identity, Recipient};
 pub use commands::*;
+use region::{alloc, lock, LockGuard, Protection};
 
 use argon2::{password_hash::rand_core::RngCore, Argon2};
 use chacha20poly1305::{
@@ -97,14 +99,19 @@ pub struct EncryptedSecret {
 }
 
 /// derive a 256-bit key from a password and salt, using argon2.
-pub fn derive_key(password: &SecretString, salt: &[u8]) -> SecretBox<[u8; 32]> {
+pub fn derive_key(
+    password: &SecretString,
+    salt: &[u8],
+) -> Result<(LockGuard, SecretBox<[u8; 32]>), String> {
     let argon2 = Argon2::default();
-    let mut key = [0u8; 32];
+    let key = alloc(32, Protection::READ_WRITE).map_err(|e| e.to_string())?;
+    let _guard = lock(key.as_ptr::<u8>(), 32).map_err(|e| e.to_string())?;
+    let key_slice = unsafe { &mut *(key.as_ptr::<u8>() as *mut [u8; 32]) };
     argon2
-        .hash_password_into(password.expose_secret().as_bytes(), salt, &mut key)
+        .hash_password_into(password.expose_secret().as_bytes(), salt, key_slice)
         .expect("failed to hash password into key");
 
-    SecretBox::new(Box::new(key))
+    Ok((_guard, SecretBox::new(Box::new(*key_slice))))
 }
 
 /// an abstraction for the contents of the vault file. contains the `salt`, a `hello` value used to validate passwords, and a map of `secrets`.
@@ -119,11 +126,12 @@ pub struct Vault {
     file: VaultFile,
     path: PathBuf,
     key: Option<SecretBox<[u8; 32]>>,
+    _key_guard: Option<LockGuard>,
 }
 
 impl Vault {
     pub fn set_vault_key(&mut self, password: SecretString) -> Result<(), String> {
-        let key = derive_key(&password, &self.file.salt);
+        let (_guard, key) = derive_key(&password, &self.file.salt)?;
         let hello = &self.file.hello;
         let mut cipher = XChaCha20Poly1305::new(key.expose_secret().into());
         let nonce = XNonce::from_slice(hello.nonce.as_slice());
@@ -133,6 +141,7 @@ impl Vault {
             return Err("password is incorrect".to_string());
         };
         self.key = Some(key);
+        self._key_guard = Some(_guard);
         Ok(())
     }
     pub fn get_vault_key(&self) -> Result<&SecretBox<[u8; 32]>, String> {
@@ -140,6 +149,7 @@ impl Vault {
     }
     pub fn delete_vault_key(&mut self) {
         self.key = None;
+        self._key_guard = None;
     }
     pub fn new_key(
         &self,
@@ -148,7 +158,7 @@ impl Vault {
         private: Option<SecretString>,
     ) -> Result<KeyMetadata, String> {
         let private = match private {
-            Some(private_key) => Some(Vault::encrypt_secret(self.get_vault_key()?, private_key)),
+            Some(private_key) => Some(Vault::encrypt_secret(self.get_vault_key()?, private_key)?),
             None => None,
         };
         Ok(KeyMetadata::from_keypair(name, KeyPair { public, private }))
@@ -165,7 +175,7 @@ impl Vault {
             private: Some(Vault::encrypt_secret(
                 self.get_vault_key()?,
                 SecretString::from(identity.to_string()),
-            )),
+            )?),
         };
         Ok(KeyMetadata {
             id: create_id(),
@@ -193,18 +203,31 @@ impl Vault {
         ));
     }
 
-    fn encrypt_secret(key: &SecretBox<[u8; 32]>, secret: SecretString) -> EncryptedSecret {
-        let mut cipher = XChaCha20Poly1305::new(key.expose_secret().into());
+    fn encrypt_secret(
+        key: &SecretBox<[u8; 32]>,
+        secret: SecretString,
+    ) -> Result<EncryptedSecret, String> {
+        let key_ptr = alloc(32, Protection::READ_WRITE).map_err(|e| e.to_string())?;
+        let _guard = lock(key_ptr.as_ptr::<u8>(), 32);
+
+        let key_slice = unsafe { &mut *(key_ptr.as_ptr::<u8>() as *mut [u8; 32]) };
+
+        key_slice.copy_from_slice(key.expose_secret());
+
+        let mut cipher = XChaCha20Poly1305::new(&(*key_slice).into());
         let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
+
+        key_slice.zeroize();
+        drop(_guard);
 
         let ciphertext = cipher
             .encrypt(&nonce, secret.expose_secret().as_bytes())
-            .expect("failed to encrypt secret");
+            .map_err(|e| e.to_string())?;
 
-        EncryptedSecret {
+        Ok(EncryptedSecret {
             nonce: nonce.to_vec(),
             ciphertext,
-        }
+        })
     }
 
     pub fn get_key(&self, id: &str) -> Option<&KeyMetadata> {
@@ -227,27 +250,29 @@ impl Vault {
             file: vault_file,
             path: PathBuf::from_str(path).expect("invalid path"),
             key: None,
+            _key_guard: None,
         };
 
         Ok(vault)
     }
 
-    pub fn create_vault(path: &str, password: &SecretString) -> Vault {
+    pub fn create_vault(path: &str, password: &SecretString) -> Result<Vault, String> {
         let mut salt = [0u8; 16];
         OsRng.fill_bytes(&mut salt);
 
-        let key = derive_key(password, &salt);
+        let (_guard, key) = derive_key(password, &salt)?;
 
         let vault_file = VaultFile {
             salt: salt.to_vec(),
-            hello: Vault::encrypt_secret(&key, SecretString::from("hello")),
+            hello: Vault::encrypt_secret(&key, SecretString::from("hello"))?,
             secrets: HashMap::new(),
         };
-        Vault {
+        Ok(Vault {
             file: vault_file,
             path: PathBuf::from_str(path).expect("invalid path"),
             key: Some(key),
-        }
+            _key_guard: Some(_guard),
+        })
     }
 
     pub fn save_vault(&self) {
