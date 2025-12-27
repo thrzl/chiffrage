@@ -41,6 +41,13 @@ tauri-specta = {version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
 region = "3.0.2"
+libcrux-ml-kem = "0.0.4"
+x25519-dalek = "2.0.1"
+age-core = "0.11.0"
+subtle = "2.6.1"
+base64 = "0.22.1"
+sha2 = "0.10.9"
+hkdf = "0.12.4"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
