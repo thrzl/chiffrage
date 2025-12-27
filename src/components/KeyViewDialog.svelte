@@ -56,7 +56,7 @@
         }
 
         const destination = await save({
-            filters: [{ name: "age key file", extensions: ["age"] }],
+            filters: [{ name: "age key file", extensions: ["txt"] }],
         });
         if (!destination) {
             exportingKey = false;
