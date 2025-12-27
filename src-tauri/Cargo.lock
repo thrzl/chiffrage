@@ -646,6 +646,7 @@ dependencies = [
  "serde_cbor",
  "serde_json",
  "sha2",
+ "sha3",
  "specta",
  "specta-typescript",
  "subtle",
