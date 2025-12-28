@@ -1,3 +1,4 @@
+use crate::crypto::hybrid::HybridIdentity;
 use crate::store::{KeyMetadata, Vault, VaultStatusUpdate};
 use crate::AppState;
 use age::x25519::{Identity, Recipient};
@@ -152,17 +153,45 @@ pub async fn export_key(
 
         let key_meta = vault.get_key(&key).expect("could not load key");
         let key_contents = key_meta.contents.clone();
+        let raw_key_content = SecretString::from(
+            vault
+                .decrypt_secret(&key_contents.private.expect("no private key!"))
+                .unwrap()
+                .expose_secret()
+                .to_string(),
+        );
 
-        vault
-            .decrypt_secret(&key_contents.private.expect("no private key!"))
-            .unwrap()
+        let key_is_pq = raw_key_content
             .expose_secret()
-            .to_string()
+            .starts_with("AGE-SECRET-KEY-PQ-");
+        if matches!(mode, KeyExportMode::PostQuantum) {
+            // if we're supposed to be exporting a postquantum key...
+            if key_is_pq {
+                // and the key IS postquantum...
+                raw_key_content // then return the key content! all good
+            } else {
+                // otherwise
+                return Err("cannot export x25519 key as postquantum".to_string());
+            }
+        } else {
+            // otherwise, if we're exporting x25519 keys...
+            if key_is_pq {
+                // and the key is postquantum...
+                // then we need to convert it
+                HybridIdentity::from_string(raw_key_content)?
+                    .to_x25519()
+                    .to_string()
+            } else {
+                // or if it's already x25519...
+                // just leave it
+                raw_key_content
+            }
+        }
     };
 
     let mut key_file = File::create(path).await.expect("failed to open key file");
     key_file
-        .write_all(key_content.as_bytes())
+        .write_all(key_content.expose_secret().as_bytes())
         .await
         .expect("failed to write file");
     key_file.flush().await.expect("failed to flush file buffer");
