@@ -3,6 +3,7 @@ use crate::AppState;
 use age::x25519::{Identity, Recipient};
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
+use serde::Deserialize;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Listener, Manager, WindowEvent};
@@ -124,12 +125,18 @@ pub fn delete_key(id: String, state: tauri::State<'_, Mutex<AppState>>) -> Resul
     Ok(())
 }
 
+#[derive(specta::Type, Deserialize)]
+pub enum KeyExportMode {
+    PostQuantum,
+    X25519,
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn export_key(
     key: String,
     path: String,
-    key_type: String,
+    mode: KeyExportMode,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
     let key_content = {
@@ -145,15 +152,12 @@ pub async fn export_key(
 
         let key_meta = vault.get_key(&key).expect("could not load key");
         let key_contents = key_meta.contents.clone();
-        match key_type.as_str() {
-            "public" => key_contents.public,
-            "private" => vault
-                .decrypt_secret(&key_contents.private.expect("no private key!"))
-                .unwrap()
-                .expose_secret()
-                .to_string(), // should be guarded against in frontend
-            &_ => return Err("invalid key type".to_string()),
-        }
+
+        vault
+            .decrypt_secret(&key_contents.private.expect("no private key!"))
+            .unwrap()
+            .expose_secret()
+            .to_string()
     };
 
     let mut key_file = File::create(path).await.expect("failed to open key file");
