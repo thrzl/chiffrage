@@ -4,7 +4,7 @@ use base64::prelude::{Engine, BASE64_STANDARD_NO_PAD};
 use bip39::{rand::RngCore, rand_core::OsRng};
 use hpke_rs::{hpke_types, libcrux::HpkeLibcrux, Hpke, HpkePrivateKey, HpkePublicKey};
 use libcrux_ml_kem::mlkem1024::{self as mlkem};
-use secrecy::{zeroize::Zeroize, ExposeSecret, SecretBox};
+use secrecy::{zeroize::Zeroize, ExposeSecret, SecretBox, SecretString};
 use sha3::digest::{ExtendableOutput, Update, XofReader};
 use std::{collections::HashSet, str::FromStr};
 use x25519_dalek::X25519_BASEPOINT_BYTES;
@@ -67,7 +67,14 @@ impl Recipient for HybridRecipient {
     }
 }
 
-// --- Identity ---
+impl HybridRecipient {
+    pub fn to_string(&self) -> String {
+        let hrp = bech32::Hrp::parse_unchecked("age1pq");
+        bech32::encode::<bech32::Bech32>(hrp, &self.encapsulation_key)
+            .expect("seed cannot be encoded as bech32")
+    }
+}
+
 pub struct HybridIdentity {
     seed: SecretBox<[u8; 32]>,
 }
@@ -128,6 +135,14 @@ impl HybridIdentity {
         Self {
             seed: SecretBox::new(Box::new(seed)),
         }
+    }
+
+    pub fn to_string(&self) -> SecretString {
+        let hrp = bech32::Hrp::parse_unchecked("AGE-SECRET-KEY-PQ-");
+        SecretString::from(
+            bech32::encode::<bech32::Bech32>(hrp, self.seed.expose_secret())
+                .expect("seed cannot be encoded as bech32"),
+        )
     }
 
     pub fn to_x25519(&self) -> age::x25519::Identity {
