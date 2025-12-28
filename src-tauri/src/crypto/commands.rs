@@ -3,7 +3,7 @@ use crate::AppState;
 use futures_util::future::join_all;
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -329,10 +329,17 @@ pub async fn decrypt_file(
     Ok(())
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
+pub enum KeyFormat {
+    X25519,
+    PostQuantum,
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn generate_keypair(
     name: String,
+    format: Option<KeyFormat>,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
     if name.len() == 0 {
@@ -347,7 +354,10 @@ pub async fn generate_keypair(
             Ok(vault) => vault,
             Err(poisoned) => poisoned.into_inner(),
         };
-        let keypair = vault.generate_key(name)?;
+        let keypair = match format {
+            Some(KeyFormat::X25519) => vault.generate_x25519_keypair(name),
+            _ => vault.generate_keypair(name), // if none or if PostQuantum
+        }?;
         vault.put_key(keypair)?;
     }
     tauri::async_runtime::spawn_blocking(move || {

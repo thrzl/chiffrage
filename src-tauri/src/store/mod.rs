@@ -19,6 +19,8 @@ use secrecy::{ExposeSecret, SecretBox, SecretString};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::PathBuf, str::FromStr, time::SystemTime};
 
+use crate::crypto::hybrid::HybridIdentity;
+
 #[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 pub enum KeyType {
     Public,
@@ -168,7 +170,27 @@ impl Vault {
         let _ = self.file.secrets.remove(&id);
     }
 
-    pub fn generate_key(&self, name: String) -> Result<KeyMetadata, String> {
+    /// generate an mlkem768x25519 identity
+    pub fn generate_keypair(&self, name: String) -> Result<KeyMetadata, String> {
+        let identity = HybridIdentity::generate();
+        let keypair = KeyPair {
+            public: identity.to_public().to_string(),
+            private: Some(Vault::encrypt_secret(
+                self.get_vault_key()?,
+                identity.to_string(),
+            )?),
+        };
+        Ok(KeyMetadata {
+            id: create_id(),
+            name,
+            key_type: KeyType::Private,
+            date_created: SystemTime::now(),
+            contents: keypair,
+        })
+    }
+
+    /// generate an x25519 identity
+    pub fn generate_x25519_keypair(&self, name: String) -> Result<KeyMetadata, String> {
         let identity = Identity::generate();
         let keypair = KeyPair {
             public: identity.to_public().to_string(),
