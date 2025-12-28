@@ -160,7 +160,10 @@ impl HybridIdentity {
 
     /// parse an identity from a Bech32-encoded string
     pub fn from_string(text: SecretString) -> Result<Self, String> {
-        let (_, decoded) = bech32::decode(text.expose_secret()).map_err(|e| e.to_string())?;
+        let (hrp, decoded) = bech32::decode(text.expose_secret()).map_err(|e| e.to_string())?;
+        if hrp.as_str() != "AGE-SECRET-KEY-PQ-" {
+            return Err("not a valid secret key".to_string());
+        }
         Ok(Self {
             seed: SecretBox::from(Box::new(
                 decoded
