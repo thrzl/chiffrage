@@ -1,28 +1,13 @@
-use age::{
-    secrecy::{
-        zeroize::{ZeroizeOnDrop, Zeroizing},
-        ExposeSecret,
-    },
-    DecryptError, EncryptError, Identity, Recipient,
-};
+use age::{DecryptError, EncryptError, Identity, Recipient};
 use age_core::format::{FileKey, Stanza};
 use base64::prelude::{Engine, BASE64_STANDARD_NO_PAD};
 use bip39::{rand::RngCore, rand_core::OsRng};
-use chacha20poly1305::{
-    aead::{AeadMut, KeyInit},
-    ChaCha20Poly1305,
-};
-use hkdf::Hkdf;
 use hpke_rs::{hpke_types, libcrux::HpkeLibcrux, Hpke, HpkePrivateKey, HpkePublicKey};
-use libcrux_ml_kem::mlkem1024::{self as mlkem, MlKem1024Ciphertext};
-use secrecy::zeroize::Zeroize;
-use sha2::Sha512;
+use libcrux_ml_kem::mlkem1024::{self as mlkem};
+use secrecy::{zeroize::Zeroize, ExposeSecret, SecretBox};
 use sha3::digest::{ExtendableOutput, Update, XofReader};
 use std::{collections::HashSet, str::FromStr};
-use tokio_util::bytes::Buf;
-use x25519_dalek::{
-    PublicKey as X25519PublicKey, StaticSecret as X25519Secret, X25519_BASEPOINT_BYTES,
-};
+use x25519_dalek::X25519_BASEPOINT_BYTES;
 
 const RECIPIENT_TAG: &str = "mlkem768x25519";
 const KEM_N_SEED: usize = 64;
@@ -84,7 +69,7 @@ impl Recipient for HybridRecipient {
 
 // --- Identity ---
 pub struct HybridIdentity {
-    seed: [u8; 32],
+    seed: SecretBox<[u8; 32]>,
 }
 
 impl HybridIdentity {
@@ -93,10 +78,21 @@ impl HybridIdentity {
         OsRng::default()
             .try_fill_bytes(&mut seed)
             .expect("failed to generate random seed");
-        Self { seed }
+        let identity = Self {
+            seed: SecretBox::new(Box::new(seed)),
+        };
+        seed.zeroize();
+        identity
     }
 
-    fn expand_key(seed: &[u8; 32]) -> ([u8; 1568], [u8; 32], [u8; 3168], [u8; 32]) {
+    fn expand_key(
+        seed: &[u8; 32],
+    ) -> (
+        [u8; 1568],
+        [u8; 32],
+        SecretBox<[u8; 3168]>,
+        SecretBox<[u8; 32]>,
+    ) {
         let seed_full = shake256::<{ KEM_N_SEED + GROUP_N_SEED }>(seed); // KEM.Nseed + Group.Nseed
 
         // split the seed into its constituent parts: the ml-kem768 (pq) seed, and x25519 (t) seed
@@ -112,13 +108,13 @@ impl HybridIdentity {
         (
             ek_pq.as_slice().clone(),
             ek_t,
-            dk_pq.as_slice().clone(),
-            dk_t,
+            SecretBox::new(Box::new(dk_pq.as_slice().clone())),
+            SecretBox::new(Box::new(dk_t)),
         )
     }
 
     pub fn to_public(&self) -> HybridRecipient {
-        let (ek_pq, ek_t, _, _) = HybridIdentity::expand_key(&self.seed);
+        let (ek_pq, ek_t, _, _) = HybridIdentity::expand_key(&self.seed.expose_secret());
         HybridRecipient {
             encapsulation_key: [&ek_pq[..], &ek_t[..]]
                 .concat()
@@ -129,14 +125,16 @@ impl HybridIdentity {
     }
 
     pub fn from_seed(seed: [u8; 32]) -> Self {
-        Self { seed }
+        Self {
+            seed: SecretBox::new(Box::new(seed)),
+        }
     }
 
     pub fn to_x25519(&self) -> age::x25519::Identity {
-        let (_, _, _, dk_t) = HybridIdentity::expand_key(&self.seed);
+        let (_, _, _, dk_t) = HybridIdentity::expand_key(&self.seed.expose_secret());
         let hrp = bech32::Hrp::parse_unchecked("AGE-SECRET-KEY-");
         age::x25519::Identity::from_str(
-            bech32::encode::<bech32::Bech32>(hrp, &dk_t)
+            bech32::encode::<bech32::Bech32>(hrp, dk_t.expose_secret())
                 .expect("failed to encode x25519 private key")
                 .as_str(),
         )
@@ -175,7 +173,7 @@ impl Identity for HybridIdentity {
 
         let mut file_key = match hpke.open(
             &enc,
-            &HpkePrivateKey::from(&self.seed[..]),
+            &HpkePrivateKey::from(&self.seed.expose_secret()[..]),
             b"age-encryption.org/mlkem768x25519",
             &[],
             body,
