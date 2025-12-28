@@ -1,16 +1,13 @@
 use age::{DecryptError, EncryptError, Identity, Recipient};
-use age_core::format::{FileKey, Stanza};
+use age_core::format::{FileKey, Stanza, FILE_KEY_BYTES};
 use base64::prelude::{Engine, BASE64_STANDARD_NO_PAD};
 use bech32::{primitives::decode::UncheckedHrpstring, Bech32, ByteIterExt, Checksum, Fe32IterExt};
 use bip39::{rand::RngCore, rand_core::OsRng};
-use hpke_rs::{
-    hpke_types,
-    libcrux::{self, HpkeLibcrux},
-    Hpke, HpkePrivateKey, HpkePublicKey,
-};
-use libcrux_ml_kem::mlkem768::{self as mlkem};
+use chacha20poly1305::{aead::AeadMut, KeyInit};
+// use oqs::kem::{Algorithm::MlKem768, Kem};
+use libcrux_ml_kem::mlkem768 as mlkem;
 use secrecy::{zeroize::Zeroize, ExposeSecret, SecretBox, SecretString};
-use sha3::digest::{ExtendableOutput, Update, XofReader};
+use sha3::digest::{Digest, ExtendableOutput, Update, XofReader};
 use std::{array::TryFromSliceError, collections::HashSet, str::FromStr};
 use x25519_dalek::X25519_BASEPOINT_BYTES;
 
@@ -23,12 +20,12 @@ pub fn shake256<const N: usize>(input: &[u8]) -> [u8; N] {
     hasher.update(input);
     let mut reader = hasher.finalize_xof();
     let mut output = [0u8; N];
-    reader.read(&mut output);
+    XofReader::read(&mut reader, &mut output);
     output
 }
 
 pub struct HybridRecipient {
-    pub encapsulation_key: [u8; 1600],
+    pub encapsulation_key: [u8; 1216],
 }
 
 impl Recipient for HybridRecipient {
@@ -36,36 +33,71 @@ impl Recipient for HybridRecipient {
         &self,
         file_key: &FileKey,
     ) -> Result<(Vec<Stanza>, HashSet<String>), EncryptError> {
-        let mut hpke = Hpke::<HpkeLibcrux>::new(
-            hpke_rs::Mode::Base,
-            hpke_types::KemAlgorithm::XWingDraft06,
-            hpke_types::KdfAlgorithm::HkdfSha256,
-            hpke_types::AeadAlgorithm::ChaCha20Poly1305,
-        );
+        // let mut hpke = Hpke::<HpkeLibcrux>::new(
+        //     hpke_rs::Mode::Base,
+        //     hpke_types::KemAlgorithm::XWingDraft06,
+        //     hpke_types::KdfAlgorithm::HkdfSha256,
+        //     hpke_types::AeadAlgorithm::ChaCha20Poly1305,
+        // );
 
-        let (wrapped_key, ciphertext) = hpke
-            .seal(
-                &HpkePublicKey::from(&self.encapsulation_key[..]),
-                b"age-encryption.org/mlkem768x25519",
-                &[],
-                file_key.expose_secret(),
-                None,
-                None,
-                None,
+        // mlkem::encapsulate(public_key, randomness)
+        let ek_pq =
+            mlkem::MlKem768PublicKey::from(&self.encapsulation_key[0..1184].try_into().unwrap()); // ml-kem-768 public key
+        let ek_t: [u8; 32] = self.encapsulation_key[1184..].try_into().unwrap(); // x25519 public key (32 bytes)
+
+        let mut rng = OsRng::default();
+        let mut random_bytes = [0u8; 32];
+
+        // encapsulate with mlkem
+        rng.fill_bytes(&mut random_bytes);
+        let (ct_pq, ss_pq) = mlkem::encapsulate(&ek_pq, random_bytes);
+
+        // encapsulate with x25519
+        let ephemeral_sk = x25519_dalek::EphemeralSecret::random_from_rng(OsRng);
+        let ct_t = x25519_dalek::PublicKey::from(&ephemeral_sk);
+
+        let ek_t_public_key = x25519_dalek::PublicKey::from(ek_t);
+        let ss_t = ephemeral_sk.diffie_hellman(&ek_t_public_key);
+
+        let mut sha3_256 = sha3::Sha3_256::default();
+        Update::update(
+            // im getting real sick of these people bro
+            &mut sha3_256,
+            [
+                &ss_pq[..],
+                &ss_t.as_bytes()[..],
+                &ct_pq.as_slice()[..],
+                &ct_t.as_bytes()[..],
+                br#"\.//^\"#,
+            ]
+            .concat()
+            .as_slice(),
+        );
+        let ss = sha3_256.finalize();
+
+        let sha256_hkdf = hkdf::Hkdf::<sha2::Sha256>::new(None, ss.as_slice());
+
+        let mut wrapping_key = [0u8; 32];
+        sha256_hkdf.expand(b"age-encryption.org/mlkem768x25519", &mut wrapping_key);
+
+        let ciphertext = chacha20poly1305::ChaCha20Poly1305::new_from_slice(&wrapping_key)
+            .unwrap()
+            .encrypt(
+                chacha20poly1305::Nonce::from_slice(&[0u8; 12]),
+                &file_key.expose_secret()[..],
             )
-            .expect("failed to wrap file key");
+            .unwrap();
+
+        let wrapped_key = [&ct_pq.as_slice()[..], &ct_t.as_bytes()[..]].concat();
 
         let mut labels = HashSet::new();
         labels.insert("postquantum".to_string());
 
         Ok((
             vec![Stanza {
-                tag: "".to_string(),
-                args: vec![
-                    RECIPIENT_TAG.to_string(),
-                    BASE64_STANDARD_NO_PAD.encode(&wrapped_key.as_slice()),
-                ],
-                body: ciphertext,
+                tag: RECIPIENT_TAG.to_string(),
+                args: vec![BASE64_STANDARD_NO_PAD.encode(wrapped_key)],
+                body: ciphertext.to_vec(),
             }],
             labels,
         ))
@@ -124,11 +156,8 @@ impl HybridRecipient {
             .fes_to_bytes()
             .collect::<Vec<u8>>();
 
-        match decoded_bytes.try_into() {
-            Ok(ek) => Ok(Self {
-                encapsulation_key: ek,
-            }),
-            Err(_) => return Err("failed to convert decoded byte array to slice".to_string()),
+        Self {
+            encapsulation_key: decoded_bytes.try_into().unwrap(),
         }
     }
 }
@@ -168,24 +197,26 @@ impl HybridIdentity {
 
         let (dk_pq, ek_pq) = mlkem::generate_key_pair(seed_pq).into_parts();
         let dk_t = seed_t; // Group.RandomScalar is just the identity
-        let ek_t = x25519_dalek::x25519(X25519_BASEPOINT_BYTES, dk_t);
+        let ek_t = x25519_dalek::x25519(dk_t, X25519_BASEPOINT_BYTES);
+
+        let ek_pq: &[u8; 1184] = ek_pq.as_ref().try_into().unwrap();
+        let dk_pq: &[u8; 2400] = dk_pq.as_ref().try_into().unwrap();
 
         (
-            ek_pq.as_slice().clone(),
+            *ek_pq,
             ek_t,
-            SecretBox::new(Box::new(dk_pq.as_slice().clone())),
+            SecretBox::new(Box::new(*dk_pq)),
             SecretBox::new(Box::new(dk_t)),
         )
     }
 
     pub fn to_public(&self) -> HybridRecipient {
         let (ek_pq, ek_t, _, _) = HybridIdentity::expand_key(&self.seed.expose_secret());
+        let mut ek = Vec::with_capacity(1216);
+        ek.extend_from_slice(&ek_pq[..]);
+        ek.extend_from_slice(&ek_t[..]);
         HybridRecipient {
-            encapsulation_key: [&ek_pq[..], &ek_t[..]]
-                .concat()
-                .as_slice()
-                .try_into()
-                .unwrap(),
+            encapsulation_key: ek.as_slice().try_into().unwrap(),
         }
     }
 
@@ -205,7 +236,9 @@ impl HybridIdentity {
                 .bytes_to_fes()
                 .with_checksum::<Bech32>(&hrp)
                 .chars()
-                .collect(),
+                .collect::<String>()
+                .to_ascii_uppercase()
+                .into(),
         )
     }
 
@@ -229,7 +262,7 @@ impl HybridIdentity {
         let (_, _, _, dk_t) = HybridIdentity::expand_key(&self.seed.expose_secret());
         let hrp = bech32::Hrp::parse_unchecked("AGE-SECRET-KEY-");
         age::x25519::Identity::from_str(
-            bech32::encode::<bech32::Bech32>(hrp, dk_t.expose_secret())
+            bech32::encode_upper::<bech32::Bech32>(hrp, dk_t.expose_secret())
                 .expect("failed to encode x25519 private key")
                 .as_str(),
         )
@@ -259,30 +292,27 @@ impl Identity for HybridIdentity {
             }
             Err(_) => return Some(Err(DecryptError::InvalidHeader)),
         };
-        let hpke = Hpke::<HpkeLibcrux>::new(
-            hpke_rs::Mode::Base,
-            hpke_types::KemAlgorithm::XWingDraft06,
-            hpke_types::KdfAlgorithm::HkdfSha256,
-            hpke_types::AeadAlgorithm::ChaCha20Poly1305,
-        );
 
-        let mut file_key = match hpke.open(
-            &enc,
-            &HpkePrivateKey::from(&self.seed.expose_secret()[..]),
-            b"age-encryption.org/mlkem768x25519",
-            &[],
-            body,
-            None,
-            None,
-            None,
-        ) {
-            Ok(file_key) => file_key,
-            Err(_) => return Some(Err(DecryptError::NoMatchingKeys)),
-        };
+        let mut file_key = [0u8; FILE_KEY_BYTES];
 
-        Some(Ok(FileKey::init_with_mut(|inner| {
-            inner.copy_from_slice(&file_key);
-            file_key.zeroize();
-        })))
+        todo!();
+        // match hpke::ModeBase::<hpke::DHKEM_X25519_SHA256_CHACHA20>::base_open(
+        //     &orion::hazardous::kem::x25519_hkdf_sha256::PublicKey::from(enc),
+        //     &orion::hazardous::kem::x25519_hkdf_sha256::PrivateKey::from(
+        //         *self.seed.expose_secret(),
+        //     ),
+        //     b"age-encryption.org/mlkem768x25519",
+        //     body,
+        //     &[],
+        //     &mut file_key,
+        // ) {
+        //     Ok(file_key) => file_key,
+        //     Err(_) => return Some(Err(DecryptError::NoMatchingKeys)),
+        // };
+
+        // Some(Ok(FileKey::init_with_mut(|inner| {
+        //     inner.copy_from_slice(&file_key);
+        //     file_key.zeroize();
+        // })))
     }
 }
