@@ -62,10 +62,18 @@
             exportingKey = false;
             return;
         }
-        await commands.exportKey(key.id, destination, keyType);
+        let res = await commands.exportKey(
+            key.id,
+            destination,
+            key.contents.public.startsWith("age1pq") ? "PostQuantum" : "X25519",
+        );
         exportingKey = false;
-        toast.success("key exported successfully");
-        revealItemInDir(destination);
+        if (res.status === "ok") {
+            toast.success("key exported successfully");
+            revealItemInDir(destination);
+        } else {
+            toast.error(res.error);
+        }
     }
 </script>
 
