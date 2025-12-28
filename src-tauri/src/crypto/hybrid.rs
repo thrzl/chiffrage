@@ -3,8 +3,12 @@ use age_core::format::{FileKey, Stanza};
 use base64::prelude::{Engine, BASE64_STANDARD_NO_PAD};
 use bech32::{primitives::decode::UncheckedHrpstring, Bech32, ByteIterExt, Checksum, Fe32IterExt};
 use bip39::{rand::RngCore, rand_core::OsRng};
-use hpke_rs::{hpke_types, libcrux::HpkeLibcrux, Hpke, HpkePrivateKey, HpkePublicKey};
-use libcrux_ml_kem::mlkem1024::{self as mlkem};
+use hpke_rs::{
+    hpke_types,
+    libcrux::{self, HpkeLibcrux},
+    Hpke, HpkePrivateKey, HpkePublicKey,
+};
+use libcrux_ml_kem::mlkem768::{self as mlkem};
 use secrecy::{zeroize::Zeroize, ExposeSecret, SecretBox, SecretString};
 use sha3::digest::{ExtendableOutput, Update, XofReader};
 use std::{array::TryFromSliceError, collections::HashSet, str::FromStr};
@@ -149,9 +153,9 @@ impl HybridIdentity {
     fn expand_key(
         seed: &[u8; 32],
     ) -> (
-        [u8; 1568],
+        [u8; 1184],
         [u8; 32],
-        SecretBox<[u8; 3168]>,
+        SecretBox<[u8; 2400]>,
         SecretBox<[u8; 32]>,
     ) {
         let seed_full = shake256::<{ KEM_N_SEED + GROUP_N_SEED }>(seed); // KEM.Nseed + Group.Nseed
