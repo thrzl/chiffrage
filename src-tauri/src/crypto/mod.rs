@@ -12,6 +12,8 @@ use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
+use crate::crypto::hybrid::HybridRecipient;
+
 /// can be any type that implements `age::Recipient`. `Send + Sync` for async compat
 pub type WildcardRecipient = dyn Recipient + Send + Sync;
 pub type WildcardIdentity = dyn Identity + Send + Sync;
@@ -193,6 +195,18 @@ where
     }
     callback(accumulator); // ensure that it's sent at some point
     Ok(decrypted_output)
+}
+
+pub fn keys_to_recipients(public_keys: &Vec<String>) -> Result<Vec<HybridRecipient>, String> {
+    let keys_iter: Result<Vec<HybridRecipient>, _> = public_keys
+        .iter()
+        .map(|key| HybridRecipient::from_string(key))
+        .collect();
+    if let Err(e) = keys_iter {
+        return Err(format!("failed to parse key(s): {e}"));
+    } else {
+        return Ok(keys_iter.unwrap());
+    }
 }
 
 pub fn keys_to_x25519_recipients(

@@ -73,6 +73,19 @@ impl HybridRecipient {
         bech32::encode::<bech32::Bech32>(hrp, &self.encapsulation_key)
             .expect("seed cannot be encoded as bech32")
     }
+
+    pub fn from_string(string: &String) -> Result<Self, String> {
+        let (hrp, decoded) = bech32::decode(&string).map_err(|e| e.to_string())?;
+        if hrp.as_str() != "age1pq" {
+            return Err("not a valid recipient".to_string());
+        }
+        Ok(Self {
+            encapsulation_key: decoded
+                .as_slice()
+                .try_into()
+                .map_err(|e: TryFromSliceError| e.to_string())?,
+        })
+    }
 }
 
 pub struct HybridIdentity {
