@@ -126,9 +126,17 @@ pub async fn decrypt_armored_text(
     ))
     .await
     .map_err(|e| e.to_string())?;
-    let mut reader = decryptor
-        .decrypt_async(std::iter::once(identity as _))
-        .map_err(|e| e.to_string())?;
+    let mut reader = match identity {
+        WildcardIdentity::Hybrid(hybrid_identity) => decryptor.decrypt_async(
+            vec![
+                identity as _,
+                &WildcardIdentity::X25519(hybrid_identity.to_x25519()) as _,
+            ]
+            .into_iter(),
+        ),
+        _ => decryptor.decrypt_async(std::iter::once(identity as _)),
+    }
+    .map_err(|e| e.to_string())?;
     let mut decrypted = vec![];
     reader
         .read_to_end(&mut decrypted)
@@ -199,7 +207,16 @@ where
     let mut file_writer = BufWriter::new(output);
 
     let mut decrypted_reader = {
-        let result = decryptor.decrypt_async(std::iter::once(identity as _));
+        let result = match identity {
+            WildcardIdentity::Hybrid(hybrid_identity) => decryptor.decrypt_async(
+                vec![
+                    identity as _,
+                    &WildcardIdentity::X25519(hybrid_identity.to_x25519()) as _,
+                ]
+                .into_iter(),
+            ),
+            _ => decryptor.decrypt_async(std::iter::once(identity as _)),
+        };
         if let Ok(decryptor_reader) = result {
             decryptor_reader
         } else {
