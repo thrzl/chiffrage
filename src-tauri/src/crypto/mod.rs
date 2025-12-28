@@ -12,16 +12,59 @@ use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
+use crate::crypto::hybrid::HybridIdentity;
 use crate::crypto::hybrid::HybridRecipient;
 
-/// can be any type that implements `age::Recipient`. `Send + Sync` for async compat
-pub type WildcardRecipient = dyn Recipient + Send + Sync;
-pub type WildcardIdentity = dyn Identity + Send + Sync;
+/// an enum representing the x25519, hybrid, and scrypt age recipient types. directly implements `age::Recipient`.
+pub enum WildcardRecipient {
+    X25519(age::x25519::Recipient),
+    Hybrid(HybridRecipient),
+    Scrypt(age::scrypt::Recipient),
+}
+
+impl Recipient for WildcardRecipient {
+    fn wrap_file_key(
+        &self,
+        file_key: &age_core::format::FileKey,
+    ) -> Result<
+        (
+            Vec<age_core::format::Stanza>,
+            std::collections::HashSet<String>,
+        ),
+        age::EncryptError,
+    > {
+        match self {
+            Self::X25519(recipient) => recipient.wrap_file_key(file_key),
+            Self::Hybrid(recipient) => recipient.wrap_file_key(file_key),
+            Self::Scrypt(recipient) => recipient.wrap_file_key(file_key),
+        }
+    }
+}
+
+/// an enum representing the x25519, hybrid, and scrypt age identity types. directly implements `age::Identity`.
+pub enum WildcardIdentity {
+    X25519(age::x25519::Identity),
+    Hybrid(HybridIdentity),
+    Scrypt(age::scrypt::Identity),
+}
+
+impl Identity for WildcardIdentity {
+    fn unwrap_stanza(
+        &self,
+        stanza: &age_core::format::Stanza,
+    ) -> Option<Result<age_core::format::FileKey, age::DecryptError>> {
+        match self {
+            Self::X25519(identity) => identity.unwrap_stanza(stanza),
+            Self::Hybrid(identity) => identity.unwrap_stanza(stanza),
+            Self::Scrypt(identity) => identity.unwrap_stanza(stanza),
+        }
+    }
+}
 
 const MEGABYTE: usize = 1024 * 1024;
 /// every time a new chunk is encrypted, the callback will be run with the amount of bytes that were encrypted
 pub async fn encrypt_file<F>(
-    recipients: &Vec<Box<WildcardRecipient>>,
+    recipients: &Vec<WildcardRecipient>,
     file_path: &PathBuf,
     armor: bool,
     mut callback: F,
@@ -47,9 +90,7 @@ where
         age::armor::ArmoredWriter::wrap_async_output(BufWriter::new(output).compat_write(), format);
 
     let encryptor = age::Encryptor::with_recipients(
-        recipients
-            .iter()
-            .map(|recipient| &**recipient as &dyn Recipient), // bro wtf
+        recipients.iter().map(|recipient| recipient as _), // bro wtf
     )
     .expect("encryptor initialization failed");
 
@@ -77,7 +118,7 @@ where
 }
 
 pub async fn decrypt_armored_text(
-    identity: &Box<WildcardIdentity>,
+    identity: &WildcardIdentity,
     text: String,
 ) -> Result<String, String> {
     let decryptor = Decryptor::new_async_buffered(age::armor::ArmoredReader::from_async_reader(
@@ -86,7 +127,7 @@ pub async fn decrypt_armored_text(
     .await
     .map_err(|e| e.to_string())?;
     let mut reader = decryptor
-        .decrypt_async(std::iter::once(&**identity as &dyn age::Identity))
+        .decrypt_async(std::iter::once(identity as _))
         .map_err(|e| e.to_string())?;
     let mut decrypted = vec![];
     reader
@@ -97,14 +138,12 @@ pub async fn decrypt_armored_text(
 }
 
 pub async fn encrypt_armored_text(
-    recipients: &Vec<Box<WildcardRecipient>>,
+    recipients: &Vec<WildcardRecipient>,
     text: String,
 ) -> Result<String, String> {
     let mut encrypted = vec![];
     let encryptor = age::Encryptor::with_recipients(
-        recipients
-            .iter()
-            .map(|recipient| &**recipient as &dyn Recipient), // bro wtf
+        recipients.iter().map(|recipient| recipient as _), // bro wtf
     )
     .expect("encryptor initialization failed");
     let mut writer = age::armor::ArmoredWriter::wrap_async_output(
@@ -124,7 +163,7 @@ pub async fn encrypt_armored_text(
 }
 
 pub async fn decrypt_file<F>(
-    identity: &Box<WildcardIdentity>,
+    identity: &WildcardIdentity,
     file_path: &PathBuf,
     armor: bool,
     mut callback: F,
@@ -160,7 +199,7 @@ where
     let mut file_writer = BufWriter::new(output);
 
     let mut decrypted_reader = {
-        let result = decryptor.decrypt_async(std::iter::once(&**identity as &dyn age::Identity));
+        let result = decryptor.decrypt_async(std::iter::once(identity as _));
         if let Ok(decryptor_reader) = result {
             decryptor_reader
         } else {
