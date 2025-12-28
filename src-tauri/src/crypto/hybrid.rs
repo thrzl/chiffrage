@@ -1,6 +1,7 @@
 use age::{DecryptError, EncryptError, Identity, Recipient};
 use age_core::format::{FileKey, Stanza};
 use base64::prelude::{Engine, BASE64_STANDARD_NO_PAD};
+use bech32::{primitives::decode::UncheckedHrpstring, Bech32, ByteIterExt, Checksum, Fe32IterExt};
 use bip39::{rand::RngCore, rand_core::OsRng};
 use hpke_rs::{hpke_types, libcrux::HpkeLibcrux, Hpke, HpkePrivateKey, HpkePublicKey};
 use libcrux_ml_kem::mlkem1024::{self as mlkem};
@@ -70,21 +71,62 @@ impl Recipient for HybridRecipient {
 impl HybridRecipient {
     pub fn to_string(&self) -> String {
         let hrp = bech32::Hrp::parse_unchecked("age1pq");
-        bech32::encode::<bech32::Bech32>(hrp, &self.encapsulation_key)
-            .expect("seed cannot be encoded as bech32")
+        let encoded_chars = self
+            .encapsulation_key
+            .iter()
+            .copied()
+            .bytes_to_fes()
+            .with_checksum::<Bech32>(&hrp)
+            .chars();
+
+        encoded_chars.collect()
     }
 
     pub fn from_string(string: &String) -> Result<Self, String> {
-        let (hrp, decoded) = bech32::decode(&string).map_err(|e| e.to_string())?;
-        if hrp.as_str() != "age1pq" {
+        if !string.starts_with(&"age1pq".to_string()) {
             return Err("not a valid recipient".to_string());
         }
-        Ok(Self {
-            encapsulation_key: decoded
-                .as_slice()
-                .try_into()
-                .map_err(|e: TryFromSliceError| e.to_string())?,
-        })
+
+        let decoded = UncheckedHrpstring::new(string.as_str()).map_err(|e| e.to_string())?;
+
+        if decoded.data_part_ascii().len() < Bech32::CODE_LENGTH {
+            return Err("failed to parse string as Bech32".to_string());
+        }
+
+        {
+            // this is simply an implementation of UncheckedHrpString::validate_checksum
+            let mut checksum_eng = bech32::primitives::checksum::Engine::<Bech32>::new();
+            checksum_eng.input_hrp(decoded.hrp());
+
+            for fe in decoded
+                .data_part_ascii()
+                .iter()
+                .map(|&b| bech32::Fe32::from_char_unchecked(b))
+            {
+                checksum_eng.input_fe(fe);
+            }
+
+            if checksum_eng.residue() != &Bech32::TARGET_RESIDUE {
+                return Err("failed to decode as Bech32".to_string());
+            }
+        }
+
+        // strip checksum from data
+        let decoded =
+            &decoded.data_part_ascii()[..decoded.data_part_ascii().len() - Bech32::CHECKSUM_LENGTH];
+        let decoded_bytes = decoded
+            .iter()
+            .map(|char| bech32::Fe32::from_char_unchecked(*char))
+            .fes_to_bytes()
+            .collect::<Vec<u8>>();
+        println!("data part len: {}", decoded_bytes.len());
+
+        match decoded_bytes.try_into() {
+            Ok(ek) => Ok(Self {
+                encapsulation_key: ek,
+            }),
+            Err(_) => return Err("failed to convert decoded byte array to slice".to_string()),
+        }
     }
 }
 
@@ -152,9 +194,15 @@ impl HybridIdentity {
 
     pub fn to_string(&self) -> SecretString {
         let hrp = bech32::Hrp::parse_unchecked("AGE-SECRET-KEY-PQ-");
-        SecretString::from(
-            bech32::encode::<bech32::Bech32>(hrp, self.seed.expose_secret())
-                .expect("seed cannot be encoded as bech32"),
+        SecretString::new(
+            self.seed
+                .expose_secret()
+                .iter()
+                .copied()
+                .bytes_to_fes()
+                .with_checksum::<Bech32>(&hrp)
+                .chars()
+                .collect(),
         )
     }
 

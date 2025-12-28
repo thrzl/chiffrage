@@ -184,9 +184,9 @@ pub async fn encrypt_file(
                 .iter()
                 .map(|key| vault.get_key(key).unwrap().contents.public.clone())
                 .collect::<Vec<String>>();
-            let should_encrypt_pq = public_keys.iter().all(|key| key.starts_with("age1pq"));
+            let should_encrypt_pq = key_contents.iter().all(|key| key.starts_with("age1pq"));
             if should_encrypt_pq {
-                crypto::keys_to_recipients(&public_keys)?
+                crypto::keys_to_recipients(&key_contents)?
                     .into_iter()
                     .map(|recipient| WildcardRecipient::Hybrid(recipient))
                     .collect()
