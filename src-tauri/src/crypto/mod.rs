@@ -174,7 +174,7 @@ where
     let mut file = File::open(file_path).await.expect("failed to open file");
     let file_size = file.metadata().await.map_err(|e| e.to_string())?.len() as usize;
     if armor && file_size > MEGABYTE * 100 {
-        return Err("files over 100 MB are not supported".to_string());
+        return Err("armored files over 100 MB are not supported".to_string());
     }
     let mut contents = Vec::with_capacity(MEGABYTE * if armor { 100 } else { 0 }); // don't allocate anything if not necessary
     let reader: Box<dyn futures_io::AsyncBufRead + Unpin + Send + Sync> = if armor {
