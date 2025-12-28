@@ -6,7 +6,7 @@ use hpke_rs::{hpke_types, libcrux::HpkeLibcrux, Hpke, HpkePrivateKey, HpkePublic
 use libcrux_ml_kem::mlkem1024::{self as mlkem};
 use secrecy::{zeroize::Zeroize, ExposeSecret, SecretBox, SecretString};
 use sha3::digest::{ExtendableOutput, Update, XofReader};
-use std::{collections::HashSet, str::FromStr};
+use std::{array::TryFromSliceError, collections::HashSet, str::FromStr};
 use x25519_dalek::X25519_BASEPOINT_BYTES;
 
 const RECIPIENT_TAG: &str = "mlkem768x25519";
@@ -143,6 +143,19 @@ impl HybridIdentity {
             bech32::encode::<bech32::Bech32>(hrp, self.seed.expose_secret())
                 .expect("seed cannot be encoded as bech32"),
         )
+    }
+
+    /// parse an identity from a Bech32-encoded string
+    pub fn from_string(text: SecretString) -> Result<Self, String> {
+        let (_, decoded) = bech32::decode(text.expose_secret()).map_err(|e| e.to_string())?;
+        Ok(Self {
+            seed: SecretBox::from(Box::new(
+                decoded
+                    .as_slice()
+                    .try_into()
+                    .map_err(|e: TryFromSliceError| e.to_string())?,
+            )),
+        })
     }
 
     pub fn to_x25519(&self) -> age::x25519::Identity {
