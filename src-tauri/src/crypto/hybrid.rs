@@ -119,7 +119,6 @@ impl HybridRecipient {
             .map(|char| bech32::Fe32::from_char_unchecked(*char))
             .fes_to_bytes()
             .collect::<Vec<u8>>();
-        println!("data part len: {}", decoded_bytes.len());
 
         match decoded_bytes.try_into() {
             Ok(ek) => Ok(Self {
