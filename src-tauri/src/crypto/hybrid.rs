@@ -177,10 +177,12 @@ impl HybridIdentity {
         let seed_full = shake256::<{ KEM_N_SEED + GROUP_N_SEED }>(seed); // KEM.Nseed + Group.Nseed
 
         // split the seed into its constituent parts: the ml-kem768 (pq) seed, and x25519 (t) seed
-        let seed_pq: [u8; KEM_N_SEED] = seed_full[0..KEM_N_SEED].try_into().expect("wrong length");
+        let seed_pq: [u8; KEM_N_SEED] = seed_full[0..KEM_N_SEED]
+            .try_into()
+            .expect("this should always be the proper length");
         let seed_t: [u8; GROUP_N_SEED] = seed_full[KEM_N_SEED..KEM_N_SEED + GROUP_N_SEED]
             .try_into()
-            .expect("wrong length");
+            .expect("this should always be the proper length");
 
         let (dk_pq, ek_pq) = mlkem::generate_key_pair(seed_pq).into_parts();
         let dk_t = seed_t; // Group.RandomScalar is just the identity
