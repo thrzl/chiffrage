@@ -84,8 +84,9 @@
 
 <Dialog.Root
     bind:open={hasKey}
-    onOpenChange={(open) => {
+    onOpenChange={async (open) => {
         if (!open) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
             key = undefined;
         }
     }}
