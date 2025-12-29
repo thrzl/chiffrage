@@ -18,7 +18,11 @@
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
     import { save } from "@tauri-apps/plugin-dialog";
     import { revealItemInDir } from "@tauri-apps/plugin-opener";
-    import { commands, type KeyMetadata } from "$lib/bindings";
+    import {
+        commands,
+        type KeyExportMode,
+        type KeyMetadata,
+    } from "$lib/bindings";
     import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
     import Label from "$lib/components/ui/label/label.svelte";
     let webviewWindow = getCurrentWebviewWindow();
@@ -37,6 +41,31 @@
     let isPostQuantum = $derived(
         key && key.contents.public.startsWith("age1pq"),
     );
+    let publicKeyContent = $derived(key?.contents.public);
+    let isShowingDowngradedKey = $derived(
+        publicKeyContent !== key?.contents.public,
+    );
+    let keyExportFormat: KeyExportMode = $derived(
+        isPostQuantum ? "PostQuantum" : "X25519",
+    );
+
+    async function toggleHybridKeyContent() {
+        if (isShowingDowngradedKey) {
+            publicKeyContent = key?.contents.public;
+            console.log("showing upgraded key");
+            return;
+        }
+        console.log("going to show downgraded key");
+        let downgradedKey = await commands.downgradeHybridPublicKey(
+            key?.contents.public || "",
+        );
+        if (downgradedKey.status === "error") {
+            return toast.error("failed to show downgraded key", {
+                description: downgradedKey.error,
+            });
+        }
+        publicKeyContent = downgradedKey.data;
+    }
 
     async function deleteKey() {
         if (!key) return;
@@ -70,7 +99,7 @@
         let res = await commands.exportKey(
             key.id,
             destination,
-            key.contents.public.startsWith("age1pq") ? "PostQuantum" : "X25519",
+            keyExportFormat,
         );
         exportingKey = false;
         if (res.status === "ok") {
@@ -101,7 +130,7 @@
                             class="bg-blue-500 text-white dark:bg-blue-600 ml-1"
                             ><SquareAsteriskIcon />private</Badge
                         >{/if}
-                    {#if isPostQuantum}<Badge
+                    {#if isPostQuantum && !isShowingDowngradedKey}<Badge
                             class="bg-green-500 text-white dark:bg-green-600 ml-1"
                             ><AtomIcon />quantum-resistant</Badge
                         >{:else}<Badge
@@ -112,13 +141,10 @@
             </Dialog.Header>
             <div class="flex flex-col gap-2">
                 <Label for="public-key">public key</Label>
-                <InputGroup.Root class="mb-4">
+                <InputGroup.Root>
                     <InputGroup.Textarea
                         id="public-key"
-                        value={key?.contents.public.slice(0, 65) +
-                            ((key?.contents.public.length || 0) > 65
-                                ? "..."
-                                : "")}
+                        value={publicKeyContent}
                         readonly
                         class="resize-none font-mono"
                         wrap="hard"
@@ -128,7 +154,7 @@
                             variant="ghost"
                             onclick={() => {
                                 navigator.clipboard.writeText(
-                                    key?.contents.public || "",
+                                    publicKeyContent || "",
                                 );
                                 toast.success("copied!");
                             }}
@@ -136,7 +162,15 @@
                         >
                     </InputGroup.Addon>
                 </InputGroup.Root>
-                <section id="actions">
+                {#if isPostQuantum}
+                    <Button variant="outline" onclick={toggleHybridKeyContent}
+                        >show {#if !isShowingDowngradedKey}
+                            x25519
+                        {:else}
+                            hybrid
+                        {/if} key</Button
+                    >{/if}
+                <section id="actions" class="mt-4">
                     <Label class="mb-2" for="actions">key actions</Label>
                     <div class="flex flex-row gap-2">
                         <Button
