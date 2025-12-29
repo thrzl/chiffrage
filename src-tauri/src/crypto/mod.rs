@@ -1,24 +1,105 @@
 // higher-level age functions to be called from the frontend
 
 pub mod commands;
+pub mod hybrid;
 use age::x25519;
 use age::Decryptor;
 use age::{Identity, Recipient};
 pub use commands::*;
 use futures_util::{AsyncReadExt as FuturesReadExt, AsyncWriteExt as FuturesWriteExt};
+use secrecy::SecretString;
 use std::path::PathBuf;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-/// can be any type that implements `age::Recipient`. `Send + Sync` for async compat
-pub type WildcardRecipient = dyn Recipient + Send + Sync;
-pub type WildcardIdentity = dyn Identity + Send + Sync;
+use crate::crypto::hybrid::HybridIdentity;
+use crate::crypto::hybrid::HybridRecipient;
+
+/// an enum representing the x25519, hybrid, and scrypt age recipient types. directly implements `age::Recipient`.
+pub enum WildcardRecipient {
+    X25519(age::x25519::Recipient),
+    Hybrid(HybridRecipient),
+    Scrypt(age::scrypt::Recipient),
+}
+
+impl WildcardRecipient {
+    pub fn to_string(&self) -> Result<String, String> {
+        Ok(match self {
+            Self::Hybrid(recipient) => recipient.to_string(),
+            Self::X25519(recipient) => recipient.to_string(),
+            Self::Scrypt(recipient) => {
+                return Err("cannot convert scrypt identity to string".to_string())
+            }
+        })
+    }
+}
+
+impl Recipient for WildcardRecipient {
+    fn wrap_file_key(
+        &self,
+        file_key: &age_core::format::FileKey,
+    ) -> Result<
+        (
+            Vec<age_core::format::Stanza>,
+            std::collections::HashSet<String>,
+        ),
+        age::EncryptError,
+    > {
+        match self {
+            Self::X25519(recipient) => recipient.wrap_file_key(file_key),
+            Self::Hybrid(recipient) => recipient.wrap_file_key(file_key),
+            Self::Scrypt(recipient) => recipient.wrap_file_key(file_key),
+        }
+    }
+}
+
+/// an enum representing the x25519, hybrid, and scrypt age identity types. directly implements `age::Identity`.
+pub enum WildcardIdentity {
+    X25519(age::x25519::Identity),
+    Hybrid(HybridIdentity),
+    Scrypt(age::scrypt::Identity),
+}
+
+impl WildcardIdentity {
+    pub fn to_public(&self) -> Result<WildcardRecipient, String> {
+        Ok(match self {
+            Self::Hybrid(identity) => WildcardRecipient::Hybrid(identity.to_public()),
+            Self::X25519(identity) => WildcardRecipient::X25519(identity.to_public()),
+            Self::Scrypt(identity) => {
+                return Err("cannot convert scrypt identity to public".to_string())
+            }
+        })
+    }
+
+    pub fn to_string(&self) -> Result<SecretString, String> {
+        Ok(match self {
+            Self::Hybrid(identity) => identity.to_string(),
+            Self::X25519(identity) => SecretString::from(identity.to_string()),
+            Self::Scrypt(identity) => {
+                return Err("cannot convert scrypt identity to string".to_string())
+            }
+        })
+    }
+}
+
+impl Identity for WildcardIdentity {
+    fn unwrap_stanza(
+        &self,
+        stanza: &age_core::format::Stanza,
+    ) -> Option<Result<age_core::format::FileKey, age::DecryptError>> {
+        match self {
+            Self::X25519(identity) => identity.unwrap_stanza(stanza),
+            Self::Hybrid(identity) => identity.unwrap_stanza(stanza),
+            Self::Scrypt(identity) => identity.unwrap_stanza(stanza),
+        }
+    }
+}
 
 const MEGABYTE: usize = 1024 * 1024;
 /// every time a new chunk is encrypted, the callback will be run with the amount of bytes that were encrypted
 pub async fn encrypt_file<F>(
-    recipients: &Vec<Box<WildcardRecipient>>,
+    recipients: &Vec<WildcardRecipient>,
     file_path: &PathBuf,
     armor: bool,
     mut callback: F,
@@ -44,9 +125,7 @@ where
         age::armor::ArmoredWriter::wrap_async_output(BufWriter::new(output).compat_write(), format);
 
     let encryptor = age::Encryptor::with_recipients(
-        recipients
-            .iter()
-            .map(|recipient| &**recipient as &dyn Recipient), // bro wtf
+        recipients.iter().map(|recipient| recipient as _), // bro wtf
     )
     .expect("encryptor initialization failed");
 
@@ -74,7 +153,7 @@ where
 }
 
 pub async fn decrypt_armored_text(
-    identity: &Box<WildcardIdentity>,
+    identity: &WildcardIdentity,
     text: String,
 ) -> Result<String, String> {
     let decryptor = Decryptor::new_async_buffered(age::armor::ArmoredReader::from_async_reader(
@@ -82,9 +161,17 @@ pub async fn decrypt_armored_text(
     ))
     .await
     .map_err(|e| e.to_string())?;
-    let mut reader = decryptor
-        .decrypt_async(std::iter::once(&**identity as &dyn age::Identity))
-        .map_err(|e| e.to_string())?;
+    let mut reader = match identity {
+        WildcardIdentity::Hybrid(hybrid_identity) => decryptor.decrypt_async(
+            vec![
+                identity as _,
+                &WildcardIdentity::X25519(hybrid_identity.to_x25519()) as _,
+            ]
+            .into_iter(),
+        ),
+        _ => decryptor.decrypt_async(std::iter::once(identity as _)),
+    }
+    .map_err(|e| e.to_string())?;
     let mut decrypted = vec![];
     reader
         .read_to_end(&mut decrypted)
@@ -94,14 +181,12 @@ pub async fn decrypt_armored_text(
 }
 
 pub async fn encrypt_armored_text(
-    recipients: &Vec<Box<WildcardRecipient>>,
+    recipients: &Vec<WildcardRecipient>,
     text: String,
 ) -> Result<String, String> {
     let mut encrypted = vec![];
     let encryptor = age::Encryptor::with_recipients(
-        recipients
-            .iter()
-            .map(|recipient| &**recipient as &dyn Recipient), // bro wtf
+        recipients.iter().map(|recipient| recipient as _), // bro wtf
     )
     .expect("encryptor initialization failed");
     let mut writer = age::armor::ArmoredWriter::wrap_async_output(
@@ -121,7 +206,7 @@ pub async fn encrypt_armored_text(
 }
 
 pub async fn decrypt_file<F>(
-    identity: &Box<WildcardIdentity>,
+    identity: &WildcardIdentity,
     file_path: &PathBuf,
     armor: bool,
     mut callback: F,
@@ -132,7 +217,7 @@ where
     let mut file = File::open(file_path).await.expect("failed to open file");
     let file_size = file.metadata().await.map_err(|e| e.to_string())?.len() as usize;
     if armor && file_size > MEGABYTE * 100 {
-        return Err("files over 100 MB are not supported".to_string());
+        return Err("armored files over 100 MB are not supported".to_string());
     }
     let mut contents = Vec::with_capacity(MEGABYTE * if armor { 100 } else { 0 }); // don't allocate anything if not necessary
     let reader: Box<dyn futures_io::AsyncBufRead + Unpin + Send + Sync> = if armor {
@@ -157,7 +242,16 @@ where
     let mut file_writer = BufWriter::new(output);
 
     let mut decrypted_reader = {
-        let result = decryptor.decrypt_async(std::iter::once(&**identity as &dyn age::Identity));
+        let result = match identity {
+            WildcardIdentity::Hybrid(hybrid_identity) => decryptor.decrypt_async(
+                vec![
+                    identity as _,
+                    &WildcardIdentity::X25519(hybrid_identity.to_x25519()) as _,
+                ]
+                .into_iter(),
+            ),
+            _ => decryptor.decrypt_async(std::iter::once(identity as _)),
+        };
         if let Ok(decryptor_reader) = result {
             decryptor_reader
         } else {
@@ -192,6 +286,18 @@ where
     }
     callback(accumulator); // ensure that it's sent at some point
     Ok(decrypted_output)
+}
+
+pub fn keys_to_recipients(public_keys: &Vec<String>) -> Result<Vec<HybridRecipient>, String> {
+    let keys_iter: Result<Vec<HybridRecipient>, _> = public_keys
+        .iter()
+        .map(|key| HybridRecipient::from_string(key))
+        .collect();
+    if let Err(e) = keys_iter {
+        return Err(format!("failed to parse key(s): {e}"));
+    } else {
+        return Ok(keys_iter.unwrap());
+    }
 }
 
 pub fn keys_to_x25519_recipients(

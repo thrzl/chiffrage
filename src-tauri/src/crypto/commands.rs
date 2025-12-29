@@ -1,9 +1,10 @@
+use crate::crypto::hybrid::{HybridIdentity, HybridRecipient};
 use crate::crypto::{self, WildcardIdentity, WildcardRecipient};
 use crate::AppState;
 use futures_util::future::join_all;
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -85,7 +86,7 @@ pub async fn encrypt_text(
     text: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<String, String> {
-    let recipients: Vec<Box<WildcardRecipient>> = match recipient {
+    let recipients: Vec<WildcardRecipient> = match recipient {
         EncryptionMethod::X25519(public_keys) => {
             let state = state.lock().expect("failed to get lock on state");
             let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
@@ -97,16 +98,23 @@ pub async fn encrypt_text(
                 .iter()
                 .map(|key| vault.get_key(key).unwrap().contents.public.clone())
                 .collect::<Vec<String>>();
-            crypto::keys_to_x25519_recipients(&key_contents)?
-                .into_iter()
-                .map(|recipient| Box::new(recipient) as Box<WildcardRecipient>)
-                .collect()
+            let should_encrypt_pq = public_keys.iter().all(|key| key.starts_with("age1pq"));
+            if should_encrypt_pq {
+                crypto::keys_to_recipients(&public_keys)?
+                    .into_iter()
+                    .map(|recipient| WildcardRecipient::Hybrid(recipient))
+                    .collect()
+            } else {
+                crypto::keys_to_x25519_recipients(&key_contents)?
+                    .into_iter()
+                    .map(|recipient| WildcardRecipient::X25519(recipient))
+                    .collect()
+            }
         }
         EncryptionMethod::Scrypt(password) => {
-            vec![
-                Box::new(age::scrypt::Recipient::new(SecretString::from(password)))
-                    as Box<WildcardRecipient>,
-            ]
+            vec![WildcardRecipient::Scrypt(age::scrypt::Recipient::new(
+                SecretString::from(password),
+            ))]
         }
     };
     return crypto::encrypt_armored_text(&recipients, text).await;
@@ -132,15 +140,22 @@ pub async fn decrypt_text(
             let key_content = vault
                 .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())?
                 .clone();
-            Box::new(
-                key_content
-                    .expose_secret()
-                    .parse::<age::x25519::Identity>()?,
-            ) as Box<WildcardIdentity>
+
+            if key_content
+                .expose_secret()
+                .starts_with("AGE-SECRET-KEY-PQ-")
+            {
+                WildcardIdentity::Hybrid(HybridIdentity::from_string(key_content)?)
+            } else {
+                WildcardIdentity::X25519(
+                    key_content
+                        .expose_secret()
+                        .parse::<age::x25519::Identity>()?,
+                )
+            }
         }
         DecryptionMethod::Scrypt => {
-            Box::new(age::scrypt::Identity::new(SecretString::from(private_key)))
-                as Box<WildcardIdentity>
+            WildcardIdentity::Scrypt(age::scrypt::Identity::new(SecretString::from(private_key)))
         }
     };
 
@@ -157,7 +172,7 @@ pub async fn encrypt_file(
     armor: Option<bool>,
 ) -> Result<(), String> {
     let armor = armor.unwrap_or(false);
-    let recipients: Vec<Box<WildcardRecipient>> = match recipient {
+    let recipients: Vec<WildcardRecipient> = match recipient {
         EncryptionMethod::X25519(public_keys) => {
             let state = state.lock().expect("failed to get lock on state");
             let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
@@ -169,16 +184,23 @@ pub async fn encrypt_file(
                 .iter()
                 .map(|key| vault.get_key(key).unwrap().contents.public.clone())
                 .collect::<Vec<String>>();
-            crypto::keys_to_x25519_recipients(&key_contents)?
-                .into_iter()
-                .map(|recipient| Box::new(recipient) as Box<WildcardRecipient>)
-                .collect()
+            let should_encrypt_pq = key_contents.iter().all(|key| key.starts_with("age1pq"));
+            if should_encrypt_pq {
+                crypto::keys_to_recipients(&key_contents)?
+                    .into_iter()
+                    .map(|recipient| WildcardRecipient::Hybrid(recipient))
+                    .collect()
+            } else {
+                crypto::keys_to_x25519_recipients(&key_contents)?
+                    .into_iter()
+                    .map(|recipient| WildcardRecipient::X25519(recipient))
+                    .collect()
+            }
         }
         EncryptionMethod::Scrypt(password) => {
-            vec![
-                Box::new(age::scrypt::Recipient::new(SecretString::from(password)))
-                    as Box<WildcardRecipient>,
-            ]
+            vec![WildcardRecipient::Scrypt(age::scrypt::Recipient::new(
+                SecretString::from(password),
+            ))]
         }
     };
     let file_sizes: HashMap<String, u64> = files
@@ -256,18 +278,24 @@ pub async fn decrypt_file(
             };
             let key_metadata = vault.get_key(&private_key).unwrap();
             let key_content = vault
-                .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())
-                .unwrap()
+                .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())?
                 .clone();
-            Box::new(
-                key_content
-                    .expose_secret()
-                    .parse::<age::x25519::Identity>()?,
-            ) as Box<WildcardIdentity>
+
+            if key_content
+                .expose_secret()
+                .starts_with("AGE-SECRET-KEY-PQ-")
+            {
+                WildcardIdentity::Hybrid(HybridIdentity::from_string(key_content)?)
+            } else {
+                WildcardIdentity::X25519(
+                    key_content
+                        .expose_secret()
+                        .parse::<age::x25519::Identity>()?,
+                )
+            }
         }
         DecryptionMethod::Scrypt => {
-            Box::new(age::scrypt::Identity::new(SecretString::from(private_key)))
-                as Box<WildcardIdentity>
+            WildcardIdentity::Scrypt(age::scrypt::Identity::new(SecretString::from(private_key)))
         }
     };
     let file_sizes: HashMap<String, u64> = files
@@ -329,10 +357,17 @@ pub async fn decrypt_file(
     Ok(())
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
+pub enum KeyFormat {
+    X25519,
+    PostQuantum,
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn generate_keypair(
     name: String,
+    format: Option<KeyFormat>,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
     if name.len() == 0 {
@@ -347,7 +382,10 @@ pub async fn generate_keypair(
             Ok(vault) => vault,
             Err(poisoned) => poisoned.into_inner(),
         };
-        let keypair = vault.generate_key(name)?;
+        let keypair = match format {
+            Some(KeyFormat::X25519) => vault.generate_x25519_keypair(name),
+            _ => vault.generate_keypair(name), // if none or if PostQuantum
+        }?;
         vault.put_key(keypair)?;
     }
     tauri::async_runtime::spawn_blocking(move || {

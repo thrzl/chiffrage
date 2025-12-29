@@ -1,8 +1,11 @@
+use crate::crypto::hybrid::HybridIdentity;
+use crate::crypto::WildcardIdentity;
 use crate::store::{KeyMetadata, Vault, VaultStatusUpdate};
 use crate::AppState;
 use age::x25519::{Identity, Recipient};
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
+use serde::Deserialize;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Listener, Manager, WindowEvent};
@@ -124,12 +127,18 @@ pub fn delete_key(id: String, state: tauri::State<'_, Mutex<AppState>>) -> Resul
     Ok(())
 }
 
+#[derive(specta::Type, Deserialize)]
+pub enum KeyExportMode {
+    PostQuantum,
+    X25519,
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn export_key(
     key: String,
     path: String,
-    key_type: String,
+    mode: KeyExportMode,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
     let key_content = {
@@ -145,20 +154,45 @@ pub async fn export_key(
 
         let key_meta = vault.get_key(&key).expect("could not load key");
         let key_contents = key_meta.contents.clone();
-        match key_type.as_str() {
-            "public" => key_contents.public,
-            "private" => vault
+        let raw_key_content = SecretString::from(
+            vault
                 .decrypt_secret(&key_contents.private.expect("no private key!"))
                 .unwrap()
                 .expose_secret()
-                .to_string(), // should be guarded against in frontend
-            &_ => return Err("invalid key type".to_string()),
+                .to_string(),
+        );
+
+        let key_is_pq = raw_key_content
+            .expose_secret()
+            .starts_with("AGE-SECRET-KEY-PQ-");
+        if matches!(mode, KeyExportMode::PostQuantum) {
+            // if we're supposed to be exporting a postquantum key...
+            if key_is_pq {
+                // and the key IS postquantum...
+                raw_key_content // then return the key content! all good
+            } else {
+                // otherwise
+                return Err("cannot export x25519 key as postquantum".to_string());
+            }
+        } else {
+            // otherwise, if we're exporting x25519 keys...
+            if key_is_pq {
+                // and the key is postquantum...
+                // then we need to convert it
+                HybridIdentity::from_string(raw_key_content)?
+                    .to_x25519()
+                    .to_string()
+            } else {
+                // or if it's already x25519...
+                // just leave it
+                raw_key_content
+            }
         }
     };
 
     let mut key_file = File::create(path).await.expect("failed to open key file");
     key_file
-        .write_all(key_content.as_bytes())
+        .write_all(key_content.expose_secret().as_bytes())
         .await
         .expect("failed to write file");
     key_file.flush().await.expect("failed to flush file buffer");
@@ -199,12 +233,19 @@ pub async fn import_key_text(
             Err(poisoned) => poisoned.into_inner(),
         };
         if is_private {
-            let identity =
-                Identity::from_str(key_content.clone().as_str()).expect("failed to parse key");
+            let identity = if key_content.starts_with("AGE-SECRET-KEY-PQ-") {
+                WildcardIdentity::Hybrid(HybridIdentity::from_string(SecretString::from(
+                    key_content,
+                ))?)
+            } else {
+                WildcardIdentity::X25519(
+                    Identity::from_str(key_content.clone().as_str()).map_err(|e| e.to_string())?,
+                )
+            };
             let key = vault.new_key(
                 name,
-                identity.to_public().to_string(),
-                Some(SecretString::from(identity.to_string())),
+                identity.to_public()?.to_string()?,
+                Some(identity.to_string()?),
             )?;
             vault.put_key(key)?;
         } else {
@@ -248,50 +289,7 @@ pub async fn import_key(
         .await
         .expect("failed to read key file");
 
-    let is_private = key_content.starts_with("AGE-SECRET-KEY");
-
-    let vault_handle = {
-        let state = match state.lock() {
-            Ok(state) => state,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        state.vault.as_ref().expect("vault not initialized").clone()
-    };
-    {
-        let mut vault = match vault_handle.lock() {
-            Ok(vault) => vault,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        if is_private {
-            let identity =
-                Identity::from_str(key_content.clone().as_str()).expect("failed to parse key");
-            let key = vault.new_key(
-                name,
-                identity.to_public().to_string(),
-                Some(SecretString::from(identity.to_string())),
-            )?;
-            vault.put_key(key)?;
-        } else {
-            let key = vault.new_key(
-                name,
-                Recipient::from_str(key_content.clone().as_str())
-                    .expect("failed to parse public key")
-                    .to_string(),
-                None,
-            )?;
-            vault.put_key(key)?;
-        }
-    }
-    tauri::async_runtime::spawn_blocking(move || {
-        let vault = match vault_handle.lock() {
-            Ok(vault) => vault,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        vault.save_vault();
-    })
-    .await
-    .expect("failed to save vault");
-    Ok("key import complete".to_string())
+    return import_key_text(name, key_content, state).await;
 }
 
 #[tauri::command]

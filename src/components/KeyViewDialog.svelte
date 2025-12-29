@@ -9,6 +9,8 @@
         TrashIcon,
         FolderUpIcon,
         SquareAsteriskIcon,
+        AtomIcon,
+        TriangleAlertIcon,
     } from "@lucide/svelte";
     import Badge from "$lib/components/ui/badge/badge.svelte";
     import { toast } from "svelte-sonner";
@@ -32,6 +34,9 @@
     let confirming = $derived(confirmation !== undefined);
     let exportingKey = $state(false);
     let isPrivateKey = $derived(hasKey && key?.key_type === "Private");
+    let isPostQuantum = $derived(
+        key && key.contents.public.startsWith("age1pq"),
+    );
 
     async function deleteKey() {
         if (!key) return;
@@ -62,10 +67,18 @@
             exportingKey = false;
             return;
         }
-        await commands.exportKey(key.id, destination, keyType);
+        let res = await commands.exportKey(
+            key.id,
+            destination,
+            key.contents.public.startsWith("age1pq") ? "PostQuantum" : "X25519",
+        );
         exportingKey = false;
-        toast.success("key exported successfully");
-        revealItemInDir(destination);
+        if (res.status === "ok") {
+            toast.success("key exported successfully");
+            revealItemInDir(destination);
+        } else {
+            toast.error(res.error);
+        }
     }
 </script>
 
@@ -86,6 +99,13 @@
                     {#if isPrivateKey}<Badge
                             class="bg-blue-500 text-white dark:bg-blue-600 ml-1"
                             ><SquareAsteriskIcon />private</Badge
+                        >{/if}
+                    {#if isPostQuantum}<Badge
+                            class="bg-green-500 text-white dark:bg-green-600 ml-1"
+                            ><AtomIcon />quantum-resistant</Badge
+                        >{:else}<Badge
+                            class="bg-red-500 text-white dark:bg-red-600 ml-1"
+                            ><TriangleAlertIcon />quantum-vulnerable</Badge
                         >{/if}</Dialog.Title
                 >
             </Dialog.Header>
@@ -94,9 +114,12 @@
                 <InputGroup.Root class="mb-4">
                     <InputGroup.Textarea
                         id="public-key"
-                        value={key?.contents.public}
+                        value={key?.contents.public.slice(0, 65) +
+                            ((key?.contents.public.length || 0) > 65
+                                ? "..."
+                                : "")}
                         readonly
-                        class="resize-none"
+                        class="resize-none font-mono"
                         wrap="hard"
                     />
                     <InputGroup.Addon align="inline-end" class="h-full">

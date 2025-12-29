@@ -30,9 +30,9 @@ async createVault(password: string) : Promise<Result<null, string>> {
 async vaultExists() : Promise<boolean> {
     return await TAURI_INVOKE("vault_exists");
 },
-async generateKeypair(name: string) : Promise<Result<null, string>> {
+async generateKeypair(name: string, format: KeyFormat | null) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("generate_keypair", { name }) };
+    return { status: "ok", data: await TAURI_INVOKE("generate_keypair", { name, format }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -57,9 +57,9 @@ async decryptFile(privateKey: string, reader: TAURI_CHANNEL<FileOperationProgres
 async generatePassphrase() : Promise<string> {
     return await TAURI_INVOKE("generate_passphrase");
 },
-async exportKey(key: string, path: string, keyType: string) : Promise<Result<null, string>> {
+async exportKey(key: string, path: string, mode: KeyExportMode) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("export_key", { key, path, keyType }) };
+    return { status: "ok", data: await TAURI_INVOKE("export_key", { key, path, mode }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -181,6 +181,8 @@ export type DecryptionMethod = "X25519" | "Scrypt"
 export type EncryptedSecret = { nonce: number[]; ciphertext: number[] }
 export type EncryptionMethod = string[] | string
 export type FileOperationProgress = { read_bytes: number; total_bytes: number; current_file: string }
+export type KeyExportMode = "PostQuantum" | "X25519"
+export type KeyFormat = "X25519" | "PostQuantum"
 /**
  * representation of a key object. id is a cuid2
  */
