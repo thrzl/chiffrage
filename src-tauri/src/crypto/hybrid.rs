@@ -26,10 +26,6 @@ pub fn shake256<const N: usize>(input: &[u8]) -> [u8; N] {
 }
 
 fn bech32_decode(string: &String) -> Result<Vec<u8>, String> {
-    if !string.starts_with(&"age1pq".to_string()) {
-        return Err("not a valid recipient".to_string());
-    }
-
     let decoded = UncheckedHrpstring::new(string.as_str()).map_err(|e| e.to_string())?;
 
     if decoded.data_part_ascii().len() < Bech32::CODE_LENGTH {
@@ -143,6 +139,9 @@ impl HybridRecipient {
     }
 
     pub fn from_string(string: &String) -> Result<Self, String> {
+        if !string.starts_with(&"age1pq".to_string()) {
+            return Err("not a valid recipient".to_string());
+        }
         let decoded_bytes = bech32_decode(string)?;
         Ok(Self {
             encapsulation_key: decoded_bytes.try_into().unwrap(),
