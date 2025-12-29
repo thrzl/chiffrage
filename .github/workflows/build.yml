@@ -71,13 +71,11 @@ jobs:
       - name: get version for windows
         id: sanitized-version
         run: |
+          VERSION=${TAG_NAME#v}
           if [[ "${{ matrix.platform }}" == "windows-latest" ]]; then
-            VERSION=${TAG_NAME#v}
             VERSION=${VERSION%%-*}
-            echo "config={\"version\":\"$VERSION\"}" >> $GITHUB_OUTPUT
-          else
-            echo "config={\"version\":\"$TAG_NAME\"}" >> $GITHUB_OUTPUT
           fi
+          echo "config={\"version\":\"$VERSION\"}" >> $GITHUB_OUTPUT
         shell: bash
         env:
           TAG_NAME: ${{ inputs.tagName }}
