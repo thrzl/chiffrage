@@ -129,7 +129,7 @@ impl HybridRecipient {
     }
 
     pub fn to_x25519(&self) -> age::x25519::Recipient {
-        let hrp = bech32::Hrp::parse_unchecked("age1pq");
+        let hrp = bech32::Hrp::parse_unchecked("age");
         let encoded_chars = self.encapsulation_key[1184..1216] // only the x25519 bit
             .iter()
             .copied()
