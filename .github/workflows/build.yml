@@ -70,7 +70,7 @@ jobs:
 
       - name: build binaries
         run: |
-          if [[ "${{ matrix.platform }}" == "windows-latest" ]]; then
+          if [ "${{ matrix.platform }}" == "windows-latest" ]; then
             VERSION=${TAG_NAME#v}
             VERSION=${VERSION%%-*}
             bun tauri build ${{ matrix.args }} --config "{\"package\":{\"version\":\"$VERSION\"}}"
