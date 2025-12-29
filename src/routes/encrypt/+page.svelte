@@ -69,6 +69,7 @@
     let privateKeys = keys.filter(key => key.key_type === "Private");
     let publicKeys = keys.filter(key => key.key_type === "Public");
     let keyMap = $derived(Object.fromEntries(keys.map(key => ([key.id, key]))));
+    let allKeysArePQ = $derived(keys.every(key => key.contents.public.startsWith("age1pq")));
 
   let alert: { title: string; description: string } | undefined = $derived.by(
       () => {
@@ -131,7 +132,7 @@
                             value={key.id}
                             label={key.name}
                             >
-                            {#if key.contents.public.startsWith("age1pq")} <AtomIcon />{/if} <p>{key.name}</p>
+                            <p>{key.name}</p> {#if !allKeysArePQ && key.contents.public.startsWith("age1pq")} <AtomIcon />{/if}
                             </Select.Item>
                         {/each}
                         </Select.Group>
