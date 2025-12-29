@@ -5,9 +5,9 @@ use bech32::{primitives::decode::UncheckedHrpstring, Bech32, ByteIterExt, Checks
 use bip39::{rand::RngCore, rand_core::OsRng};
 use hpke_rs::{hpke_types, Hpke, HpkePrivateKey, HpkePublicKey};
 use hpke_rs_libcrux::HpkeLibcrux;
-use libcrux_ml_kem::{mlkem768 as mlkem, MlKemCiphertext};
+use libcrux_ml_kem::mlkem768 as mlkem;
 use secrecy::{zeroize::Zeroize, ExposeSecret, SecretBox, SecretString};
-use sha3::digest::{Digest, ExtendableOutput, Update, XofReader};
+use sha3::digest::{ExtendableOutput, Update, XofReader};
 use std::{array::TryFromSliceError, collections::HashSet, str::FromStr};
 use x25519_dalek::X25519_BASEPOINT_BYTES;
 
