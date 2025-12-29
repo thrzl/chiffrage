@@ -73,8 +73,10 @@
   let alert: { title: string; description: string } | undefined = $derived.by(
       () => {
           if (encryptMethod === "key" && !(chosenKeys.length === 0 || chosenKeys.some(id => keyMap[id].key_type === "Private"))) {
+             // if there are no private keys included as recipients, the file won't be recoverable
              return {title: "consider adding a private key", description: "if you do not encrypt to one of your own keys, you will not be able to decrypt this file later."}
           } else if (encryptMethod === "pass" && strength && strength.guessesLog10 < 5) {
+              // if your passphrase is buns
               let feedback = strength.feedback;
               return {
                   title: "weak password",
@@ -82,6 +84,12 @@
                       `${feedback.warning ? feedback.warning.toLocaleLowerCase() + " " : ""}${feedback.suggestions[0].toLocaleLowerCase()}` ||
                       "this password is not very secure.",
               };
+          } else if (chosenKeys.some(key => keyMap[key].contents.public.match(/age1(?!.*1)/)) && chosenKeys.some(key => keyMap[key].contents.public.startsWith("age1pq"))) {
+            // if there are both x25519 and ML-KEM768X25519 keys chosen
+            return {
+              title: "both post-quantum and standard keys chosen",
+              description: "when encrypting to both standard and post-quantum (PQ) keys in a single operation, PQ keys will be downgraded to x25519 for compatibility."
+            }
           }
       },
   );
