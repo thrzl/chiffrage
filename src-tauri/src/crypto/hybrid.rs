@@ -1,5 +1,5 @@
 use age::{DecryptError, EncryptError, Identity, Recipient};
-use age_core::format::{FileKey, Stanza, FILE_KEY_BYTES};
+use age_core::format::{FileKey, Stanza};
 use base64::prelude::{Engine, BASE64_STANDARD_NO_PAD};
 use bech32::{primitives::decode::UncheckedHrpstring, Bech32, ByteIterExt, Checksum, Fe32IterExt};
 use bip39::{rand::RngCore, rand_core::OsRng};
@@ -15,6 +15,7 @@ const RECIPIENT_TAG: &str = "mlkem768x25519";
 const KEM_N_SEED: usize = 64;
 const GROUP_N_SEED: usize = 32;
 
+/// an implementation of SHAKE256 from [FIPS 202](https://doi.org/10.6028/NIST.FIPS.202).
 pub fn shake256<const N: usize>(input: &[u8]) -> [u8; N] {
     let mut hasher = sha3::Shake256::default();
     hasher.update(input);
@@ -40,6 +41,7 @@ impl Recipient for HybridRecipient {
             hpke_types::AeadAlgorithm::ChaCha20Poly1305,
         );
 
+        // HPKE.SealBase(...)
         let (wrapped_key, ciphertext) = hpke
             .seal(
                 &HpkePublicKey::from(&self.encapsulation_key[..]),
@@ -55,6 +57,12 @@ impl Recipient for HybridRecipient {
         let mut labels = HashSet::new();
         labels.insert("postquantum".to_string());
 
+        // i know this is weird
+        // age_core::Stanza encodes this as
+        //
+        // -> mlkem768x25519 <base64(enc)>
+        //
+        // and this is what it takes to get it to properly do it
         Ok((
             vec![Stanza {
                 tag: RECIPIENT_TAG.to_string(),
@@ -93,6 +101,7 @@ impl HybridRecipient {
 
         {
             // this is simply an implementation of UncheckedHrpString::validate_checksum
+            // it is reimplemented to exclude the length check
             let mut checksum_eng = bech32::primitives::checksum::Engine::<Bech32>::new();
             checksum_eng.input_hrp(decoded.hrp());
 
@@ -129,11 +138,10 @@ pub struct HybridIdentity {
 }
 
 impl HybridIdentity {
+    /// generates a new ML-KEM768x25519 seed with `OsRng`.
     pub fn generate() -> Self {
         let mut seed = [0u8; 32];
-        OsRng::default()
-            .try_fill_bytes(&mut seed)
-            .expect("failed to generate random seed");
+        OsRng::default().fill_bytes(&mut seed);
         let identity = Self {
             seed: SecretBox::new(Box::new(seed)),
         };
@@ -141,6 +149,7 @@ impl HybridIdentity {
         identity
     }
 
+    /// the `expandKey` function from https://filippo.io/hpke-pq. expands an identity seed into an ML-KEM768 and x25519 keypair.
     fn expand_key(
         seed: &[u8; 32],
     ) -> (
@@ -159,7 +168,7 @@ impl HybridIdentity {
 
         let (dk_pq, ek_pq) = mlkem::generate_key_pair(seed_pq).into_parts();
         let dk_t = seed_t; // Group.RandomScalar is just the identity
-        let ek_t = x25519_dalek::x25519(dk_t, X25519_BASEPOINT_BYTES);
+        let ek_t = x25519_dalek::x25519(dk_t, X25519_BASEPOINT_BYTES); // Group.Exp
 
         let ek_pq: &[u8; 1184] = ek_pq.as_ref().try_into().unwrap();
         let dk_pq: &[u8; 2400] = dk_pq.as_ref().try_into().unwrap();
@@ -194,12 +203,12 @@ impl HybridIdentity {
             self.seed
                 .expose_secret()
                 .iter()
-                .copied()
-                .bytes_to_fes()
-                .with_checksum::<Bech32>(&hrp)
-                .chars()
+                .copied() // for each cloned byte..
+                .bytes_to_fes() // convert it to an Fe...
+                .with_checksum::<Bech32>(&hrp) // for a Bech32 address
+                .chars() // as an ascii character
                 .collect::<String>()
-                .to_ascii_uppercase()
+                .to_ascii_uppercase() // make it all uppercase cus its supposed to be
                 .into(),
         )
     }
@@ -234,26 +243,30 @@ impl HybridIdentity {
 
 impl Identity for HybridIdentity {
     fn unwrap_stanza(&self, stanza: &Stanza) -> Option<Result<FileKey, DecryptError>> {
+        // from age-encryption.org/v1:
         if stanza.args.len() > 0 && RECIPIENT_TAG.to_string() != stanza.tag {
+            // "The identity implementation MUST ignore any stanza that does not have mlkem768x25519 as the first argument"
             return None;
         }
         if stanza.args.len() != 1 {
+            // "and MUST otherwise reject any stanza that has more or less than two arguments"
             return Some(Err(DecryptError::InvalidHeader));
         }
-        let ct = stanza.body.as_slice();
-        if ct.len() != 32 {
-            return Some(Err(DecryptError::DecryptionFailed));
-        }
-
         let enc = match BASE64_STANDARD_NO_PAD.decode(stanza.args[0].clone()) {
             Ok(vec) => {
                 if vec.len() != 1120 {
+                    // "or where the second argument is not a canonical base64 encoding of a 1120-byte value"
                     return Some(Err(DecryptError::InvalidHeader));
                 }
                 vec
             }
             Err(_) => return Some(Err(DecryptError::InvalidHeader)),
         };
+        let ct = stanza.body.as_slice();
+        if ct.len() != 32 {
+            // "It MUST check that the body length is exactly 32 bytes before attempting to decrypt it, to mitigate partitioning oracle attacks."
+            return Some(Err(DecryptError::DecryptionFailed));
+        }
 
         let hpke = Hpke::<HpkeLibcrux>::new(
             hpke_rs::Mode::Base,
@@ -262,6 +275,7 @@ impl Identity for HybridIdentity {
             hpke_types::AeadAlgorithm::ChaCha20Poly1305,
         );
 
+        // HPKE.OpenBase(...)
         let mut file_key: Vec<u8> = match hpke.open(
             &enc.as_slice()[..],
             &HpkePrivateKey::from(&self.seed.expose_secret()[..]),
