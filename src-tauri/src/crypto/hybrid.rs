@@ -28,10 +28,6 @@ pub fn shake256<const N: usize>(input: &[u8]) -> [u8; N] {
 fn bech32_decode(string: &String) -> Result<Vec<u8>, String> {
     let decoded = UncheckedHrpstring::new(string.as_str()).map_err(|e| e.to_string())?;
 
-    if decoded.data_part_ascii().len() < Bech32::CODE_LENGTH {
-        return Err("failed to parse string as Bech32".to_string());
-    }
-
     {
         // this is simply an implementation of UncheckedHrpString::validate_checksum
         // it is reimplemented to exclude the length check
@@ -142,6 +138,10 @@ impl HybridRecipient {
         if !string.starts_with(&"age1pq".to_string()) {
             return Err("not a valid recipient".to_string());
         }
+        if string.len() != 1959 {
+            // this is the length of a proper PQ pubkey
+            return Err(format!("invalid key length: {}", string.len()));
+        }
         let decoded_bytes = bech32_decode(string)?;
         Ok(Self {
             encapsulation_key: decoded_bytes.try_into().unwrap(),
@@ -234,6 +234,13 @@ impl HybridIdentity {
         if !string.expose_secret().starts_with("AGE-SECRET-KEY-PQ-") {
             return Err("not a valid secret key".to_string());
         }
+        if string.expose_secret().len() != 77 {
+            // this is the length of a proper PQ pubkey
+            return Err(format!(
+                "invalid key length: {}",
+                string.expose_secret().len()
+            ));
+        }
         let decoded = bech32_decode(&string.expose_secret().to_string())?;
         Ok(Self {
             seed: SecretBox::from(Box::new(
@@ -247,7 +254,7 @@ impl HybridIdentity {
 
     pub fn to_x25519(&self) -> age::x25519::Identity {
         let (_, _, _, dk_t) = HybridIdentity::expand_key(&self.seed.expose_secret());
-        let hrp = bech32::Hrp::parse_unchecked("age1pq");
+        let hrp = bech32::Hrp::parse_unchecked("AGE-SECRET-KEY-");
         let encoded_chars = dk_t
             .expose_secret()
             .iter()
@@ -258,7 +265,7 @@ impl HybridIdentity {
 
         let identity_string: String = encoded_chars.collect::<String>().to_ascii_uppercase();
         age::x25519::Identity::from_str(identity_string.as_str())
-            .expect("x25519 private key was not valid")
+            .expect("x25519 should always be valid")
     }
 }
 
