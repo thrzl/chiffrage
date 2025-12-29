@@ -74,16 +74,16 @@ jobs:
           if [[ "${{ matrix.platform }}" == "windows-latest" ]]; then
             VERSION=${TAG_NAME#v}
             VERSION=${VERSION%%-*}
-            echo "config=--config \"{'package':{'version':'$VERSION'}}\"" >> $GITHUB_OUTPUT
+            echo "{\"package\":{\"version\":\"$VERSION\"}}" >> $GITHUB_OUTPUT
           else
-            echo "config=" >> $GITHUB_OUTPUT
+            echo "{}" >> $GITHUB_OUTPUT
           fi
         shell: bash
         env:
           TAG_NAME: ${{ inputs.tagName }}
 
       - name: build binaries
-        run: bun tauri build ${{ matrix.args }} ${{ steps.sanitized-version.outputs.config }}
+        run: bun tauri build ${{ matrix.args }} --config "${{ steps.sanitized-version.outputs.config }}"
         env:
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
