@@ -9,7 +9,7 @@
     import Progress from "$lib/components/ui/progress/progress.svelte";
     import Label from "$lib/components/ui/label/label.svelte";
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
-    import { TrashIcon, CircleQuestionMarkIcon } from "@lucide/svelte";
+    import { TrashIcon, CircleQuestionMarkIcon, AtomIcon } from "@lucide/svelte";
     import {andList} from "human-list";
     import * as Select from "$lib/components/ui/select/index.js";
     import {Button} from "$lib/components/ui/button/index";
@@ -123,7 +123,7 @@
                             value={key.id}
                             label={key.name}
                             >
-                            {key.name}
+                            {#if key.contents.public.startsWith("age1pq")} <AtomIcon />{/if} <p>{key.name}</p>
                             </Select.Item>
                         {/each}
                         </Select.Group>
