@@ -7,6 +7,7 @@ use age::Decryptor;
 use age::{Identity, Recipient};
 pub use commands::*;
 use futures_util::{AsyncReadExt as FuturesReadExt, AsyncWriteExt as FuturesWriteExt};
+use secrecy::SecretString;
 use std::path::PathBuf;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
@@ -20,6 +21,18 @@ pub enum WildcardRecipient {
     X25519(age::x25519::Recipient),
     Hybrid(HybridRecipient),
     Scrypt(age::scrypt::Recipient),
+}
+
+impl WildcardRecipient {
+    pub fn to_string(&self) -> Result<String, String> {
+        Ok(match self {
+            Self::Hybrid(recipient) => recipient.to_string(),
+            Self::X25519(recipient) => recipient.to_string(),
+            Self::Scrypt(recipient) => {
+                return Err("cannot convert scrypt identity to string".to_string())
+            }
+        })
+    }
 }
 
 impl Recipient for WildcardRecipient {
@@ -46,6 +59,28 @@ pub enum WildcardIdentity {
     X25519(age::x25519::Identity),
     Hybrid(HybridIdentity),
     Scrypt(age::scrypt::Identity),
+}
+
+impl WildcardIdentity {
+    pub fn to_public(&self) -> Result<WildcardRecipient, String> {
+        Ok(match self {
+            Self::Hybrid(identity) => WildcardRecipient::Hybrid(identity.to_public()),
+            Self::X25519(identity) => WildcardRecipient::X25519(identity.to_public()),
+            Self::Scrypt(identity) => {
+                return Err("cannot convert scrypt identity to public".to_string())
+            }
+        })
+    }
+
+    pub fn to_string(&self) -> Result<SecretString, String> {
+        Ok(match self {
+            Self::Hybrid(identity) => identity.to_string(),
+            Self::X25519(identity) => SecretString::from(identity.to_string()),
+            Self::Scrypt(identity) => {
+                return Err("cannot convert scrypt identity to string".to_string())
+            }
+        })
+    }
 }
 
 impl Identity for WildcardIdentity {
