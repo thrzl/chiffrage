@@ -76,7 +76,7 @@ jobs:
             VERSION=${VERSION%%-*}
             echo "{\"package\":{\"version\":\"$VERSION\"}}" >> $GITHUB_OUTPUT
           else
-            echo "{}" >> $GITHUB_OUTPUT
+            echo "{\"package\":{\"version\":\"$TAG_NAME\"}}" >> $GITHUB_OUTPUT
           fi
         shell: bash
         env:
