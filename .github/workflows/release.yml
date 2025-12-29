@@ -68,4 +68,4 @@ jobs:
           else
             PRERELEASE_FLAG=""
           fi
-          gh release create $TAG_NAME $(find artifacts -path '*/release/bundle/*' -type f) --generate-notes $PRERELEASE_FLAG
+          gh release create $TAG_NAME $(find artifacts -path '*/release/bundle/*' -type f) --generate-notes $PRERELEASE_FLAG -d
