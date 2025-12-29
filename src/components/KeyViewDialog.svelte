@@ -114,9 +114,12 @@
                 <InputGroup.Root class="mb-4">
                     <InputGroup.Textarea
                         id="public-key"
-                        value={key?.contents.public}
+                        value={key?.contents.public.slice(0, 65) +
+                            ((key?.contents.public.length || 0) > 65
+                                ? "..."
+                                : "")}
                         readonly
-                        class="resize-none"
+                        class="resize-none font-mono"
                         wrap="hard"
                     />
                     <InputGroup.Addon align="inline-end" class="h-full">
