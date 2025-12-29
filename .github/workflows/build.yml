@@ -69,10 +69,18 @@ jobs:
         run: bun install
 
       - name: build binaries
-        run: bun tauri build ${{ matrix.args }}
+        run: |
+          if [[ "${{ matrix.platform }}" == "windows-latest" ]]; then
+            VERSION=${TAG_NAME#v}
+            VERSION=${VERSION%%-*}
+            bun tauri build ${{ matrix.args }} --config "{\"package\":{\"version\":\"$VERSION\"}}"
+          else
+            bun tauri build ${{ matrix.args }}
+          fi
         env:
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
+          TAG_NAME: ${{ inputs.tagName }}
 
       - name: zip mac .app bundles
         if: matrix.platform == 'macos-latest' # This must match the platform value defined above.
