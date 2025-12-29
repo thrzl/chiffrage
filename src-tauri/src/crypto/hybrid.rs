@@ -207,9 +207,9 @@ impl HybridIdentity {
 
     pub fn to_public(&self) -> HybridRecipient {
         let (ek_pq, ek_t, _, _) = HybridIdentity::expand_key(&self.seed.expose_secret());
-        let mut ek = Vec::with_capacity(1216);
-        ek.extend_from_slice(&ek_pq[..]);
-        ek.extend_from_slice(&ek_t[..]);
+        let mut ek = [0u8; 1216];
+        ek[..1184].copy_from_slice(&ek_pq);
+        ek[1184..].copy_from_slice(&ek_t);
         HybridRecipient {
             encapsulation_key: ek.as_slice().try_into().unwrap(),
         }
