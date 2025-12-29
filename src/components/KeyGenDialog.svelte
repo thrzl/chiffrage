@@ -7,16 +7,24 @@
     import { toast } from "svelte-sonner";
     import { commands } from "$lib/bindings";
     import SlideAlert from "./SlideAlert.svelte";
+    import * as Item from "$lib/components/ui/item/index";
+    import * as Accordion from "$lib/components/ui/accordion/index";
+    import Switch from "$lib/components/ui/switch/switch.svelte";
+    import AccordionContent from "$lib/components/ui/accordion/accordion-content.svelte";
     let name = $state("");
     let { open = $bindable() } = $props();
     let keys = (await commands.fetchKeys()).map((key) => key.name);
+    let standardKey = $state(false);
 
     async function generate_key() {
         if (!name.replaceAll(" ", "")) return toast.error("no name set");
         if (!(await commands.vaultUnlocked())) {
             await commands.authenticate();
         }
-        let generationResult = await commands.generateKeypair(name.trim());
+        let generationResult = await commands.generateKeypair(
+            name.trim(),
+            standardKey ? "X25519" : "PostQuantum",
+        );
         if (generationResult.status === "error") {
             toast.error("key generation failed", {
                 description: generationResult.error,
@@ -44,7 +52,6 @@
 <Dialog.Root bind:open>
     <form>
         <Dialog.Content
-            class="sm:max-w-106.25"
             onkeydown={async (event) => {
                 if (event.key === "Enter") await generate_key();
             }}
@@ -62,6 +69,36 @@
                     <Label for="name-1">name</Label>
                     <Input id="name-1" name="name" required bind:value={name} />
                 </div>
+                <Accordion.Root type="single"
+                    ><Accordion.Item>
+                        <Accordion.Trigger>advanced options</Accordion.Trigger>
+                        <AccordionContent
+                            ><Item.Root
+                                variant="outline"
+                                class="bg-secondary mb-2 p-4"
+                            >
+                                <Item.Content class="text-left">
+                                    <Item.Title
+                                        >use standard x25519 identity?</Item.Title
+                                    >
+                                    <Item.Description>
+                                        not at all recommended. x-wing
+                                        identities (the quantum-secure default)
+                                        are usable as x25519.
+                                    </Item.Description>
+                                </Item.Content>
+                                <Item.Actions>
+                                    <Switch
+                                        bind:checked={standardKey}
+                                        style={standardKey
+                                            ? "--primary: lightgreen"
+                                            : ""}
+                                    />
+                                </Item.Actions>
+                            </Item.Root></AccordionContent
+                        >
+                    </Accordion.Item></Accordion.Root
+                >
             </div>
             <SlideAlert bind:alert />
             <Dialog.Footer>
