@@ -83,7 +83,7 @@ jobs:
           TAG_NAME: ${{ inputs.tagName }}
 
       - name: build binaries
-        run: bun tauri build ${{ matrix.args }} --config "${{ steps.sanitized-version.outputs.config }}"
+        run: bun tauri build ${{ matrix.args }} --config '${{ steps.sanitized-version.outputs.config }}'
         env:
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
