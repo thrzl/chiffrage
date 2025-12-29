@@ -98,18 +98,26 @@ pub async fn encrypt_text(
                 .iter()
                 .map(|key| vault.get_key(key).unwrap().contents.public.clone())
                 .collect::<Vec<String>>();
-            let should_encrypt_pq = public_keys.iter().all(|key| key.starts_with("age1pq"));
-            if should_encrypt_pq {
-                crypto::keys_to_recipients(&public_keys)?
-                    .into_iter()
-                    .map(|recipient| WildcardRecipient::Hybrid(recipient))
-                    .collect()
-            } else {
-                crypto::keys_to_x25519_recipients(&key_contents)?
-                    .into_iter()
-                    .map(|recipient| WildcardRecipient::X25519(recipient))
-                    .collect()
+            let should_encrypt_pq = key_contents.iter().all(|key| key.starts_with("age1pq"));
+            let mut recipients: Vec<WildcardRecipient> = Vec::with_capacity(key_contents.len());
+            for key in key_contents {
+                if key.starts_with("age1pq") {
+                    let hybrid_recipient =
+                        HybridRecipient::from_string(&key).expect("key should be valid");
+                    let recipient = if should_encrypt_pq {
+                        WildcardRecipient::Hybrid(hybrid_recipient)
+                    } else {
+                        WildcardRecipient::X25519(hybrid_recipient.to_x25519())
+                    };
+                    recipients.push(recipient);
+                } else {
+                    recipients.push(WildcardRecipient::X25519(
+                        age::x25519::Recipient::from_str(key.as_str())
+                            .expect("key should be valid"),
+                    ))
+                }
             }
+            recipients
         }
         EncryptionMethod::Scrypt(password) => {
             vec![WildcardRecipient::Scrypt(age::scrypt::Recipient::new(
@@ -185,17 +193,25 @@ pub async fn encrypt_file(
                 .map(|key| vault.get_key(key).unwrap().contents.public.clone())
                 .collect::<Vec<String>>();
             let should_encrypt_pq = key_contents.iter().all(|key| key.starts_with("age1pq"));
-            if should_encrypt_pq {
-                crypto::keys_to_recipients(&key_contents)?
-                    .into_iter()
-                    .map(|recipient| WildcardRecipient::Hybrid(recipient))
-                    .collect()
-            } else {
-                crypto::keys_to_x25519_recipients(&key_contents)?
-                    .into_iter()
-                    .map(|recipient| WildcardRecipient::X25519(recipient))
-                    .collect()
+            let mut recipients: Vec<WildcardRecipient> = Vec::with_capacity(key_contents.len());
+            for key in key_contents {
+                if key.starts_with("age1pq") {
+                    let hybrid_recipient =
+                        HybridRecipient::from_string(&key).expect("key should be valid");
+                    let recipient = if should_encrypt_pq {
+                        WildcardRecipient::Hybrid(hybrid_recipient)
+                    } else {
+                        WildcardRecipient::X25519(hybrid_recipient.to_x25519())
+                    };
+                    recipients.push(recipient);
+                } else {
+                    recipients.push(WildcardRecipient::X25519(
+                        age::x25519::Recipient::from_str(key.as_str())
+                            .expect("key should be valid"),
+                    ))
+                }
             }
+            recipients
         }
         EncryptionMethod::Scrypt(password) => {
             vec![WildcardRecipient::Scrypt(age::scrypt::Recipient::new(
