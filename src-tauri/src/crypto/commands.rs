@@ -416,6 +416,13 @@ pub async fn generate_keypair(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn downgrade_hybrid_public_key(public_key: String) -> Result<String, String> {
+    let recipient = HybridRecipient::from_string(&public_key)?.to_x25519();
+    Ok(recipient.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn generate_passphrase() -> String {
     bip39::Mnemonic::generate(12)
         .expect("failed to generate mnemonic")

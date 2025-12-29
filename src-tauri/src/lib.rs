@@ -58,7 +58,8 @@ pub fn run() {
             crypto::commands::validate_key_text,
             crypto::commands::armor_check_text,
             crypto::commands::decrypt_text,
-            crypto::commands::encrypt_text
+            crypto::commands::encrypt_text,
+            crypto::commands::downgrade_hybrid_public_key
         ])
         .events(collect_events![store::VaultStatusUpdate]);
 

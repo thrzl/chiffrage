@@ -156,6 +156,14 @@ async encryptText(recipient: EncryptionMethod, text: string) : Promise<Result<st
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async downgradeHybridPublicKey(publicKey: string) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("downgrade_hybrid_public_key", { publicKey }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
