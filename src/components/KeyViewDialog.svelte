@@ -9,6 +9,8 @@
         TrashIcon,
         FolderUpIcon,
         SquareAsteriskIcon,
+        AtomIcon,
+        TriangleAlertIcon,
     } from "@lucide/svelte";
     import Badge from "$lib/components/ui/badge/badge.svelte";
     import { toast } from "svelte-sonner";
@@ -32,6 +34,9 @@
     let confirming = $derived(confirmation !== undefined);
     let exportingKey = $state(false);
     let isPrivateKey = $derived(hasKey && key?.key_type === "Private");
+    let isPostQuantum = $derived(
+        key && key.contents.public.startsWith("age1pq"),
+    );
 
     async function deleteKey() {
         if (!key) return;
@@ -94,6 +99,13 @@
                     {#if isPrivateKey}<Badge
                             class="bg-blue-500 text-white dark:bg-blue-600 ml-1"
                             ><SquareAsteriskIcon />private</Badge
+                        >{/if}
+                    {#if isPostQuantum}<Badge
+                            class="bg-green-500 text-white dark:bg-green-600 ml-1"
+                            ><AtomIcon />quantum-resistant</Badge
+                        >{:else}<Badge
+                            class="bg-red-500 text-white dark:bg-red-600 ml-1"
+                            ><TriangleAlertIcon />quantum-vulnerable</Badge
                         >{/if}</Dialog.Title
                 >
             </Dialog.Header>
