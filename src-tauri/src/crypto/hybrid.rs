@@ -3,9 +3,9 @@ use age_core::format::{FileKey, Stanza, FILE_KEY_BYTES};
 use base64::prelude::{Engine, BASE64_STANDARD_NO_PAD};
 use bech32::{primitives::decode::UncheckedHrpstring, Bech32, ByteIterExt, Checksum, Fe32IterExt};
 use bip39::{rand::RngCore, rand_core::OsRng};
-use hpke_rs::{hpke_types, Hpke, HpkePublicKey};
+use hpke_rs::{hpke_types, Hpke, HpkePrivateKey, HpkePublicKey};
 use hpke_rs_libcrux::HpkeLibcrux;
-use libcrux_ml_kem::mlkem768 as mlkem;
+use libcrux_ml_kem::{mlkem768 as mlkem, MlKemCiphertext};
 use secrecy::{zeroize::Zeroize, ExposeSecret, SecretBox, SecretString};
 use sha3::digest::{Digest, ExtendableOutput, Update, XofReader};
 use std::{array::TryFromSliceError, collections::HashSet, str::FromStr};
@@ -234,18 +234,18 @@ impl HybridIdentity {
 
 impl Identity for HybridIdentity {
     fn unwrap_stanza(&self, stanza: &Stanza) -> Option<Result<FileKey, DecryptError>> {
-        if stanza.args.len() > 0 && RECIPIENT_TAG.to_string() != stanza.args[0] {
+        if stanza.args.len() > 0 && RECIPIENT_TAG.to_string() != stanza.tag {
             return None;
         }
-        if stanza.args.len() != 2 {
+        if stanza.args.len() != 1 {
             return Some(Err(DecryptError::InvalidHeader));
         }
-        let body = stanza.body.as_slice();
-        if body.len() != 32 {
+        let ct = stanza.body.as_slice();
+        if ct.len() != 32 {
             return Some(Err(DecryptError::DecryptionFailed));
         }
 
-        let enc = match BASE64_STANDARD_NO_PAD.decode(stanza.args[1].clone()) {
+        let enc = match BASE64_STANDARD_NO_PAD.decode(stanza.args[0].clone()) {
             Ok(vec) => {
                 if vec.len() != 1120 {
                     return Some(Err(DecryptError::InvalidHeader));
@@ -255,26 +255,30 @@ impl Identity for HybridIdentity {
             Err(_) => return Some(Err(DecryptError::InvalidHeader)),
         };
 
-        let mut file_key = [0u8; FILE_KEY_BYTES];
+        let hpke = Hpke::<HpkeLibcrux>::new(
+            hpke_rs::Mode::Base,
+            hpke_types::KemAlgorithm::XWingDraft06,
+            hpke_types::KdfAlgorithm::HkdfSha256,
+            hpke_types::AeadAlgorithm::ChaCha20Poly1305,
+        );
 
-        todo!();
-        // match hpke::ModeBase::<hpke::DHKEM_X25519_SHA256_CHACHA20>::base_open(
-        //     &orion::hazardous::kem::x25519_hkdf_sha256::PublicKey::from(enc),
-        //     &orion::hazardous::kem::x25519_hkdf_sha256::PrivateKey::from(
-        //         *self.seed.expose_secret(),
-        //     ),
-        //     b"age-encryption.org/mlkem768x25519",
-        //     body,
-        //     &[],
-        //     &mut file_key,
-        // ) {
-        //     Ok(file_key) => file_key,
-        //     Err(_) => return Some(Err(DecryptError::NoMatchingKeys)),
-        // };
+        let mut file_key: Vec<u8> = match hpke.open(
+            &enc.as_slice()[..],
+            &HpkePrivateKey::from(&self.seed.expose_secret()[..]),
+            b"age-encryption.org/mlkem768x25519",
+            &[],
+            ct,
+            None,
+            None,
+            None,
+        ) {
+            Ok(file_key) => file_key,
+            Err(_) => return Some(Err(DecryptError::DecryptionFailed)),
+        };
 
-        // Some(Ok(FileKey::init_with_mut(|inner| {
-        //     inner.copy_from_slice(&file_key);
-        //     file_key.zeroize();
-        // })))
+        Some(Ok(FileKey::init_with_mut(|inner| {
+            inner.copy_from_slice(&file_key);
+            file_key.zeroize();
+        })))
     }
 }
