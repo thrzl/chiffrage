@@ -281,50 +281,7 @@ pub async fn import_key(
         .await
         .expect("failed to read key file");
 
-    let is_private = key_content.starts_with("AGE-SECRET-KEY");
-
-    let vault_handle = {
-        let state = match state.lock() {
-            Ok(state) => state,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        state.vault.as_ref().expect("vault not initialized").clone()
-    };
-    {
-        let mut vault = match vault_handle.lock() {
-            Ok(vault) => vault,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        if is_private {
-            let identity =
-                Identity::from_str(key_content.clone().as_str()).expect("failed to parse key");
-            let key = vault.new_key(
-                name,
-                identity.to_public().to_string(),
-                Some(SecretString::from(identity.to_string())),
-            )?;
-            vault.put_key(key)?;
-        } else {
-            let key = vault.new_key(
-                name,
-                Recipient::from_str(key_content.clone().as_str())
-                    .expect("failed to parse public key")
-                    .to_string(),
-                None,
-            )?;
-            vault.put_key(key)?;
-        }
-    }
-    tauri::async_runtime::spawn_blocking(move || {
-        let vault = match vault_handle.lock() {
-            Ok(vault) => vault,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        vault.save_vault();
-    })
-    .await
-    .expect("failed to save vault");
-    Ok("key import complete".to_string())
+    return import_key_text(name, key_content, state).await;
 }
 
 #[tauri::command]
