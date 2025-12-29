@@ -3,8 +3,8 @@ use age_core::format::{FileKey, Stanza, FILE_KEY_BYTES};
 use base64::prelude::{Engine, BASE64_STANDARD_NO_PAD};
 use bech32::{primitives::decode::UncheckedHrpstring, Bech32, ByteIterExt, Checksum, Fe32IterExt};
 use bip39::{rand::RngCore, rand_core::OsRng};
-use chacha20poly1305::{aead::AeadMut, KeyInit};
-// use oqs::kem::{Algorithm::MlKem768, Kem};
+use hpke_rs::{hpke_types, Hpke, HpkePublicKey};
+use hpke_rs_libcrux::HpkeLibcrux;
 use libcrux_ml_kem::mlkem768 as mlkem;
 use secrecy::{zeroize::Zeroize, ExposeSecret, SecretBox, SecretString};
 use sha3::digest::{Digest, ExtendableOutput, Update, XofReader};
@@ -33,62 +33,24 @@ impl Recipient for HybridRecipient {
         &self,
         file_key: &FileKey,
     ) -> Result<(Vec<Stanza>, HashSet<String>), EncryptError> {
-        // let mut hpke = Hpke::<HpkeLibcrux>::new(
-        //     hpke_rs::Mode::Base,
-        //     hpke_types::KemAlgorithm::XWingDraft06,
-        //     hpke_types::KdfAlgorithm::HkdfSha256,
-        //     hpke_types::AeadAlgorithm::ChaCha20Poly1305,
-        // );
-
-        // mlkem::encapsulate(public_key, randomness)
-        let ek_pq =
-            mlkem::MlKem768PublicKey::from(&self.encapsulation_key[0..1184].try_into().unwrap()); // ml-kem-768 public key
-        let ek_t: [u8; 32] = self.encapsulation_key[1184..].try_into().unwrap(); // x25519 public key (32 bytes)
-
-        let mut rng = OsRng::default();
-        let mut random_bytes = [0u8; 32];
-
-        // encapsulate with mlkem
-        rng.fill_bytes(&mut random_bytes);
-        let (ct_pq, ss_pq) = mlkem::encapsulate(&ek_pq, random_bytes);
-
-        // encapsulate with x25519
-        let ephemeral_sk = x25519_dalek::EphemeralSecret::random_from_rng(OsRng);
-        let ct_t = x25519_dalek::PublicKey::from(&ephemeral_sk);
-
-        let ek_t_public_key = x25519_dalek::PublicKey::from(ek_t);
-        let ss_t = ephemeral_sk.diffie_hellman(&ek_t_public_key);
-
-        let mut sha3_256 = sha3::Sha3_256::default();
-        Update::update(
-            // im getting real sick of these people bro
-            &mut sha3_256,
-            [
-                &ss_pq[..],
-                &ss_t.as_bytes()[..],
-                &ct_pq.as_slice()[..],
-                &ct_t.as_bytes()[..],
-                br#"\.//^\"#,
-            ]
-            .concat()
-            .as_slice(),
+        let mut hpke = Hpke::<HpkeLibcrux>::new(
+            hpke_rs::Mode::Base,
+            hpke_types::KemAlgorithm::XWingDraft06,
+            hpke_types::KdfAlgorithm::HkdfSha256,
+            hpke_types::AeadAlgorithm::ChaCha20Poly1305,
         );
-        let ss = sha3_256.finalize();
 
-        let sha256_hkdf = hkdf::Hkdf::<sha2::Sha256>::new(None, ss.as_slice());
-
-        let mut wrapping_key = [0u8; 32];
-        sha256_hkdf.expand(b"age-encryption.org/mlkem768x25519", &mut wrapping_key);
-
-        let ciphertext = chacha20poly1305::ChaCha20Poly1305::new_from_slice(&wrapping_key)
-            .unwrap()
-            .encrypt(
-                chacha20poly1305::Nonce::from_slice(&[0u8; 12]),
-                &file_key.expose_secret()[..],
+        let (wrapped_key, ciphertext) = hpke
+            .seal(
+                &HpkePublicKey::from(&self.encapsulation_key[..]),
+                b"age-encryption.org/mlkem768x25519",
+                &[],
+                file_key.expose_secret(),
+                None,
+                None,
+                None,
             )
-            .unwrap();
-
-        let wrapped_key = [&ct_pq.as_slice()[..], &ct_t.as_bytes()[..]].concat();
+            .expect("nothing here should fail");
 
         let mut labels = HashSet::new();
         labels.insert("postquantum".to_string());
@@ -156,9 +118,9 @@ impl HybridRecipient {
             .fes_to_bytes()
             .collect::<Vec<u8>>();
 
-        Self {
+        Ok(Self {
             encapsulation_key: decoded_bytes.try_into().unwrap(),
-        }
+        })
     }
 }
 
