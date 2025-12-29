@@ -6,7 +6,10 @@ use bip39::{rand::RngCore, rand_core::OsRng};
 use hpke_rs::{hpke_types, Hpke, HpkePrivateKey, HpkePublicKey};
 use hpke_rs_libcrux::HpkeLibcrux;
 use libcrux_ml_kem::mlkem768 as mlkem;
-use secrecy::{zeroize::Zeroize, ExposeSecret, SecretBox, SecretString};
+use secrecy::{
+    zeroize::{Zeroize, Zeroizing},
+    ExposeSecret, SecretBox, SecretString,
+};
 use sha3::digest::{ExtendableOutput, Update, XofReader};
 use std::{array::TryFromSliceError, collections::HashSet, str::FromStr};
 use x25519_dalek::X25519_BASEPOINT_BYTES;
@@ -174,13 +177,14 @@ impl HybridIdentity {
         SecretBox<[u8; 2400]>,
         SecretBox<[u8; 32]>,
     ) {
-        let seed_full = shake256::<{ KEM_N_SEED + GROUP_N_SEED }>(seed); // KEM.Nseed + Group.Nseed
+        let seed_full = Zeroizing::new(shake256::<{ KEM_N_SEED + GROUP_N_SEED }>(seed)); // KEM.Nseed + Group.Nseed
 
         // split the seed into its constituent parts: the ml-kem768 (pq) seed, and x25519 (t) seed
-        let seed_pq: [u8; KEM_N_SEED] = seed_full[0..KEM_N_SEED]
+        // they need to be mutable so we can zeroize them
+        let mut seed_pq: [u8; KEM_N_SEED] = seed_full[0..KEM_N_SEED]
             .try_into()
             .expect("this should always be the proper length");
-        let seed_t: [u8; GROUP_N_SEED] = seed_full[KEM_N_SEED..KEM_N_SEED + GROUP_N_SEED]
+        let mut seed_t: [u8; GROUP_N_SEED] = seed_full[KEM_N_SEED..KEM_N_SEED + GROUP_N_SEED]
             .try_into()
             .expect("this should always be the proper length");
 
@@ -191,6 +195,8 @@ impl HybridIdentity {
         let ek_pq: &[u8; 1184] = ek_pq.as_ref().try_into().unwrap();
         let dk_pq: &[u8; 2400] = dk_pq.as_ref().try_into().unwrap();
 
+        seed_pq.zeroize();
+        seed_t.zeroize();
         (
             *ek_pq,
             ek_t,
