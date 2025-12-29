@@ -32,7 +32,11 @@
     async function decryptFile(event: Event) {
         event.preventDefault();
         if (decryptMethod === "X25519" && !await commands.vaultUnlocked()) {
-            await commands.authenticate();
+            let authStatus = await commands.authenticate();
+            if (authStatus.status === "error" || !authStatus.data) {
+              toast.error("authentication failed")
+              return
+            }
         }
         const channel = new Channel<FileOperationProgress>();
         channel.onmessage = (msg) => {
