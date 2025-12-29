@@ -215,12 +215,6 @@ impl HybridIdentity {
         }
     }
 
-    pub fn from_seed(seed: [u8; 32]) -> Self {
-        Self {
-            seed: SecretBox::new(Box::new(seed)),
-        }
-    }
-
     pub fn to_string(&self) -> SecretString {
         let hrp = bech32::Hrp::parse_unchecked("AGE-SECRET-KEY-PQ-");
         SecretString::new(

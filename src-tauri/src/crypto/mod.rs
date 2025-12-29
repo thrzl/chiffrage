@@ -2,7 +2,6 @@
 
 pub mod commands;
 pub mod hybrid;
-use age::x25519;
 use age::Decryptor;
 use age::{Identity, Recipient};
 pub use commands::*;
@@ -28,9 +27,7 @@ impl WildcardRecipient {
         Ok(match self {
             Self::Hybrid(recipient) => recipient.to_string(),
             Self::X25519(recipient) => recipient.to_string(),
-            Self::Scrypt(recipient) => {
-                return Err("cannot convert scrypt identity to string".to_string())
-            }
+            Self::Scrypt(_) => return Err("cannot convert scrypt identity to string".to_string()),
         })
     }
 }
@@ -66,9 +63,7 @@ impl WildcardIdentity {
         Ok(match self {
             Self::Hybrid(identity) => WildcardRecipient::Hybrid(identity.to_public()),
             Self::X25519(identity) => WildcardRecipient::X25519(identity.to_public()),
-            Self::Scrypt(identity) => {
-                return Err("cannot convert scrypt identity to public".to_string())
-            }
+            Self::Scrypt(_) => return Err("cannot convert scrypt identity to public".to_string()),
         })
     }
 
@@ -76,9 +71,7 @@ impl WildcardIdentity {
         Ok(match self {
             Self::Hybrid(identity) => identity.to_string(),
             Self::X25519(identity) => SecretString::from(identity.to_string()),
-            Self::Scrypt(identity) => {
-                return Err("cannot convert scrypt identity to string".to_string())
-            }
+            Self::Scrypt(_) => return Err("cannot convert scrypt identity to string".to_string()),
         })
     }
 }
@@ -286,30 +279,4 @@ where
     }
     callback(accumulator); // ensure that it's sent at some point
     Ok(decrypted_output)
-}
-
-pub fn keys_to_recipients(public_keys: &Vec<String>) -> Result<Vec<HybridRecipient>, String> {
-    let keys_iter: Result<Vec<HybridRecipient>, _> = public_keys
-        .iter()
-        .map(|key| HybridRecipient::from_string(key))
-        .collect();
-    if let Err(e) = keys_iter {
-        return Err(format!("failed to parse key(s): {e}"));
-    } else {
-        return Ok(keys_iter.unwrap());
-    }
-}
-
-pub fn keys_to_x25519_recipients(
-    public_keys: &Vec<String>,
-) -> Result<Vec<x25519::Recipient>, String> {
-    let keys_iter: Result<Vec<x25519::Recipient>, _> = public_keys
-        .iter()
-        .map(|key| key.parse::<x25519::Recipient>())
-        .collect();
-    if let Err(e) = keys_iter {
-        return Err(format!("failed to parse key(s): {e}"));
-    } else {
-        return Ok(keys_iter.unwrap());
-    }
 }
