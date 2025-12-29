@@ -74,7 +74,7 @@ jobs:
           if [[ "${{ matrix.platform }}" == "windows-latest" ]]; then
             VERSION=${TAG_NAME#v}
             VERSION=${VERSION%%-*}
-            echo "config=--config {\"package\":{\"version\":\"$VERSION\"}}" >> $GITHUB_OUTPUT
+            echo "config=--config \"{\"package\":{\"version\":\"$VERSION\"}}\"" >> $GITHUB_OUTPUT
           else
             echo "config=" >> $GITHUB_OUTPUT
           fi
