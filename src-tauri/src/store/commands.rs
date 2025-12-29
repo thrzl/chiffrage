@@ -1,9 +1,10 @@
 use crate::crypto::hybrid::HybridIdentity;
+use crate::crypto::WildcardIdentity;
 use crate::store::{KeyMetadata, Vault, VaultStatusUpdate};
 use crate::AppState;
 use age::x25519::{Identity, Recipient};
-use secrecy::ExposeSecret;
 use secrecy::SecretString;
+use secrecy::{ExposeSecret, SecretBox};
 use serde::Deserialize;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -232,12 +233,19 @@ pub async fn import_key_text(
             Err(poisoned) => poisoned.into_inner(),
         };
         if is_private {
-            let identity =
-                Identity::from_str(key_content.clone().as_str()).expect("failed to parse key");
+            let identity = if key_content.starts_with("AGE-SECRET-KEY-PQ-") {
+                WildcardIdentity::Hybrid(HybridIdentity::from_string(SecretString::from(
+                    key_content,
+                ))?)
+            } else {
+                WildcardIdentity::X25519(
+                    Identity::from_str(key_content.clone().as_str()).map_err(|e| e.to_string())?,
+                )
+            };
             let key = vault.new_key(
                 name,
-                identity.to_public().to_string(),
-                Some(SecretString::from(identity.to_string())),
+                identity.to_public()?.to_string()?,
+                Some(identity.to_string()?),
             )?;
             vault.put_key(key)?;
         } else {
