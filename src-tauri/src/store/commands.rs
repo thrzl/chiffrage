@@ -303,7 +303,6 @@ pub async fn authenticate(
     let _ = webview.set_resizable(false);
     let _ = webview.set_maximizable(false);
     let _ = webview.set_minimizable(false);
-    let original_state = state.clone();
     let mut integrity_check_fail = false;
     loop {
         let (tx, rx) = oneshot::channel();
@@ -355,7 +354,7 @@ pub async fn authenticate(
         };
     }
     if integrity_check_fail {
-        let _ = regenerate_public_identities(original_state).await;
+        let _ = regenerate_public_identities(state).await;
     }
     let result = if integrity_check_fail {
         VaultStatusUpdate::VerificationFail
