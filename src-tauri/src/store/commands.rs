@@ -336,6 +336,12 @@ pub async fn import_key(
     let mut key_file = File::open(path).await.expect("failed to open key file");
     let mut key_content = String::new();
 
+    // theres genuinely no case in which a key file should be greater than 10 kb
+    // this is extremely generous
+    if key_file.metadata().await.map_err(|e| e.to_string())?.len() > (1024 * 10) {
+        return Err("key file too large".to_string());
+    };
+
     key_file
         .read_to_string(&mut key_content)
         .await
