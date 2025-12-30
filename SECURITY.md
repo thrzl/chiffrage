@@ -24,6 +24,13 @@ vault structure is serialized with cbor and stored at the platform-specific app 
 
 **no authentication by default**: age provides encryption but not authentication. anyone with access to recipient public keys can create valid encrypted files. for authenticated encryption, use separate signing tools.
 
+## build verification
+
+releases are built directly from source on github actions, with:
+
+- **build provenance**: cryptographically verifies that the binary was built from the commit listed
+- **[sigstore](https://www.sigstore.dev/) signing**: cryptographically verifies that the binary was built on github actions and was not tampered with
+
 ## threat model
 
 chiffrage protects against:
