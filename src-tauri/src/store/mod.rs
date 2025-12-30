@@ -325,11 +325,6 @@ impl Vault {
 
     pub fn verify_integrity(&self) -> bool {
         let calculated_mac = self.vault_hmac();
-        println!(
-            "{:?}\n{:?}",
-            self.file.hmac.as_ref().unwrap_or(&vec![0u8; 3]),
-            calculated_mac
-        );
         return self
             .file
             .hmac
