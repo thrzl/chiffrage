@@ -92,7 +92,7 @@ pub fn fetch_key(name: String, state: tauri::State<AppState>) -> Option<KeyMetad
 #[tauri::command]
 #[specta::specta]
 pub async fn delete_key(id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state.with_vault(|vault| vault.delete_key(id));
+    state.with_vault(|vault| vault.delete_key(id))?;
     state.save_vault().await?;
     Ok(())
 }
