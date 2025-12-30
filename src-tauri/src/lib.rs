@@ -34,6 +34,16 @@ impl AppState {
             p.into_inner()
         }))
     }
+
+    pub fn with_vault<R>(&self, f: impl FnOnce(&mut store::Vault) -> R) -> Option<R> {
+        let vault = self.vault.as_ref()?;
+        let mut guard = vault.lock().unwrap_or_else(|p| {
+            vault.clear_poison();
+            p.into_inner()
+        });
+
+        Some(f(&mut *guard))
+    }
 }
 
 #[tauri::command]
