@@ -32,11 +32,13 @@ impl AppState {
         self.vault.as_ref().lock()
     }
 
-    pub fn with_vault<R>(&self, f: impl FnOnce(&mut store::Vault) -> R) -> Option<R> {
+    pub fn with_vault<R>(&self, f: impl FnOnce(&mut store::Vault) -> R) -> Result<R, String> {
         let mut vault_lock = self.vault.as_ref().lock();
-        let vault = vault_lock.as_mut()?;
+        let vault = vault_lock
+            .as_mut()
+            .ok_or("vault not initialized".to_string())?;
 
-        Some(f(vault))
+        Ok(f(vault))
     }
 
     pub async fn save_vault(&self) -> Result<(), String> {

@@ -84,7 +84,9 @@ pub fn fetch_keys(state: tauri::State<AppState>) -> Vec<KeyMetadata> {
 #[tauri::command]
 #[specta::specta]
 pub fn fetch_key(name: String, state: tauri::State<AppState>) -> Option<KeyMetadata> {
-    state.with_vault(|vault| vault.get_key(&name).cloned())?
+    state
+        .with_vault(|vault| vault.get_key(&name).cloned())
+        .ok()?
 }
 
 #[tauri::command]
@@ -110,19 +112,17 @@ pub async fn export_key(
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let key_content = {
-        let raw_key_content = state
-            .with_vault(|vault| {
-                let key_meta = vault.get_key(&key).expect("could not load key");
-                let key_contents = key_meta.contents.clone();
-                SecretString::from(
-                    vault
-                        .decrypt_secret(&key_contents.private.expect("no private key!"))
-                        .unwrap()
-                        .expose_secret()
-                        .to_string(),
-                )
-            })
-            .ok_or("vault not initialized")?;
+        let raw_key_content = state.with_vault(|vault| {
+            let key_meta = vault.get_key(&key).expect("could not load key");
+            let key_contents = key_meta.contents.clone();
+            SecretString::from(
+                vault
+                    .decrypt_secret(&key_contents.private.expect("no private key!"))
+                    .unwrap()
+                    .expose_secret()
+                    .to_string(),
+            )
+        })?;
 
         let key_is_pq = raw_key_content
             .expose_secret()
@@ -230,31 +230,25 @@ pub async fn import_key_text(
                 Identity::from_str(key_content.clone().as_str()).map_err(|e| e.to_string())?,
             )
         };
-        state
-            .with_vault(|vault| {
-                vault.new_key(
-                    name,
-                    identity.to_public().unwrap().to_string().unwrap(),
-                    Some(identity.to_string().unwrap()),
-                )
-            })
-            .ok_or("vault not initialized")?
+        state.with_vault(|vault| {
+            vault.new_key(
+                name,
+                identity.to_public().unwrap().to_string().unwrap(),
+                Some(identity.to_string().unwrap()),
+            )
+        })?
     } else {
-        state
-            .with_vault(|vault| {
-                vault.new_key(
-                    name,
-                    Recipient::from_str(key_content.clone().as_str())
-                        .expect("failed to parse public key")
-                        .to_string(),
-                    None,
-                )
-            })
-            .ok_or("vault not initialized")?
+        state.with_vault(|vault| {
+            vault.new_key(
+                name,
+                Recipient::from_str(key_content.clone().as_str())
+                    .expect("failed to parse public key")
+                    .to_string(),
+                None,
+            )
+        })?
     }?;
-    state
-        .with_vault(|vault| vault.put_key(key))
-        .ok_or("vault not initialized")??;
+    state.with_vault(|vault| vault.put_key(key))??;
     state.save_vault().await?;
     Ok("key import complete".to_string())
 }
@@ -349,9 +343,7 @@ pub async fn authenticate(
             }
             Err(error) => return Err(error.to_string()),
         });
-        let unlock_attempt = state
-            .with_vault(|vault| vault.set_vault_key(password))
-            .ok_or("vault not initialized".to_string())?;
+        let unlock_attempt = state.with_vault(|vault| vault.set_vault_key(password))?;
         if let Err(error) = unlock_attempt {
             if error.as_str() == "integrity check failed" {
                 integrity_check_fail = true;
@@ -382,11 +374,9 @@ pub async fn lock_vault(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    state
-        .with_vault(|vault| {
-            vault.delete_vault_key();
-        })
-        .ok_or("vault not initialized")?;
+    state.with_vault(|vault| {
+        vault.delete_vault_key();
+    })?;
     let _ = app_handle.emit("vault-status-update", VaultStatusUpdate::Locked);
     Ok(())
 }

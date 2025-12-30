@@ -88,14 +88,12 @@ pub async fn encrypt_text(
 ) -> Result<String, String> {
     let recipients: Vec<WildcardRecipient> = match recipient {
         EncryptionMethod::X25519(public_keys) => {
-            let key_contents = state
-                .with_vault(|vault| {
-                    public_keys
-                        .iter()
-                        .map(|key| vault.get_key(key).unwrap().contents.public.clone())
-                        .collect::<Vec<String>>()
-                })
-                .ok_or("vault not initialized".to_string())?;
+            let key_contents = state.with_vault(|vault| {
+                public_keys
+                    .iter()
+                    .map(|key| vault.get_key(key).unwrap().contents.public.clone())
+                    .collect::<Vec<String>>()
+            })?;
             let should_encrypt_pq = key_contents.iter().all(|key| key.starts_with("age1pq"));
             let mut recipients: Vec<WildcardRecipient> = Vec::with_capacity(key_contents.len());
             for key in key_contents {
@@ -136,15 +134,13 @@ pub async fn decrypt_text(
 ) -> Result<String, String> {
     let identity = match method {
         DecryptionMethod::X25519 => {
-            let key_content = state
-                .with_vault(|vault| {
-                    let key_metadata = vault.get_key(&private_key).unwrap();
-                    vault
-                        .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())
-                        .expect("should be able to decrypt secret")
-                        .clone()
-                })
-                .ok_or("vault not initialized".to_string())?;
+            let key_content = state.with_vault(|vault| {
+                let key_metadata = vault.get_key(&private_key).unwrap();
+                vault
+                    .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())
+                    .expect("should be able to decrypt secret")
+                    .clone()
+            })?;
 
             if key_content
                 .expose_secret()
@@ -179,14 +175,12 @@ pub async fn encrypt_file(
     let armor = armor.unwrap_or(false);
     let recipients: Vec<WildcardRecipient> = match recipient {
         EncryptionMethod::X25519(public_keys) => {
-            let key_contents = state
-                .with_vault(|vault| {
-                    public_keys
-                        .iter()
-                        .map(|key| vault.get_key(key).unwrap().contents.public.clone())
-                        .collect::<Vec<String>>()
-                })
-                .ok_or("vault not initialized")?;
+            let key_contents = state.with_vault(|vault| {
+                public_keys
+                    .iter()
+                    .map(|key| vault.get_key(key).unwrap().contents.public.clone())
+                    .collect::<Vec<String>>()
+            })?;
             let should_encrypt_pq = key_contents.iter().all(|key| key.starts_with("age1pq"));
             let mut recipients: Vec<WildcardRecipient> = Vec::with_capacity(key_contents.len());
             for key in key_contents {
@@ -281,15 +275,13 @@ pub async fn decrypt_file(
 ) -> Result<(), String> {
     let identity = match method {
         DecryptionMethod::X25519 => {
-            let key_content = state
-                .with_vault(|vault| {
-                    let key_metadata = vault.get_key(&private_key).unwrap();
-                    vault
-                        .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())
-                        .expect("should be able to decrypt secret")
-                        .clone()
-                })
-                .ok_or("vault not initialized")?;
+            let key_content = state.with_vault(|vault| {
+                let key_metadata = vault.get_key(&private_key).unwrap();
+                vault
+                    .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())
+                    .expect("should be able to decrypt secret")
+                    .clone()
+            })?;
 
             if key_content
                 .expose_secret()
@@ -383,16 +375,14 @@ pub async fn generate_keypair(
     if name.len() == 0 {
         return Err("no name set".to_string());
     }
-    state
-        .with_vault(|vault| {
-            let keypair = match format {
-                Some(KeyFormat::X25519) => vault.generate_x25519_keypair(name),
-                _ => vault.generate_keypair(name), // if none or if PostQuantum
-            }?;
-            vault.put_key(keypair)?;
-            Ok::<(), String>(())
-        })
-        .ok_or("vault not initialized")??;
+    state.with_vault(|vault| {
+        let keypair = match format {
+            Some(KeyFormat::X25519) => vault.generate_x25519_keypair(name),
+            _ => vault.generate_keypair(name), // if none or if PostQuantum
+        }?;
+        vault.put_key(keypair)?;
+        Ok::<(), String>(())
+    })??;
     let _ = state.save_vault().await?;
     Ok(())
 }
