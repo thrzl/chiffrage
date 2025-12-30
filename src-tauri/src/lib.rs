@@ -54,6 +54,7 @@ pub fn run() {
             store::import_key_text,
             store::check_keyfile_type,
             store::lock_vault,
+            store::regenerate_public_identities,
             crypto::commands::validate_key_file,
             crypto::commands::validate_key_text,
             crypto::commands::armor_check_text,

@@ -405,11 +405,11 @@ pub async fn generate_keypair(
         vault.put_key(keypair)?;
     }
     tauri::async_runtime::spawn_blocking(move || {
-        let vault = match vault_handle.lock() {
+        let mut vault = match vault_handle.lock() {
             Ok(vault) => vault,
             Err(poisoned) => poisoned.into_inner(),
         };
-        vault.save_vault();
+        let _ = vault.save_vault();
     });
     Ok(())
 }

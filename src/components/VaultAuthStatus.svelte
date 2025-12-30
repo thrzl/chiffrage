@@ -5,7 +5,8 @@
     import { commands, events } from "$lib/bindings";
     let vaultUnlocked = $state(await commands.vaultUnlocked());
     events.vaultStatusUpdate.listen((e) => {
-        vaultUnlocked = e.payload === "unlocked";
+        vaultUnlocked =
+            e.payload === "unlocked" || e.payload === "verificationFail";
     });
 
     async function toggleVault() {
@@ -14,12 +15,18 @@
             toast.success("vault locked successfully");
         } else {
             let result = await commands.authenticate();
-            if (result.status === "ok") {
+            if (
+                result.status === "ok" &&
+                result.data !== "authenticationCancel"
+            ) {
                 toast.success("vault unlocked successfully");
                 return;
             }
             toast.success("failed to unlock vault", {
-                description: result.error,
+                description:
+                    result.status === "error"
+                        ? result.error
+                        : "the action was cancelled",
             });
         }
     }

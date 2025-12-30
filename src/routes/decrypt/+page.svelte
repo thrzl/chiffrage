@@ -33,8 +33,10 @@
         event.preventDefault();
         if (decryptMethod === "X25519" && !await commands.vaultUnlocked()) {
             let authStatus = await commands.authenticate();
-            if (authStatus.status === "error" || !authStatus.data) {
+            if (authStatus.status === "error" || authStatus.data === "authenticationCancel") {
               toast.error("authentication failed")
+              return
+            } else if (authStatus.data === "verificationFail") {
               return
             }
         }

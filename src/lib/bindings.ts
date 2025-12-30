@@ -84,7 +84,7 @@ async deleteKey(id: string) : Promise<Result<null, string>> {
 async fetchKey(name: string) : Promise<KeyMetadata | null> {
     return await TAURI_INVOKE("fetch_key", { name });
 },
-async authenticate() : Promise<Result<boolean, string>> {
+async authenticate() : Promise<Result<VaultStatusUpdate, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("authenticate") };
 } catch (e) {
@@ -117,6 +117,17 @@ async checkKeyfileType(path: string) : Promise<Result<boolean, string>> {
 async lockVault() : Promise<Result<null, null>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("lock_vault") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * command to regenerate the public keys of all identities.
+ */
+async regeneratePublicIdentities() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("regenerate_public_identities") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -205,7 +216,7 @@ export type KeyMetadata = { id: string; name: string; key_type: KeyType; date_cr
 export type KeyPair = { public: string; private: EncryptedSecret | null }
 export type KeyType = "Public" | "Private"
 export type SystemTime = { duration_since_epoch: number; duration_since_unix_epoch: number }
-export type VaultStatusUpdate = "unlocked" | "locked"
+export type VaultStatusUpdate = "unlocked" | "verificationFail" | "authenticationCancel" | "locked"
 
 /** tauri-specta globals **/
 

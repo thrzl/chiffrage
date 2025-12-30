@@ -29,7 +29,6 @@
     let password = $state("");
     let strength = $state<ZxcvbnResult | null>(null);
 
-
     async function chooseFile(event: Event) {
         event.preventDefault();
         let newFiles = await open({
@@ -52,6 +51,15 @@
             toast.error("no password set");
             return;
         }
+        if (!await commands.vaultUnlocked()) {
+          let authResult = await commands.authenticate()
+          if (authResult.status === "error" || authResult.data === "authenticationCancel") {
+            toast.error("authentication failed")
+            return
+          } else if (authResult.data === "verificationFail") {
+            return
+          }
+        };
         progress = null;
         const channel = new Channel<FileOperationProgress>();
         channel.onmessage = (msg) => {

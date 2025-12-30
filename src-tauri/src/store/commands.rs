@@ -67,8 +67,8 @@ pub async fn create_vault(password: String, app_handle: tauri::AppHandle) -> Res
     let vault_path = app_handle.path().app_data_dir().unwrap().join("vault.cb");
 
     let vault_location = vault_path.to_str().unwrap();
-    let vault = Vault::create_vault(vault_location, &password)?;
-    vault.save_vault();
+    let mut vault = Vault::create_vault(vault_location, &password)?;
+    let _ = vault.save_vault();
     Ok(())
 }
 
@@ -123,7 +123,7 @@ pub fn delete_key(id: String, state: tauri::State<'_, Mutex<AppState>>) -> Resul
     let vault_handle = state.vault.as_ref().expect("vault not initialized");
     let mut vault = vault_handle.lock().unwrap();
     vault.delete_key(id);
-    vault.save_vault();
+    let _ = vault.save_vault();
     Ok(())
 }
 
@@ -211,6 +211,58 @@ pub async fn check_keyfile_type(path: String) -> Result<bool, String> {
     return Ok(key_content.starts_with("AGE-SECRET-KEY"));
 }
 
+/// command to regenerate the public keys of all identities.
+#[tauri::command]
+#[specta::specta]
+pub async fn regenerate_public_identities(
+    state: tauri::State<'_, Mutex<AppState>>,
+) -> Result<(), String> {
+    let state = state.lock().unwrap_or_else(|poisoned| {
+        state.clear_poison();
+        poisoned.into_inner()
+    });
+    let vault_mutex = state
+        .vault
+        .as_ref()
+        .expect("vault should be initialized")
+        .clone();
+    let mut vault = vault_mutex.lock().unwrap_or_else(|poisoned| {
+        vault_mutex.clear_poison();
+        poisoned.into_inner()
+    });
+    vault.file.secrets = vault
+        .file
+        .secrets
+        .iter()
+        .filter(|(_, key)| key.contents.private.is_some())
+        .map(|(name, key)| {
+            let key_content = vault
+                .decrypt_secret(&key.contents.private.as_ref().unwrap())
+                .expect("decrypting should not fail");
+            let identity = if key_content
+                .expose_secret()
+                .starts_with("AGE-SECRET-KEY-PQ-")
+            {
+                WildcardIdentity::Hybrid(
+                    HybridIdentity::from_string(key_content)
+                        .expect("making an object from this key should not fail"),
+                )
+            } else {
+                WildcardIdentity::X25519(
+                    age::x25519::Identity::from_str(key_content.expose_secret())
+                        .expect("making an object from this key should not fail"),
+                )
+            };
+            let mut key = key.clone();
+            key.contents = vault
+                .keypair_from(identity)
+                .expect("keypair generation should not fail");
+            (name.clone(), key)
+        })
+        .collect();
+    Ok(())
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn import_key_text(
@@ -260,11 +312,11 @@ pub async fn import_key_text(
         }
     }
     tauri::async_runtime::spawn_blocking(move || {
-        let vault = match vault_handle.lock() {
+        let mut vault = match vault_handle.lock() {
             Ok(vault) => vault,
             Err(poisoned) => poisoned.into_inner(),
         };
-        vault.save_vault();
+        let _ = vault.save_vault();
     })
     .await
     .expect("failed to save vault");
@@ -297,7 +349,7 @@ pub async fn import_key(
 pub async fn authenticate(
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<bool, String> {
+) -> Result<VaultStatusUpdate, String> {
     let webview = app_handle
         .get_webview_window("vault-unlock")
         .unwrap_or_else(|| {
@@ -315,6 +367,8 @@ pub async fn authenticate(
     let _ = webview.set_resizable(false);
     let _ = webview.set_maximizable(false);
     let _ = webview.set_minimizable(false);
+    let original_state = state.clone();
+    let mut integrity_check_fail = false;
     loop {
         let (tx, rx) = oneshot::channel();
         let tx = Arc::new(Mutex::new(Some(tx)));
@@ -346,7 +400,7 @@ pub async fn authenticate(
         let password = SecretString::from(match rx.await {
             Ok(message) => {
                 if message.len() == 0 {
-                    return Ok(false);
+                    return Ok(VaultStatusUpdate::AuthenticationCancel);
                 }
                 let raw_unwrap = serde_json::from_str::<String>(&message).unwrap();
                 raw_unwrap
@@ -363,15 +417,27 @@ pub async fn authenticate(
             .unwrap_or_else(|p| p.into_inner());
         let unlock_attempt = vault.set_vault_key(password);
         if let Err(error) = unlock_attempt {
-            let _ = webview.emit("auth-error", error);
+            if error.as_str() == "integrity check failed" {
+                integrity_check_fail = true;
+                break;
+            }
+            let _ = webview.emit("auth-error", &error);
         } else {
             break;
         };
     }
-    let _ = app_handle.emit("vault-status-update", VaultStatusUpdate::Unlocked);
+    if integrity_check_fail {
+        let _ = regenerate_public_identities(original_state).await;
+    }
+    let result = if integrity_check_fail {
+        VaultStatusUpdate::VerificationFail
+    } else {
+        VaultStatusUpdate::Unlocked
+    };
+    let _ = app_handle.emit("vault-status-update", &result);
     let _ = webview.close();
 
-    Ok(true)
+    Ok(result)
 }
 
 #[tauri::command]

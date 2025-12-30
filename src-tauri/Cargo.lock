@@ -639,6 +639,7 @@ dependencies = [
  "futures-io",
  "futures-util",
  "hkdf",
+ "hmac",
  "hpke-rs",
  "hpke-rs-libcrux",
  "libcrux-ml-kem",

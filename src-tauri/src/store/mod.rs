@@ -13,13 +13,17 @@ use chacha20poly1305::{
     aead::{AeadMut, OsRng},
     AeadCore, KeyInit, XChaCha20Poly1305, XNonce,
 };
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
 
 use cuid2::create_id;
 use secrecy::{ExposeSecret, SecretBox, SecretString};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs, path::PathBuf, str::FromStr, time::SystemTime};
+use std::collections::BTreeMap;
+use std::{fs, path::PathBuf, str::FromStr, time::SystemTime};
 
 use crate::crypto::hybrid::HybridIdentity;
+use crate::crypto::WildcardIdentity;
 
 #[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 pub enum KeyType {
@@ -81,6 +85,8 @@ impl KeyPair {
 #[serde(rename_all = "camelCase")]
 pub enum VaultStatusUpdate {
     Unlocked,
+    VerificationFail,
+    AuthenticationCancel,
     Locked,
 }
 
@@ -121,7 +127,8 @@ pub fn derive_key(
 pub struct VaultFile {
     salt: Vec<u8>,
     hello: EncryptedSecret,
-    secrets: HashMap<String, KeyMetadata>,
+    secrets: BTreeMap<String, KeyMetadata>,
+    hmac: Option<Vec<u8>>,
 }
 
 pub struct Vault {
@@ -130,6 +137,8 @@ pub struct Vault {
     key: Option<SecretBox<[u8; 32]>>,
     _key_guard: Option<LockGuard>,
 }
+
+type HmacSha256 = Hmac<Sha256>;
 
 impl Vault {
     pub fn set_vault_key(&mut self, password: SecretString) -> Result<(), String> {
@@ -144,6 +153,9 @@ impl Vault {
         };
         self.key = Some(key);
         self._key_guard = Some(_guard);
+        if !self.verify_integrity() {
+            return Err("integrity check failed".to_string());
+        };
         Ok(())
     }
     pub fn get_vault_key(&self) -> Result<&SecretBox<[u8; 32]>, String> {
@@ -164,6 +176,19 @@ impl Vault {
             None => None,
         };
         Ok(KeyMetadata::from_keypair(name, KeyPair { public, private }))
+    }
+
+    pub fn keypair_from(&self, identity: WildcardIdentity) -> Result<KeyPair, String> {
+        let identity_text = identity
+            .to_string()
+            .expect("string conversion should not fail");
+        let private = Vault::encrypt_secret(self.get_vault_key()?, identity_text)
+            .expect("encryption should not fail if vault key is set");
+
+        Ok(KeyPair {
+            public: identity.to_public()?.to_string()?,
+            private: Some(private),
+        })
     }
 
     pub fn delete_key(&mut self, id: String) {
@@ -287,7 +312,8 @@ impl Vault {
         let vault_file = VaultFile {
             salt: salt.to_vec(),
             hello: Vault::encrypt_secret(&key, SecretString::from("hello"))?,
-            secrets: HashMap::new(),
+            secrets: BTreeMap::new(),
+            hmac: None,
         };
         Ok(Vault {
             file: vault_file,
@@ -297,16 +323,44 @@ impl Vault {
         })
     }
 
-    pub fn save_vault(&self) {
-        let data = serde_cbor::to_vec(&self.file).expect("failed to serialize vault");
+    pub fn verify_integrity(&self) -> bool {
+        let calculated_mac = self.vault_hmac();
+        println!(
+            "{:?}\n{:?}",
+            self.file.hmac.as_ref().unwrap_or(&vec![0u8; 3]),
+            calculated_mac
+        );
+        return self
+            .file
+            .hmac
+            .as_ref()
+            .is_some_and(|hmac| calculated_mac == *hmac);
+    }
+
+    fn vault_hmac(&self) -> Vec<u8> {
+        let secrets_bytes =
+            serde_cbor::to_vec(&self.file.secrets).expect("failed to serialize vault");
+        let mut mac =
+            <HmacSha256 as Mac>::new_from_slice(&self.key.as_ref().unwrap().expose_secret()[..])
+                .expect("key should be set");
+        mac.update(secrets_bytes.as_slice());
+        mac.finalize().into_bytes().to_vec()
+    }
+    pub fn save_vault(&mut self) -> Result<(), String> {
         let path = self.path.clone();
         if let Some(parent) = self.path.parent() {
             std::fs::create_dir_all(parent).expect("failed to create parent directories");
         }
 
+        if self.key.is_none() {
+            return Err("key is not set".to_string());
+        }
+
+        self.file.hmac = Some(self.vault_hmac());
+
+        let data = serde_cbor::to_vec(&self.file).expect("failed to serialize vault");
         std::fs::write(path, &data).expect("failed to init vault file");
-        // file.write_all(&data)
-        //     .expect("failed to write vault to disk");
-        // file.flush().expect("failed to flush buffers");
+
+        Ok(())
     }
 }
