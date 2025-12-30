@@ -47,7 +47,7 @@
         if (!keyContent) return toast.error("no key content");
         keyContent = keyContent.trim();
         try {
-            bech32.decode(keyContent);
+            bech32.decode(keyContent, 1959);
         } catch {
             return toast.error("invalid key", {
                 description: "make sure that you copied the correct thing",
@@ -87,7 +87,7 @@
         if (currentTab === "paste") {
             if (keyContent) {
                 try {
-                    bech32.decode(keyContent.trim());
+                    bech32.decode(keyContent.trim(), 1959);
                 } catch {
                     return {
                         title: "invalid key",
