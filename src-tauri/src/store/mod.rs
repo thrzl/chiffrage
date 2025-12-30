@@ -341,10 +341,12 @@ impl Vault {
         mac.update(secrets_bytes.as_slice());
         mac.finalize().into_bytes().to_vec()
     }
-    pub fn save_vault(&mut self) -> Result<(), String> {
+    pub async fn save_vault(&mut self) -> Result<(), String> {
         let path = self.path.clone();
         if let Some(parent) = self.path.parent() {
-            std::fs::create_dir_all(parent).expect("failed to create parent directories");
+            tokio::fs::create_dir_all(parent)
+                .await
+                .expect("failed to create parent directories");
         }
 
         if self.key.is_none() {
@@ -354,7 +356,9 @@ impl Vault {
         self.file.hmac = Some(self.vault_hmac());
 
         let data = serde_cbor::to_vec(&self.file).expect("failed to serialize vault");
-        std::fs::write(path, &data).expect("failed to init vault file");
+        tokio::fs::write(path, &data)
+            .await
+            .expect("failed to init vault file");
 
         Ok(())
     }
