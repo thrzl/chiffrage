@@ -1,7 +1,7 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod crypto;
 mod store;
-use parking_lot::{FairMutex, FairMutexGuard};
+use parking_lot::{Mutex, MutexGuard};
 use specta_typescript::{BigIntExportBehavior, Typescript};
 use std::sync::Arc;
 use std::thread;
@@ -23,12 +23,12 @@ where
 }
 
 struct AppState {
-    vault: Arc<FairMutex<Option<store::Vault>>>,
+    vault: Arc<Mutex<Option<store::Vault>>>,
     first_open: bool,
 }
 
 impl AppState {
-    pub fn get_vault(&self) -> FairMutexGuard<'_, Option<store::Vault>> {
+    pub fn get_vault(&self) -> MutexGuard<'_, Option<store::Vault>> {
         self.vault.as_ref().lock()
     }
 
@@ -48,7 +48,7 @@ impl AppState {
             vault
                 .as_mut()
                 .expect("vault should be initialized")
-                .save_vault();
+                .save_vault()
         })
         .await
         .map_err(|e| e.to_string())?;
@@ -122,7 +122,7 @@ pub fn run() {
                 std::fs::create_dir(app_data_dir).expect("failed to create app data directory")
             }
             app.manage(AppState {
-                vault: Arc::new(FairMutex::new(if first_open {
+                vault: Arc::new(Mutex::new(if first_open {
                     None
                 } else {
                     Some(
