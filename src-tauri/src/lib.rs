@@ -44,6 +44,22 @@ impl AppState {
 
         Some(f(&mut *guard))
     }
+
+    pub async fn save_vault(&self) -> Result<(), String> {
+        let vault_handle = self
+            .vault
+            .clone()
+            .ok_or("vault not initialized".to_string())?;
+        tauri::async_runtime::spawn_blocking(move || {
+            let mut vault = vault_handle.lock().unwrap_or_else(|p| {
+                vault_handle.clear_poison();
+                p.into_inner()
+            });
+            vault.save_vault();
+        })
+        .await;
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -111,7 +127,7 @@ pub fn run() {
             if first_open && !app_data_dir.exists() {
                 std::fs::create_dir(app_data_dir).expect("failed to create app data directory")
             }
-            app.manage(Mutex::new(AppState {
+            app.manage(AppState {
                 vault: if first_open {
                     None
                 } else {
@@ -121,7 +137,7 @@ pub fn run() {
                     )))
                 },
                 first_open,
-            }));
+            });
             Ok(())
         })
         .run(tauri::generate_context!())
