@@ -22,42 +22,40 @@ where
 }
 
 struct AppState {
-    vault: Option<Arc<Mutex<store::Vault>>>,
+    vault: Arc<Mutex<Option<store::Vault>>>,
     first_open: bool,
 }
 
 impl AppState {
-    pub fn get_vault(&self) -> Option<std::sync::MutexGuard<'_, store::Vault>> {
-        let vault = self.vault.as_ref()?;
-        Some(vault.lock().unwrap_or_else(|p| {
-            vault.clear_poison();
+    pub fn get_vault(&self) -> std::sync::MutexGuard<'_, Option<store::Vault>> {
+        let vault_lock = self.vault.as_ref().lock().unwrap_or_else(|p| {
+            self.vault.clear_poison();
             p.into_inner()
-        }))
+        });
+        vault_lock
     }
 
     pub fn with_vault<R>(&self, f: impl FnOnce(&mut store::Vault) -> R) -> Option<R> {
-        let vault = self.vault.as_ref()?;
-        let mut guard = vault.lock().unwrap_or_else(|p| {
-            vault.clear_poison();
+        let mut vault_lock = self.vault.as_ref().lock().unwrap_or_else(|p| {
+            self.vault.clear_poison();
             p.into_inner()
         });
+        let vault = vault_lock.as_mut()?;
 
-        Some(f(&mut *guard))
+        Some(f(vault))
     }
 
     pub async fn save_vault(&self) -> Result<(), String> {
-        let vault_handle = self
-            .vault
-            .clone()
-            .ok_or("vault not initialized".to_string())?;
+        let vault_handle = self.vault.clone();
         tauri::async_runtime::spawn_blocking(move || {
             let mut vault = vault_handle.lock().unwrap_or_else(|p| {
                 vault_handle.clear_poison();
                 p.into_inner()
             });
-            vault.save_vault();
+            vault.as_mut().expect("vault not initialized").save_vault();
         })
-        .await;
+        .await
+        .map_err(|e| e.to_string());
         Ok(())
     }
 }
@@ -128,14 +126,14 @@ pub fn run() {
                 std::fs::create_dir(app_data_dir).expect("failed to create app data directory")
             }
             app.manage(AppState {
-                vault: if first_open {
+                vault: Arc::new(Mutex::new(if first_open {
                     None
                 } else {
-                    Some(Arc::new(Mutex::new(
+                    Some(
                         Vault::load_vault(vault_path.to_str().unwrap())
                             .expect("failed to initialize vault"),
-                    )))
-                },
+                    )
+                })),
                 first_open,
             });
             Ok(())
