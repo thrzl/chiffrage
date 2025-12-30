@@ -1,7 +1,7 @@
-use crate::crypto::hybrid::HybridIdentity;
-use crate::crypto::WildcardIdentity;
-use crate::store::{KeyMetadata, Vault, VaultStatusUpdate};
 use crate::AppState;
+use crate::crypto::WildcardIdentity;
+use crate::crypto::hybrid::HybridIdentity;
+use crate::store::{KeyMetadata, Vault, VaultStatusUpdate};
 use age::x25519::{Identity, Recipient};
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
@@ -27,36 +27,25 @@ pub fn vault_exists(app_handle: tauri::AppHandle) -> bool {
 
 #[tauri::command]
 #[specta::specta]
-pub fn vault_unlocked(state: tauri::State<Mutex<AppState>>) -> bool {
-    let state = state.lock().unwrap_or_else(|poisoned| {
-        state.clear_poison();
-        poisoned.into_inner()
-    });
-    if state.vault.is_none() {
-        return false;
-    }
-    let vault = state
-        .vault
-        .as_ref()
-        .expect("no vault")
-        .lock()
-        .unwrap_or_else(|p| p.into_inner());
-    vault.key.is_some()
+pub fn vault_unlocked(state: tauri::State<AppState>) -> bool {
+    let vault_status = state.with_vault(|vault| vault.key.is_some());
+
+    vault_status.unwrap_or(false)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn load_vault(
-    state: tauri::State<Mutex<AppState>>,
+    state: tauri::State<AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let mut state = state.lock().unwrap();
     let vault_location = app_handle.path().app_data_dir().unwrap().join("vault.cb");
     let vault_load = Vault::load_vault(vault_location.to_str().unwrap());
     if let Err(error) = vault_load {
         return Err(error);
     }
-    state.vault = Some(Arc::new(Mutex::new(vault_load.unwrap())));
+    let mut vault = state.get_vault();
+    *vault = Some(vault_load.unwrap());
     Ok(())
 }
 
@@ -68,62 +57,43 @@ pub async fn create_vault(password: String, app_handle: tauri::AppHandle) -> Res
 
     let vault_location = vault_path.to_str().unwrap();
     let mut vault = Vault::create_vault(vault_location, &password)?;
-    let _ = vault.save_vault();
+    tauri::async_runtime::spawn_blocking(move || vault.save_vault())
+        .await
+        .map_err(|e| e.to_string())??; // bro wdf lmaoooo
     Ok(())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn fetch_keys(state: tauri::State<Mutex<AppState>>) -> Vec<KeyMetadata> {
-    let items = {
-        let state = state
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-
-        let vault_handle = match state.vault.as_ref() {
-            Some(vault_handle) => vault_handle,
-            None => return vec![],
-        };
-        let vault = vault_handle.lock().unwrap();
+pub fn fetch_keys(state: tauri::State<AppState>) -> Vec<KeyMetadata> {
+    let items = state.with_vault(|vault| {
         vault
             .file
             .secrets
             .values()
             .cloned()
-            .map(|key| {
+            .map(|key: KeyMetadata| {
                 key.redacted() // we dont need to send private
             })
             .collect::<Vec<KeyMetadata>>()
-    };
+    });
 
-    return items;
+    return items.unwrap_or(vec![]);
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn fetch_key(name: String, state: tauri::State<Mutex<AppState>>) -> Option<KeyMetadata> {
-    let state = state
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-
-    let vault_handle = state.vault.as_ref().expect("vault not initialized");
-    let vault = vault_handle
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    vault.get_key(&name).cloned()
+pub fn fetch_key(name: String, state: tauri::State<AppState>) -> Option<KeyMetadata> {
+    state
+        .with_vault(|vault| vault.get_key(&name).cloned())
+        .unwrap_or(None)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn delete_key(id: String, state: tauri::State<'_, Mutex<AppState>>) -> Result<(), String> {
-    let state = state
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-
-    let vault_handle = state.vault.as_ref().expect("vault not initialized");
-    let mut vault = vault_handle.lock().unwrap();
-    vault.delete_key(id);
-    let _ = vault.save_vault();
+pub async fn delete_key(id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.with_vault(|vault| vault.delete_key(id))?;
+    state.save_vault().await?;
     Ok(())
 }
 
@@ -139,28 +109,20 @@ pub async fn export_key(
     key: String,
     path: String,
     mode: KeyExportMode,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let key_content = {
-        let state = match state.lock() {
-            Ok(state) => state,
-            Err(poisoned) => poisoned.into_inner(), // idc gangalang
-        };
-        let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
-        let vault = match vault_handle.lock() {
-            Ok(vault) => vault,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-
-        let key_meta = vault.get_key(&key).expect("could not load key");
-        let key_contents = key_meta.contents.clone();
-        let raw_key_content = SecretString::from(
-            vault
-                .decrypt_secret(&key_contents.private.expect("no private key!"))
-                .unwrap()
-                .expose_secret()
-                .to_string(),
-        );
+        let raw_key_content = state.with_vault(|vault| {
+            let key_meta = vault.get_key(&key).expect("could not load key");
+            let key_contents = key_meta.contents.clone();
+            SecretString::from(
+                vault
+                    .decrypt_secret(&key_contents.private.expect("no private key!"))
+                    .unwrap()
+                    .expose_secret()
+                    .to_string(),
+            )
+        })?;
 
         let key_is_pq = raw_key_content
             .expose_secret()
@@ -214,22 +176,9 @@ pub async fn check_keyfile_type(path: String) -> Result<bool, String> {
 /// command to regenerate the public keys of all identities.
 #[tauri::command]
 #[specta::specta]
-pub async fn regenerate_public_identities(
-    state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
-    let state = state.lock().unwrap_or_else(|poisoned| {
-        state.clear_poison();
-        poisoned.into_inner()
-    });
-    let vault_mutex = state
-        .vault
-        .as_ref()
-        .expect("vault should be initialized")
-        .clone();
-    let mut vault = vault_mutex.lock().unwrap_or_else(|poisoned| {
-        vault_mutex.clear_poison();
-        poisoned.into_inner()
-    });
+pub async fn regenerate_public_identities(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut vault = state.get_vault();
+    let vault = vault.as_mut().ok_or("vault not initialized".to_string())?;
     vault.file.secrets = vault
         .file
         .secrets
@@ -268,58 +217,39 @@ pub async fn regenerate_public_identities(
 pub async fn import_key_text(
     name: String,
     key_content: String,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     let is_private = key_content.starts_with("AGE-SECRET-KEY");
-
-    let vault_handle = {
-        let state = match state.lock() {
-            Ok(state) => state,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        state.vault.as_ref().expect("vault not initialized").clone()
-    };
-    {
-        let mut vault = match vault_handle.lock() {
-            Ok(vault) => vault,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        if is_private {
-            let identity = if key_content.starts_with("AGE-SECRET-KEY-PQ-") {
-                WildcardIdentity::Hybrid(HybridIdentity::from_string(SecretString::from(
-                    key_content,
-                ))?)
-            } else {
-                WildcardIdentity::X25519(
-                    Identity::from_str(key_content.clone().as_str()).map_err(|e| e.to_string())?,
-                )
-            };
-            let key = vault.new_key(
-                name,
-                identity.to_public()?.to_string()?,
-                Some(identity.to_string()?),
-            )?;
-            vault.put_key(key)?;
+    let key = if is_private {
+        let identity = if key_content.starts_with("AGE-SECRET-KEY-PQ-") {
+            WildcardIdentity::Hybrid(HybridIdentity::from_string(SecretString::from(
+                key_content,
+            ))?)
         } else {
-            let key = vault.new_key(
+            WildcardIdentity::X25519(
+                Identity::from_str(key_content.clone().as_str()).map_err(|e| e.to_string())?,
+            )
+        };
+        state.with_vault(|vault| {
+            vault.new_key(
+                name,
+                identity.to_public().unwrap().to_string().unwrap(),
+                Some(identity.to_string().unwrap()),
+            )
+        })?
+    } else {
+        state.with_vault(|vault| {
+            vault.new_key(
                 name,
                 Recipient::from_str(key_content.clone().as_str())
                     .expect("failed to parse public key")
                     .to_string(),
                 None,
-            )?;
-            vault.put_key(key)?;
-        }
-    }
-    tauri::async_runtime::spawn_blocking(move || {
-        let mut vault = match vault_handle.lock() {
-            Ok(vault) => vault,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        let _ = vault.save_vault();
-    })
-    .await
-    .expect("failed to save vault");
+            )
+        })?
+    }?;
+    state.with_vault(|vault| vault.put_key(key))??;
+    state.save_vault().await?;
     Ok("key import complete".to_string())
 }
 
@@ -328,7 +258,7 @@ pub async fn import_key_text(
 pub async fn import_key(
     name: String,
     path: String,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     if name.len() == 0 {
         return Err("no name set".to_string());
@@ -354,7 +284,7 @@ pub async fn import_key(
 #[specta::specta]
 pub async fn authenticate(
     app_handle: tauri::AppHandle,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<VaultStatusUpdate, String> {
     let webview = app_handle
         .get_webview_window("vault-unlock")
@@ -373,7 +303,6 @@ pub async fn authenticate(
     let _ = webview.set_resizable(false);
     let _ = webview.set_maximizable(false);
     let _ = webview.set_minimizable(false);
-    let original_state = state.clone();
     let mut integrity_check_fail = false;
     loop {
         let (tx, rx) = oneshot::channel();
@@ -413,15 +342,7 @@ pub async fn authenticate(
             }
             Err(error) => return Err(error.to_string()),
         });
-        let state = state.lock().unwrap_or_else(|p| p.into_inner());
-        let mut vault = state
-            .vault
-            .as_ref()
-            .clone()
-            .expect("vault not initialized")
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
-        let unlock_attempt = vault.set_vault_key(password);
+        let unlock_attempt = state.with_vault(|vault| vault.set_vault_key(password))?;
         if let Err(error) = unlock_attempt {
             if error.as_str() == "integrity check failed" {
                 integrity_check_fail = true;
@@ -433,7 +354,7 @@ pub async fn authenticate(
         };
     }
     if integrity_check_fail {
-        let _ = regenerate_public_identities(original_state).await;
+        let _ = regenerate_public_identities(state).await;
     }
     let result = if integrity_check_fail {
         VaultStatusUpdate::VerificationFail
@@ -449,18 +370,12 @@ pub async fn authenticate(
 #[tauri::command]
 #[specta::specta]
 pub async fn lock_vault(
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<(), ()> {
-    let state = state.lock().unwrap_or_else(|p| p.into_inner());
-    let mut vault = state
-        .vault
-        .as_ref()
-        .clone()
-        .expect("vault not initialized")
-        .lock()
-        .unwrap_or_else(|p| p.into_inner());
-    vault.delete_vault_key();
+) -> Result<(), String> {
+    state.with_vault(|vault| {
+        vault.delete_vault_key();
+    })?;
     let _ = app_handle.emit("vault-status-update", VaultStatusUpdate::Locked);
     Ok(())
 }

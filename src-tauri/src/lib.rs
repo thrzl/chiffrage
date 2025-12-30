@@ -1,8 +1,9 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod crypto;
 mod store;
+use parking_lot::{Mutex, MutexGuard};
 use specta_typescript::{BigIntExportBehavior, Typescript};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use tauri::Manager;
@@ -22,14 +23,43 @@ where
 }
 
 struct AppState {
-    vault: Option<Arc<Mutex<store::Vault>>>,
+    vault: Arc<Mutex<Option<store::Vault>>>,
     first_open: bool,
+}
+
+impl AppState {
+    pub fn get_vault(&self) -> MutexGuard<'_, Option<store::Vault>> {
+        self.vault.as_ref().lock()
+    }
+
+    pub fn with_vault<R>(&self, f: impl FnOnce(&mut store::Vault) -> R) -> Result<R, String> {
+        let mut vault_lock = self.vault.as_ref().lock();
+        let vault = vault_lock
+            .as_mut()
+            .ok_or("vault not initialized".to_string())?;
+
+        Ok(f(vault))
+    }
+
+    pub async fn save_vault(&self) -> Result<(), String> {
+        let vault_handle = self.vault.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            let mut vault = vault_handle.lock();
+            vault
+                .as_mut()
+                .expect("vault should be initialized")
+                .save_vault()
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+        Ok(())
+    }
 }
 
 #[tauri::command]
 #[specta::specta]
-fn is_first_open(state: tauri::State<Mutex<AppState>>) -> bool {
-    return state.lock().unwrap().first_open;
+fn is_first_open(state: tauri::State<AppState>) -> bool {
+    return state.first_open;
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -91,17 +121,17 @@ pub fn run() {
             if first_open && !app_data_dir.exists() {
                 std::fs::create_dir(app_data_dir).expect("failed to create app data directory")
             }
-            app.manage(Mutex::new(AppState {
-                vault: if first_open {
+            app.manage(AppState {
+                vault: Arc::new(Mutex::new(if first_open {
                     None
                 } else {
-                    Some(Arc::new(Mutex::new(
+                    Some(
                         Vault::load_vault(vault_path.to_str().unwrap())
                             .expect("failed to initialize vault"),
-                    )))
-                },
+                    )
+                })),
                 first_open,
-            }));
+            });
             Ok(())
         })
         .run(tauri::generate_context!())

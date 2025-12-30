@@ -1,14 +1,14 @@
 use age::{DecryptError, EncryptError, Identity, Recipient};
 use age_core::format::{FileKey, Stanza};
-use base64::prelude::{Engine, BASE64_STANDARD_NO_PAD};
-use bech32::{primitives::decode::UncheckedHrpstring, Bech32, ByteIterExt, Checksum, Fe32IterExt};
+use base64::prelude::{BASE64_STANDARD_NO_PAD, Engine};
+use bech32::{Bech32, ByteIterExt, Checksum, Fe32IterExt, primitives::decode::UncheckedHrpstring};
 use bip39::{rand::RngCore, rand_core::OsRng};
-use hpke_rs::{hpke_types, Hpke, HpkePrivateKey, HpkePublicKey};
+use hpke_rs::{Hpke, HpkePrivateKey, HpkePublicKey, hpke_types};
 use hpke_rs_libcrux::HpkeLibcrux;
 use libcrux_ml_kem::mlkem768 as mlkem;
 use secrecy::{
-    zeroize::{Zeroize, Zeroizing},
     ExposeSecret, SecretBox, SecretString,
+    zeroize::{Zeroize, Zeroizing},
 };
 use sha3::digest::{ExtendableOutput, Update, XofReader};
 use std::{array::TryFromSliceError, collections::HashSet, str::FromStr};

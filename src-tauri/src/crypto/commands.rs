@@ -1,6 +1,6 @@
+use crate::AppState;
 use crate::crypto::hybrid::{HybridIdentity, HybridRecipient};
 use crate::crypto::{self, WildcardIdentity, WildcardRecipient};
-use crate::AppState;
 use futures_util::future::join_all;
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
 use tauri_plugin_opener::reveal_items_in_dir;
 use tokio::fs::metadata;
 use tokio::io::AsyncReadExt;
@@ -84,20 +84,16 @@ pub async fn validate_key_file(path: String) -> Result<(), String> {
 pub async fn encrypt_text(
     recipient: EncryptionMethod,
     text: String,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     let recipients: Vec<WildcardRecipient> = match recipient {
         EncryptionMethod::X25519(public_keys) => {
-            let state = state.lock().expect("failed to get lock on state");
-            let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
-            let vault = match vault_handle.lock() {
-                Ok(vault) => vault,
-                Err(poisoned) => poisoned.into_inner(),
-            };
-            let key_contents = public_keys
-                .iter()
-                .map(|key| vault.get_key(key).unwrap().contents.public.clone())
-                .collect::<Vec<String>>();
+            let key_contents = state.with_vault(|vault| {
+                public_keys
+                    .iter()
+                    .map(|key| vault.get_key(key).unwrap().contents.public.clone())
+                    .collect::<Vec<String>>()
+            })?;
             let should_encrypt_pq = key_contents.iter().all(|key| key.starts_with("age1pq"));
             let mut recipients: Vec<WildcardRecipient> = Vec::with_capacity(key_contents.len());
             for key in key_contents {
@@ -134,20 +130,17 @@ pub async fn decrypt_text(
     private_key: String,
     text: String,
     method: DecryptionMethod,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     let identity = match method {
         DecryptionMethod::X25519 => {
-            let state = state.lock().expect("failed to get lock on state");
-            let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
-            let vault = match vault_handle.lock() {
-                Ok(vault) => vault,
-                Err(poisoned) => poisoned.into_inner(),
-            };
-            let key_metadata = vault.get_key(&private_key).unwrap();
-            let key_content = vault
-                .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())?
-                .clone();
+            let key_content = state.with_vault(|vault| {
+                let key_metadata = vault.get_key(&private_key).unwrap();
+                vault
+                    .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())
+                    .expect("should be able to decrypt secret")
+                    .clone()
+            })?;
 
             if key_content
                 .expose_secret()
@@ -176,22 +169,18 @@ pub async fn encrypt_file(
     recipient: EncryptionMethod,
     reader: tauri::ipc::Channel<FileOperationProgress>,
     files: Vec<String>,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, AppState>,
     armor: Option<bool>,
 ) -> Result<(), String> {
     let armor = armor.unwrap_or(false);
     let recipients: Vec<WildcardRecipient> = match recipient {
         EncryptionMethod::X25519(public_keys) => {
-            let state = state.lock().expect("failed to get lock on state");
-            let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
-            let vault = match vault_handle.lock() {
-                Ok(vault) => vault,
-                Err(poisoned) => poisoned.into_inner(),
-            };
-            let key_contents = public_keys
-                .iter()
-                .map(|key| vault.get_key(key).unwrap().contents.public.clone())
-                .collect::<Vec<String>>();
+            let key_contents = state.with_vault(|vault| {
+                public_keys
+                    .iter()
+                    .map(|key| vault.get_key(key).unwrap().contents.public.clone())
+                    .collect::<Vec<String>>()
+            })?;
             let should_encrypt_pq = key_contents.iter().all(|key| key.starts_with("age1pq"));
             let mut recipients: Vec<WildcardRecipient> = Vec::with_capacity(key_contents.len());
             for key in key_contents {
@@ -282,20 +271,17 @@ pub async fn decrypt_file(
     reader: tauri::ipc::Channel<FileOperationProgress>,
     files: Vec<String>,
     method: DecryptionMethod,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let identity = match method {
         DecryptionMethod::X25519 => {
-            let state = state.lock().expect("failed to get lock on state");
-            let vault_handle = state.vault.as_ref().expect("vault not initialized").clone();
-            let vault = match vault_handle.lock() {
-                Ok(vault) => vault,
-                Err(poisoned) => poisoned.into_inner(),
-            };
-            let key_metadata = vault.get_key(&private_key).unwrap();
-            let key_content = vault
-                .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())?
-                .clone();
+            let key_content = state.with_vault(|vault| {
+                let key_metadata = vault.get_key(&private_key).unwrap();
+                vault
+                    .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())
+                    .expect("should be able to decrypt secret")
+                    .clone()
+            })?;
 
             if key_content
                 .expose_secret()
@@ -384,33 +370,20 @@ pub enum KeyFormat {
 pub async fn generate_keypair(
     name: String,
     format: Option<KeyFormat>,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     if name.len() == 0 {
         return Err("no name set".to_string());
     }
-    let vault_handle = {
-        let state = state.lock().unwrap();
-        state.vault.as_ref().expect("failed to load vault").clone()
-    };
-    {
-        let mut vault = match vault_handle.lock() {
-            Ok(vault) => vault,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+    state.with_vault(|vault| {
         let keypair = match format {
             Some(KeyFormat::X25519) => vault.generate_x25519_keypair(name),
             _ => vault.generate_keypair(name), // if none or if PostQuantum
         }?;
         vault.put_key(keypair)?;
-    }
-    tauri::async_runtime::spawn_blocking(move || {
-        let mut vault = match vault_handle.lock() {
-            Ok(vault) => vault,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        let _ = vault.save_vault();
-    });
+        Ok::<(), String>(())
+    })??;
+    let _ = state.save_vault().await?;
     Ok(())
 }
 
