@@ -114,7 +114,7 @@ async checkKeyfileType(path: string) : Promise<Result<boolean, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async lockVault() : Promise<Result<null, null>> {
+async lockVault() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("lock_vault") };
 } catch (e) {
