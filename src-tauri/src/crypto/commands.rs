@@ -1,6 +1,6 @@
+use crate::AppState;
 use crate::crypto::hybrid::{HybridIdentity, HybridRecipient};
 use crate::crypto::{self, WildcardIdentity, WildcardRecipient};
-use crate::AppState;
 use futures_util::future::join_all;
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tauri_plugin_opener::reveal_items_in_dir;
 use tokio::fs::metadata;
 use tokio::io::AsyncReadExt;

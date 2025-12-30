@@ -1,7 +1,7 @@
-use crate::crypto::hybrid::HybridIdentity;
-use crate::crypto::WildcardIdentity;
-use crate::store::{KeyMetadata, Vault, VaultStatusUpdate};
 use crate::AppState;
+use crate::crypto::WildcardIdentity;
+use crate::crypto::hybrid::HybridIdentity;
+use crate::store::{KeyMetadata, Vault, VaultStatusUpdate};
 use age::x25519::{Identity, Recipient};
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
