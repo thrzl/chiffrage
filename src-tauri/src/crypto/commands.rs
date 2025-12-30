@@ -389,10 +389,10 @@ pub async fn generate_keypair(
                 Some(KeyFormat::X25519) => vault.generate_x25519_keypair(name),
                 _ => vault.generate_keypair(name), // if none or if PostQuantum
             }?;
-            vault.put_key(keypair);
+            vault.put_key(keypair)?;
             Ok::<(), String>(())
         })
-        .ok_or("vault not initialized")?;
+        .ok_or("vault not initialized")??;
     let _ = state.save_vault().await?;
     Ok(())
 }

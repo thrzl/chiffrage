@@ -643,6 +643,7 @@ dependencies = [
  "hpke-rs",
  "hpke-rs-libcrux",
  "libcrux-ml-kem",
+ "parking_lot",
  "region",
  "secrecy",
  "serde",

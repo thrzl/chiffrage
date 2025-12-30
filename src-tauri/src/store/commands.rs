@@ -44,7 +44,7 @@ pub fn load_vault(
     if let Err(error) = vault_load {
         return Err(error);
     }
-    let mut vault = state.get_vault().ok_or("vault not initialized")?;
+    let mut vault = state.get_vault();
     *vault = Some(vault_load.unwrap());
     Ok(())
 }
@@ -59,7 +59,7 @@ pub async fn create_vault(password: String, app_handle: tauri::AppHandle) -> Res
     let mut vault = Vault::create_vault(vault_location, &password)?;
     tauri::async_runtime::spawn_blocking(move || vault.save_vault())
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())??; // bro wdf lmaoooo
     Ok(())
 }
 
@@ -254,7 +254,7 @@ pub async fn import_key_text(
     }?;
     state
         .with_vault(|vault| vault.put_key(key))
-        .ok_or("vault not initialized")?;
+        .ok_or("vault not initialized")??;
     state.save_vault().await?;
     Ok("key import complete".to_string())
 }

@@ -52,6 +52,7 @@ sha3 = "0.10.8"
 hpke-rs = { version = "0.5.0", features = ["libcrux"] }
 hpke-rs-libcrux = "0.5.0"
 hmac = "0.12.1"
+parking_lot = "0.12.5"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"

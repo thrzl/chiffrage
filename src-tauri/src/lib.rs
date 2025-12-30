@@ -1,8 +1,9 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod crypto;
 mod store;
+use parking_lot::{FairMutex, FairMutexGuard};
 use specta_typescript::{BigIntExportBehavior, Typescript};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use tauri::Manager;
@@ -22,24 +23,17 @@ where
 }
 
 struct AppState {
-    vault: Arc<Mutex<Option<store::Vault>>>,
+    vault: Arc<FairMutex<Option<store::Vault>>>,
     first_open: bool,
 }
 
 impl AppState {
-    pub fn get_vault(&self) -> std::sync::MutexGuard<'_, Option<store::Vault>> {
-        let vault_lock = self.vault.as_ref().lock().unwrap_or_else(|p| {
-            self.vault.clear_poison();
-            p.into_inner()
-        });
-        vault_lock
+    pub fn get_vault(&self) -> FairMutexGuard<'_, Option<store::Vault>> {
+        self.vault.as_ref().lock()
     }
 
     pub fn with_vault<R>(&self, f: impl FnOnce(&mut store::Vault) -> R) -> Option<R> {
-        let mut vault_lock = self.vault.as_ref().lock().unwrap_or_else(|p| {
-            self.vault.clear_poison();
-            p.into_inner()
-        });
+        let mut vault_lock = self.vault.as_ref().lock();
         let vault = vault_lock.as_mut()?;
 
         Some(f(vault))
@@ -48,22 +42,22 @@ impl AppState {
     pub async fn save_vault(&self) -> Result<(), String> {
         let vault_handle = self.vault.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            let mut vault = vault_handle.lock().unwrap_or_else(|p| {
-                vault_handle.clear_poison();
-                p.into_inner()
-            });
-            vault.as_mut().expect("vault not initialized").save_vault();
+            let mut vault = vault_handle.lock();
+            vault
+                .as_mut()
+                .expect("vault should be initialized")
+                .save_vault();
         })
         .await
-        .map_err(|e| e.to_string());
+        .map_err(|e| e.to_string())?;
         Ok(())
     }
 }
 
 #[tauri::command]
 #[specta::specta]
-fn is_first_open(state: tauri::State<Mutex<AppState>>) -> bool {
-    return state.lock().unwrap().first_open;
+fn is_first_open(state: tauri::State<AppState>) -> bool {
+    return state.first_open;
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -126,7 +120,7 @@ pub fn run() {
                 std::fs::create_dir(app_data_dir).expect("failed to create app data directory")
             }
             app.manage(AppState {
-                vault: Arc::new(Mutex::new(if first_open {
+                vault: Arc::new(FairMutex::new(if first_open {
                     None
                 } else {
                     Some(
