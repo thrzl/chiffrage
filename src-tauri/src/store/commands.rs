@@ -86,7 +86,7 @@ pub fn fetch_keys(state: tauri::State<AppState>) -> Vec<KeyMetadata> {
 pub fn fetch_key(name: String, state: tauri::State<AppState>) -> Option<KeyMetadata> {
     state
         .with_vault(|vault| vault.get_key(&name).cloned())
-        .ok()?
+        .unwrap_or(None)
 }
 
 #[tauri::command]
