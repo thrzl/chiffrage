@@ -26,6 +26,16 @@ struct AppState {
     first_open: bool,
 }
 
+impl AppState {
+    pub fn get_vault(&self) -> Option<std::sync::MutexGuard<'_, store::Vault>> {
+        let vault = self.vault.as_ref()?;
+        Some(vault.lock().unwrap_or_else(|p| {
+            vault.clear_poison();
+            p.into_inner()
+        }))
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
 fn is_first_open(state: tauri::State<Mutex<AppState>>) -> bool {
