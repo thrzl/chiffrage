@@ -1,6 +1,8 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod crypto;
 mod store;
+use crate::store::Vault;
+use anyhow::Error as AnyhowError;
 use parking_lot::{Mutex, MutexGuard};
 use specta_typescript::{BigIntExportBehavior, Typescript};
 use std::sync::Arc;
@@ -8,8 +10,26 @@ use std::thread;
 use std::time::Duration;
 use tauri::Manager;
 use tauri_specta::{collect_commands, collect_events};
+use thiserror::Error as ThisErrorError;
 
-use crate::store::Vault;
+#[derive(Debug, ThisErrorError)]
+#[error(transparent)]
+pub struct Error(#[from] anyhow::Error);
+
+impl serde::Serialize for Error {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.to_string().as_ref())
+    }
+}
+
+impl specta::Type for Error {
+    fn inline(_: &mut specta::TypeCollection, _: specta::Generics) -> specta::datatype::DataType {
+        specta::DataType::Primitive(specta::datatype::PrimitiveType::String)
+    }
+}
 
 // im ngl idk what im doin
 pub fn set_timeout<F>(delay_ms: u64, f: F)
