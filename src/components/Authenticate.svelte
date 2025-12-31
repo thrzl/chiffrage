@@ -5,6 +5,8 @@
     import Spinner from "$lib/components/ui/spinner/spinner.svelte";
     import { OctagonXIcon } from "@lucide/svelte";
     import { once, emit, listen } from "@tauri-apps/api/event";
+    import type { SvelteComponent } from "svelte";
+
     let {
         description = "this action requires authentication. please enter your vault password to continue.",
     }: {
@@ -15,7 +17,16 @@
         $state(undefined);
     let passwordInput = $state("");
     let isLoading = $state(false);
-    listen("auth-start", () => (open = true));
+    let passwordElement: SvelteComponent | undefined;
+    listen("auth-start", () => {
+        passwordElement?.focus();
+        open = true;
+    });
+    listen("vault-status-update", () => {
+        isLoading = false;
+        open = false;
+        passwordInput = "";
+    });
     async function cancelAuth() {
         await emit("auth-cancel", {});
         open = false;
@@ -45,7 +56,7 @@
 </script>
 
 <AlertDialog.Root bind:open>
-    <AlertDialog.Content>
+    <AlertDialog.Content class="z-999">
         <AlertDialog.Header>
             <AlertDialog.Title>unlock vault</AlertDialog.Title>
             <AlertDialog.Description>
@@ -54,6 +65,7 @@
         </AlertDialog.Header>
         <form class="flex flex-col" onsubmit={unlockVault}>
             <PasswordBox
+                bind:this={passwordElement}
                 placeholder="enter your vault password..."
                 bind:password={passwordInput}
                 showMeter={false}

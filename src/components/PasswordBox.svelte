@@ -24,10 +24,14 @@
         strength?: ZxcvbnResult | null;
         oninput?: undefined | ((e: Event) => void | Promise<void>);
         textAlign?: "left" | "center" | "right",
-        autofocus?: boolean
+        autofocus?: boolean,
     } & HTMLAttributes<HTMLDivElement> = $props();
     let inputElement = $state<HTMLInputElement | null>(null);
     let inputGroupElement = $state<HTMLElement | null>(null);
+
+    export function focus() {
+      inputElement?.focus()
+    }
     import { EyeIcon, EyeClosedIcon, RefreshCcwDotIcon } from "@lucide/svelte";
     import Progress from "$lib/components/ui/progress/progress.svelte";
     import { onMount } from "svelte";
