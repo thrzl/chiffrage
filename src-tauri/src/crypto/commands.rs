@@ -1,6 +1,7 @@
-use crate::AppState;
 use crate::crypto::hybrid::{HybridIdentity, HybridRecipient};
 use crate::crypto::{self, WildcardIdentity, WildcardRecipient};
+use crate::{AppState, Error};
+use anyhow::Context;
 use futures_util::future::join_all;
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
@@ -8,8 +9,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use tauri_plugin_opener::reveal_items_in_dir;
 use tokio::fs::metadata;
 use tokio::io::AsyncReadExt;
@@ -36,11 +37,9 @@ pub enum DecryptionMethod {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn validate_key_text(text: String) -> Result<(), String> {
-    match bech32::decode(&text) {
-        Ok(_) => Ok(()),
-        Err(err) => Err(format!("this is not a valid age key. {err}")),
-    }
+pub async fn validate_key_text(text: String) -> Result<(), Error> {
+    bech32::decode(&text).context("invalid age key")?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -65,17 +64,13 @@ pub async fn armor_check_file(path: &String) -> Result<bool, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn validate_key_file(path: String) -> Result<(), String> {
+pub async fn validate_key_file(path: String) -> Result<(), Error> {
     let mut file = tokio::fs::File::open(&path)
         .await
-        .map_err(|err| format!("could not open file: {err}"))?;
+        .context("failed to open file")?;
     let mut buf = [0u8; 100];
-    let bytes = file
-        .read(&mut buf)
-        .await
-        .map_err(|err| format!("could not read file: {err}"))?;
-    let key_text = String::from_utf8(buf[..bytes].to_vec())
-        .map_err(|err| format!("could not decode text content: {err}"))?;
+    let bytes = file.read(&mut buf).await.context("failed to read file")?;
+    let key_text = String::from_utf8(buf[..bytes].to_vec()).context("failed to decode contents")?;
     validate_key_text(key_text).await
 }
 
