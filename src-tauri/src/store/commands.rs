@@ -1,11 +1,11 @@
-use crate::AppState;
-use crate::crypto::WildcardIdentity;
 use crate::crypto::hybrid::HybridIdentity;
+use crate::crypto::WildcardIdentity;
 use crate::store::{KeyMetadata, Vault, VaultStatusUpdate};
+use crate::AppState;
 use age::x25519::{Identity, Recipient};
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Listener, Manager, WindowEvent};
@@ -280,46 +280,35 @@ pub async fn import_key(
     return import_key_text(name, key_content, state).await;
 }
 
+#[derive(specta::Type, Serialize)]
+pub enum AuthMessage {
+    AuthSuccess(VaultStatusUpdate),
+    IncorrectPassword,
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn authenticate(
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<VaultStatusUpdate, String> {
-    let webview = app_handle
-        .get_webview_window("vault-unlock")
-        .unwrap_or_else(|| {
-            tauri::WebviewWindowBuilder::new(
-                &app_handle,
-                "vault-unlock",
-                tauri::WebviewUrl::App("unlock".into()),
-            )
-            .title("authentication required")
-            .visible(false)
-            .build()
-            .expect("failed to open auth window")
-        });
-    let _ = webview.set_always_on_top(true); // not that serious
-    let _ = webview.set_resizable(false);
-    let _ = webview.set_maximizable(false);
-    let _ = webview.set_minimizable(false);
+    let webview = app_handle.get_webview_window("main").unwrap();
+    webview.emit("auth-start", ());
     let mut integrity_check_fail = false;
     loop {
         let (tx, rx) = oneshot::channel();
         let tx = Arc::new(Mutex::new(Some(tx)));
         let tx2 = tx.clone();
-        webview.on_window_event(move |event| {
-            if matches!(event, WindowEvent::CloseRequested { .. }) {
-                if let Some(tx) = tx
-                    .clone()
-                    .lock()
-                    .unwrap_or_else(|poisoned| poisoned.into_inner())
-                    .take()
-                // wtf bro
-                {
-                    let _ = tx.send("".to_string());
-                }
-            };
+        webview.once("auth-cancel", move |event| {
+            if let Some(tx) = tx
+                .clone()
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .take()
+            // wtf bro
+            {
+                let _ = tx.send("".to_string());
+            }
         });
         webview.once("authenticate", move |event| {
             if let Some(tx) = tx2
@@ -348,7 +337,7 @@ pub async fn authenticate(
                 integrity_check_fail = true;
                 break;
             }
-            let _ = webview.emit("auth-error", &error);
+            let _ = webview.emit("auth-response", false);
         } else {
             break;
         };
