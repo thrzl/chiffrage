@@ -14,6 +14,7 @@ use std::sync::Arc;
 use tauri_plugin_opener::reveal_items_in_dir;
 use tokio::fs::metadata;
 use tokio::io::AsyncReadExt;
+use tokio::time;
 
 #[derive(serde::Serialize, specta::Type)]
 pub struct FileOperationProgress {
@@ -221,20 +222,22 @@ pub async fn encrypt_file(
     let total_read_bytes_ptr = Arc::new(AtomicU64::new(0));
     let reader_ptr = Arc::new(reader);
     let mut output_paths = Vec::new();
-
-    let timer = Arc::new(timer::Timer::new());
+    let cooldown = time::Duration::from_millis(100);
     for file in files {
         let total_read_bytes = total_read_bytes_ptr.clone();
         let path = PathBuf::from(file.clone());
         let reader = reader_ptr.clone();
-        let timer = timer.clone();
-        let _guard = timer.schedule_repeating(chrono::Duration::milliseconds(100), move || {
-            let _ = reader.send(FileOperationProgress {
-                // its okay if it doesnt send i'd rather the files just encrypt
-                read_bytes: total_read_bytes.load(Ordering::SeqCst),
-                total_bytes: total_bytes,
-                current_file: path.file_name().unwrap().to_str().unwrap().to_string(),
-            });
+        let mut progress_interval = time::interval(cooldown);
+        let progress_task = tauri::async_runtime::spawn(async move {
+            loop {
+                let _ = reader.send(FileOperationProgress {
+                    // its okay if it doesnt send i'd rather the files just encrypt
+                    read_bytes: total_read_bytes.load(Ordering::SeqCst),
+                    total_bytes: total_bytes,
+                    current_file: path.file_name().unwrap().to_str().unwrap().to_string(),
+                });
+                progress_interval.tick().await;
+            }
         });
 
         let total_read_bytes = total_read_bytes_ptr.clone();
@@ -246,7 +249,7 @@ pub async fn encrypt_file(
             })
             .await
             .expect("failed to encrypt file");
-        drop(_guard);
+        progress_task.abort();
         let _ = reader_ptr.clone().send(FileOperationProgress {
             // its okay if it doesnt send i'd rather the files just encrypt
             read_bytes: *file_sizes.get(&file).unwrap(),
@@ -313,20 +316,23 @@ pub async fn decrypt_file(
     let total_read_bytes_ptr = Arc::new(AtomicU64::new(0));
     let reader_ptr = Arc::new(reader);
     let mut output_paths = Vec::new();
-    let timer = Arc::new(timer::Timer::new());
+    let cooldown = time::Duration::from_millis(100);
     for file in files {
         let total_read_bytes = total_read_bytes_ptr.clone();
         let reader = reader_ptr.clone();
-        let timer = timer.clone();
         let path_ptr = Arc::new(PathBuf::from_str(&file).unwrap());
         let path = path_ptr.clone();
-        let _guard = timer.schedule_repeating(chrono::Duration::milliseconds(100), move || {
-            let _ = reader.send(FileOperationProgress {
-                // its okay if it doesnt send i'd rather the files just encrypt
-                read_bytes: total_read_bytes.load(Ordering::SeqCst),
-                total_bytes: total_bytes,
-                current_file: path.file_name().unwrap().to_str().unwrap().to_string(),
-            });
+        let mut progress_interval = time::interval(cooldown);
+        let progress_task = tauri::async_runtime::spawn(async move {
+            loop {
+                progress_interval.tick().await;
+                let _ = reader.send(FileOperationProgress {
+                    // its okay if it doesnt send i'd rather the files just encrypt
+                    read_bytes: total_read_bytes.load(Ordering::SeqCst),
+                    total_bytes: total_bytes,
+                    current_file: path.file_name().unwrap().to_str().unwrap().to_string(),
+                });
+            }
         });
         let is_armored = armor_check_file(&file).await?;
         let total_read_bytes = total_read_bytes_ptr.clone();
@@ -336,7 +342,7 @@ pub async fn decrypt_file(
                 total_read_bytes.fetch_add(processed_bytes as u64, Ordering::SeqCst);
             })
             .await?;
-        drop(_guard);
+        progress_task.abort();
         let reader = reader_ptr.clone();
         let _ = reader.send(FileOperationProgress {
             read_bytes: *file_sizes.get(&file).unwrap(),
