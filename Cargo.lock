@@ -632,6 +632,7 @@ version = "0.1.0"
 dependencies = [
  "age",
  "age-core",
+ "anyhow",
  "argon2",
  "base64 0.22.1",
  "bech32 0.11.1",
@@ -663,6 +664,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
  "tauri-specta",
+ "thiserror 2.0.17",
  "timer",
  "tokio",
  "tokio-util",
