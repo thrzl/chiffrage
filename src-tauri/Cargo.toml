@@ -35,8 +35,6 @@ futures-util = "0.3.31"
 cuid2 = "0.1.4"
 bip39 = { version = "2.2.2", features = ["rand"] }
 bech32 = "0.11.1"
-timer = "0.2.0"
-chrono = "0.4.42"
 tauri-specta = {version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
