@@ -5,10 +5,10 @@ use crate::AppState;
 use age::x25519::{Identity, Recipient};
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-use tauri::{Emitter, Listener, Manager, WindowEvent};
+use tauri::{Emitter, Listener, Manager};
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::oneshot;
@@ -280,12 +280,6 @@ pub async fn import_key(
     return import_key_text(name, key_content, state).await;
 }
 
-#[derive(specta::Type, Serialize)]
-pub enum AuthMessage {
-    AuthSuccess(VaultStatusUpdate),
-    IncorrectPassword,
-}
-
 #[tauri::command]
 #[specta::specta]
 pub async fn authenticate(
@@ -293,13 +287,13 @@ pub async fn authenticate(
     state: tauri::State<'_, AppState>,
 ) -> Result<VaultStatusUpdate, String> {
     let webview = app_handle.get_webview_window("main").unwrap();
-    webview.emit("auth-start", ());
+    webview.emit("auth-start", ()).map_err(|e| e.to_string())?;
     let mut integrity_check_fail = false;
     loop {
         let (tx, rx) = oneshot::channel();
         let tx = Arc::new(Mutex::new(Some(tx)));
         let tx2 = tx.clone();
-        webview.once("auth-cancel", move |event| {
+        webview.once("auth-cancel", move |_| {
             if let Some(tx) = tx
                 .clone()
                 .lock()
