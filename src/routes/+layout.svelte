@@ -10,6 +10,7 @@
     import { onMount } from "svelte";
     import IntegrityCheckFail from "../components/IntegrityCheckFail.svelte";
     import { events } from "$lib/bindings";
+    import Authenticate from "../components/Authenticate.svelte";
 
     let integrityCheckFailed = $state(false);
     events.vaultStatusUpdate.listen((e) => {
@@ -36,6 +37,7 @@
 </div>
 </Sidebar.Provider>
 <IntegrityCheckFail bind:open={integrityCheckFailed}/>
+<Authenticate />
 
 <style>
     #main-container {
