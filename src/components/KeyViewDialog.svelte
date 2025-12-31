@@ -69,7 +69,11 @@
 
     async function deleteKey() {
         if (!key) return;
-        if ((await commands.authenticate()).status !== "ok") {
+        let authRes = await commands.authenticate();
+        if (
+            authRes.status !== "ok" ||
+            authRes.data === "authenticationCancel"
+        ) {
             toast.error("authentication failed");
             return;
         }
