@@ -323,7 +323,6 @@ pub async fn authenticate(
 
         let password = SecretString::from(match rx.await {
             Ok(message) => {
-                println!("received message");
                 if message.len() == 0 {
                     return Ok(VaultStatusUpdate::AuthenticationCancel);
                 }
@@ -332,7 +331,6 @@ pub async fn authenticate(
             }
             Err(error) => return Err(error.to_string()),
         });
-        println!("setting vault key");
         let unlock_attempt = state.with_vault(|vault| vault.set_vault_key(password))?;
         if let Err(error) = unlock_attempt {
             if error.as_str() == "integrity check failed" {
@@ -344,7 +342,6 @@ pub async fn authenticate(
             break;
         };
     }
-    println!("about to return");
     if integrity_check_fail {
         let _ = regenerate_public_identities(state).await;
     }
