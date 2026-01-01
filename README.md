@@ -1,145 +1,144 @@
-# chiffrage
+<!--
+*** from https://github.com/othneildrew/best-readme-template
+-->
 
-a desktop UI for [age](https://github.com/FiloSottile/age) encryption.
+<!-- project logo -->
+<br />
+<p align="center">
+  <a href="https://github.com/thrzl/chiffrage">
+    <img src="src-tauri/icons/icon.png" alt="chiffrage project logo" width="80">
+  </a>
 
-built with tauri and sveltekit
+  <h3 align="center"><b>chiffrage</b></h3>
 
-<details><summary>screenshots</summary>
-<p>
-
-<img src="/screenshots/homepage.png"/>
-
-<img src="/screenshots/encrypt.png"/>
-
+  <p align="center">
+    a desktop UI for age encryption.
+    <br />
+    <!-- until i get the wiki together
+        <a href="#"><strong>explore the docs »</strong></a> 
+    <br />
+    -->
+    <br />
+    <!-- until i get a demo together too (i guess)
+    <a href="https://github.com/thrzl/chiffrage">view demo</a>
+    ·-->
+    <a href="https://github.com/thrzl/chiffrage/issues">report bug</a>
+    ·
+    <a href="https://github.com/thrzl/chiffrage/issues">request feature</a>
+  </p>
 </p>
-</details> 
 
-## note on mac usage
 
-i don't have a developer license, so it'll complain that the app is damaged or something when you try to run it
 
-to get around this, you need to run this once:
-```sh
-xattr -c /Applications/chiffrage.app
-```
+<!-- table of contents -->
+<details open="open">
+  <summary>table of contents</summary>
+  <ol>
+    <li><a href="#built-with">built with</a></li>
+    <li><a href="#installation">installation</a></li>
+    <li><a href="#usage">usage</a></li>
+    <li><a href="#roadmap">roadmap</a></li>
+    <li><a href="#contributing">contributing</a></li>
+    <li><a href="#license">license</a></li>
+    <li><a href="#acknowledgements">acknowledgements</a></li>
+  </ol>
+</details>
 
-## todo
-- [x] secure storage backend in tauri
-- [x] age backend in tauri
-- [x] complete frontend
-- [x] implement key management
-    - [x] keypair generation
-    - [ ] metadata editor + notes
-    - [x] key export
-    - [x] key import
-- [ ] encrypt folders
-- [x] encrypt multiple files
-- [x] password encryption
-- [x] automated builds
 
+
+<!-- about the project -->
+
+### built with
+
+* [rage](https://github.com/str4d/rage)
+* [tauri](https://tauri.app/)
+* [sveltekit](https://svelte.dev/)
+* [shadcn-svelte](https://www.shadcn-svelte.com/)
+
+
+
+<!-- getting started -->
+
+## installation
+ 
+download the appropriate installer from the [latest release](https://github.com/thrzl/chiffrage/releases/latest).
+
+### **windows**
+windows users can install either the `chiffrage_x.x.x_x64-setup.exe` or `chiffrage_x.x.x_x64_en_US.msi` file.
+
+### **macOS**
+
+#### **silicon macs (M series)**
+you should use the `chiffrage-aarch64.app.zip` or `chiffrage_x.x.x_aarch64.dmg`.
+
+#### **x64 macs**
+you should use the `chiffrage-x86_64.app.zip` or `chiffrage_x.x.x_x64.dmg`.
+
+### **linux**
+deb, rpm, and AppImage packages are all available for x64.
+
+
+
+<!-- usage examples -->
+## usage
+
+<center><img src="screenshots/homepage.png" width=700px></center>
+
+a **keypair** consists of a **public** and **private** key. a file encrypted to public key `A` will be decryptable by private key `A`. therefore, to have someone else encrypt files to you, you simply have to share your public key.
+
+encrypting files to yourself works the same way; simply add yourself as a recipient.
+<!--_for more examples, [read da docs](docs/vertigo.md)_-->
+
+
+
+<!-- roadmap -->
+## roadmap
+
+see the [open issues](https://github.com/thrzl/chiffrage/issues) for a list of proposed features (and known issues).
+
+
+
+<!-- contributing -->
 ## contributing
-all contributions welcome! please open an issue mentioning what you intend to change before submitting a pull request.
 
-there are currently no special build steps excluding tauri's (i use bun, but anything works):
-```sh
-bun install
+contributions are what make the open source community such an amazing place to learn, inspire, and create. any contributions you make are **greatly appreciated**.
 
-# run the dev server
-bun run tauri dev
+1. fork the project
+2. create your feature branch (`git checkout -b feat/new-thing`)
+3. commit your changes (`git commit -m 'add some new-thing'`)
+4. push to the branch (`git push origin feat/new-thing`)
+5. open a pull request
 
-# build
-bun run tauri build
-```
+make sure that you install the necessary [tauri system dependencies](https://tauri.app/start/prerequisites/).
 
-## under the hood
+<!-- license -->
+## license
 
-all data is serialized with CBOR
+distributed under the NC-MIT license. see [LICENSE](/LICENSE) for more information. in essence:
 
-### rust backend
+- **individuals** can do whatever they want with the software and source (still abide by the other terms of the license).
+- **commercial users** must obtain a unique license to use this software.
+  - in all honesty, it's not likely that a license will be expensive or that payment will be monetary (hence my usage of 'obtain' rather than 'purchase').
 
-keys are stored in a database. key metadata looks like this:
+<!-- acknowledgements -->
+## acknowledgements
+* [the age encryption format](https://age-encryption.org/v1)
+* [filosottile's HPKE-PQ reference](https://filippo.io/hpke-pq)
 
-```rust
-pub enum KeyType {
-    Public,
-    Private,
-}
 
-pub struct KeyMetadata {
-    pub id: String,
-    pub name: String,
-    pub key_type: KeyType,
-    pub date_created: SystemTime,
-    pub contents: KeyPair,
-}
 
-pub struct KeyPair {
-    pub public: String,
-    pub private: Option<EncryptedSecret>,
-}
 
-pub struct EncryptedSecret {
-    nonce: Vec<u8>,
-    ciphertext: Vec<u8>,
-}
-```
 
-the private key database uses XChaCha20Poly1350 to encrypt the keys. it's structured like so:
-```json
-{
-  "salt": "<128-bit salt>",
-  "hello": "dummy encrypted value",
-  "secrets": {
-    "private_key": {
-      "contents": {
-        "private": {
-          "nonce": "...",
-          "ciphertext": "..."
-        },
-        "public": "..."
-      },
-      "key_type": "Private",
-      "date_created": "..."
-    },
-    "public_key": {
-      "contents": {
-        "private": null,
-        "public": "..."
-      },
-      "key_type": "Public",
-      "date_created": "..."
-    }
-  }
-}
-```
-
-key type in typescript (this is in the rust too, but json/ts are more readable):
-
-```ts
-export type Key = {
-  id: string;
-  name: string;
-  key_type: "public" | "private";
-  date_created: { secs_since_epoch: number }; // pretty sure there's also millis_since_epoch
-  contents: {
-    public: String;
-    private: {
-      nonce: number[];
-      ciphertext: number[];
-    } | null;
-  };
-};
-```
-
-the `hello` entry is used to authenticate the user. the decrypted value is always `"hello"` and is checked during vault unlock.
-
-all secrets (e.g. the vault key, private keys) are held in memory using the [secrecy](https://docs.rs/secrecy/latest/secrecy/) crate, which requires explicit exposing (via `SecretBox::expose_secret()`) and will zero memory when these values are dropped with [zeroize](https://docs.rs/zeroize/latest/zeroize/)
-
-### sveltekit frontend
-
-no cryptography or handling of secrets occurs on the frontend, and never should.
-
-the finish frontend will likely be modeled after that of [kleopatra](https://apps.kde.org/kleopatra/).
-different actions (e.g. creating a new keypair from the homepage) should happen in a new window
-
-i plan to use as little external javascript/css as possible.
+<!-- markdown links & images -->
+<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
+[contributors-shield]: https://img.shields.io/github/contributors/thrzl/chiffrage.svg
+[contributors-url]: https://github.com/thrzl/chiffrage/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/thrzl/chiffrage.svg
+[forks-url]: https://github.com/thrzl/chiffrage/network/members
+[stars-shield]: https://img.shields.io/github/stars/thrzl/chiffrage.svg
+[stars-url]: https://github.com/thrzl/chiffrage/stargazers
+[issues-shield]: https://img.shields.io/github/issues/thrzl/chiffrage.svg
+[issues-url]: https://github.com/thrzl/chiffrage/issues
+[license-shield]: https://img.shields.io/badge/license-MIT--NC-green
+[license-url]: https://github.com/thrzl/chiffrage/LICENSE
+[product-screenshot]: images/screenshot.png
