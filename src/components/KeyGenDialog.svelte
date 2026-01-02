@@ -19,7 +19,13 @@
     async function generate_key() {
         if (!name.replaceAll(" ", "")) return toast.error("no name set");
         if (!(await commands.vaultUnlocked())) {
-            await commands.authenticate();
+            let authRes = await commands.authenticate();
+            if (
+                authRes.status === "error" ||
+                authRes.data === "authenticationCancel"
+            ) {
+                toast.error("authentication failed");
+            }
         }
         let generationResult = await commands.generateKeypair(
             name.trim(),
