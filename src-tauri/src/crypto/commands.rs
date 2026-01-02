@@ -2,6 +2,8 @@ use crate::crypto::hybrid::{HybridIdentity, HybridRecipient};
 use crate::crypto::{self, WildcardIdentity, WildcardRecipient};
 use crate::AppState;
 use futures_util::future::join_all;
+use rand::seq::IndexedRandom;
+use secrecy::zeroize::Zeroizing;
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
@@ -14,6 +16,8 @@ use tauri_plugin_opener::reveal_items_in_dir;
 use tokio::fs::metadata;
 use tokio::io::AsyncReadExt;
 use tokio::time;
+
+const WORDLIST: &str = include_str!("wordlists/eff_large_wordlist.txt");
 
 #[derive(serde::Serialize, specta::Type)]
 pub struct FileOperationProgress {
@@ -403,8 +407,18 @@ pub async fn downgrade_hybrid_public_key(public_key: String) -> Result<String, S
 #[tauri::command]
 #[specta::specta]
 pub async fn generate_passphrase() -> String {
-    bip39::Mnemonic::generate(12)
-        .expect("failed to generate mnemonic")
-        .to_string()
-        .replace(" ", "-")
+    let words: Vec<&str> = WORDLIST
+        .lines()
+        .map(|line| line.split_whitespace().last().unwrap())
+        .collect();
+
+    let passphrase = Zeroizing::new(
+        words
+            .choose_multiple(&mut rand::rng(), 12)
+            .map(|str| *str)
+            .collect::<Vec<&str>>()
+            .join("-"),
+    );
+
+    passphrase.to_string()
 }

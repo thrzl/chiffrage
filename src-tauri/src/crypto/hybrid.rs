@@ -1,14 +1,14 @@
 use age::{DecryptError, EncryptError, Identity, Recipient};
 use age_core::format::{FileKey, Stanza};
-use base64::prelude::{BASE64_STANDARD_NO_PAD, Engine};
-use bech32::{Bech32, ByteIterExt, Checksum, Fe32IterExt, primitives::decode::UncheckedHrpstring};
-use bip39::{rand::RngCore, rand_core::OsRng};
-use hpke_rs::{Hpke, HpkePrivateKey, HpkePublicKey, hpke_types};
+use base64::prelude::{Engine, BASE64_STANDARD_NO_PAD};
+use bech32::{primitives::decode::UncheckedHrpstring, Bech32, ByteIterExt, Checksum, Fe32IterExt};
+use hpke_rs::{hpke_types, Hpke, HpkePrivateKey, HpkePublicKey};
 use hpke_rs_libcrux::HpkeLibcrux;
 use libcrux_ml_kem::mlkem768 as mlkem;
+use rand::{rngs::OsRng, TryRngCore};
 use secrecy::{
-    ExposeSecret, SecretBox, SecretString,
     zeroize::{Zeroize, Zeroizing},
+    ExposeSecret, SecretBox, SecretString,
 };
 use sha3::digest::{ExtendableOutput, Update, XofReader};
 use std::{array::TryFromSliceError, collections::HashSet, str::FromStr};
@@ -160,7 +160,9 @@ impl HybridIdentity {
     /// generates a new ML-KEM768x25519 seed with `OsRng`.
     pub fn generate() -> Self {
         let mut seed = [0u8; 32];
-        OsRng::default().fill_bytes(&mut seed);
+        OsRng::default()
+            .try_fill_bytes(&mut seed)
+            .expect("should be able to fill bytes");
         let identity = Self {
             seed: SecretBox::new(Box::new(seed)),
         };
