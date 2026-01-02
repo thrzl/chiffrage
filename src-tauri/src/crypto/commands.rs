@@ -103,8 +103,8 @@ pub async fn encrypt_text(
             let mut recipients: Vec<WildcardRecipient> = Vec::with_capacity(key_contents.len());
             for key in key_contents {
                 if key.starts_with("age1pq") {
-                    let hybrid_recipient =
-                        HybridRecipient::from_string(&key).expect("key should be valid");
+                    let hybrid_recipient = HybridRecipient::from_string(&key)
+                        .map_err(|e| format!("invalid key: {}", e.to_string()))?;
                     let recipient = if should_encrypt_pq {
                         WildcardRecipient::Hybrid(hybrid_recipient)
                     } else {
@@ -114,7 +114,7 @@ pub async fn encrypt_text(
                 } else {
                     recipients.push(WildcardRecipient::X25519(
                         age::x25519::Recipient::from_str(key.as_str())
-                            .expect("key should be valid"),
+                            .map_err(|e| format!("invalid key: {}", e.to_string()))?,
                     ))
                 }
             }
@@ -139,13 +139,14 @@ pub async fn decrypt_text(
 ) -> Result<String, String> {
     let identity = match method {
         DecryptionMethod::X25519 => {
-            let key_content = state.with_vault(|vault| {
-                let key_metadata = vault.get_key(&private_key).unwrap();
-                vault
-                    .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())
-                    .expect("should be able to decrypt secret")
-                    .clone()
-            })?;
+            let key_content = state
+                .with_vault(|vault| {
+                    let key_metadata = vault.get_key(&private_key).unwrap();
+                    vault
+                        .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())
+                        .clone()
+                })?
+                .map_err(|e| e.to_string())?;
 
             if key_content
                 .expose_secret()
@@ -190,8 +191,8 @@ pub async fn encrypt_file(
             let mut recipients: Vec<WildcardRecipient> = Vec::with_capacity(key_contents.len());
             for key in key_contents {
                 if key.starts_with("age1pq") {
-                    let hybrid_recipient =
-                        HybridRecipient::from_string(&key).expect("key should be valid");
+                    let hybrid_recipient = HybridRecipient::from_string(&key)
+                        .map_err(|e| format!("invalid key: {}", e.to_string()))?;
                     let recipient = if should_encrypt_pq {
                         WildcardRecipient::Hybrid(hybrid_recipient)
                     } else {
@@ -201,7 +202,7 @@ pub async fn encrypt_file(
                 } else {
                     recipients.push(WildcardRecipient::X25519(
                         age::x25519::Recipient::from_str(key.as_str())
-                            .expect("key should be valid"),
+                            .map_err(|e| format!("invalid key: {}", e.to_string()))?,
                     ))
                 }
             }
@@ -220,7 +221,7 @@ pub async fn encrypt_file(
             join_all(files.clone().into_iter().map(async |path| {
                 metadata(path)
                     .await
-                    .expect("failed to get file metadata")
+                    .expect("should be able to get file metadata")
                     .len()
             }))
             .await
@@ -257,7 +258,7 @@ pub async fn encrypt_file(
                     .fetch_add(processed_bytes as u64, std::sync::atomic::Ordering::SeqCst);
             })
             .await
-            .expect("failed to encrypt file");
+            .map_err(|e| e.to_string())?;
         progress_task.abort();
         let _ = reader_ptr.clone().send(FileOperationProgress {
             // its okay if it doesnt send i'd rather the files just encrypt
@@ -267,7 +268,7 @@ pub async fn encrypt_file(
         });
         output_paths.push(output_path)
     }
-    reveal_items_in_dir(output_paths).expect("failed to reveal item");
+    reveal_items_in_dir(output_paths).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -282,13 +283,14 @@ pub async fn decrypt_file(
 ) -> Result<(), String> {
     let identity = match method {
         DecryptionMethod::X25519 => {
-            let key_content = state.with_vault(|vault| {
-                let key_metadata = vault.get_key(&private_key).unwrap();
-                vault
-                    .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())
-                    .expect("should be able to decrypt secret")
-                    .clone()
-            })?;
+            let key_content = state
+                .with_vault(|vault| {
+                    let key_metadata = vault.get_key(&private_key).unwrap();
+                    vault
+                        .decrypt_secret(&key_metadata.contents.private.as_ref().unwrap())
+                        .clone()
+                })?
+                .map_err(|e| e.to_string())?;
 
             if key_content
                 .expose_secret()
@@ -365,7 +367,7 @@ pub async fn decrypt_file(
         total_bytes: total_bytes,
         current_file: "".to_string(),
     }); // ensure that it "completes" on the frontend
-    reveal_items_in_dir(output_paths).expect("failed to reveal item");
+    reveal_items_in_dir(output_paths).map_err(|e| e.to_string())?;
     Ok(())
 }
 
