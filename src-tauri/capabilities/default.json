@@ -5,11 +5,9 @@
   "windows": ["*"],
   "permissions": [
     "core:default",
-    "opener:default",
-    "core:webview:allow-create-webview-window",
-    "core:window:allow-close",
+    "opener:allow-reveal-item-in-dir",
     "core:event:allow-emit",
-    "dialog:default",
+    "dialog:allow-save",
     "dialog:allow-open",
     "core:window:allow-show"
   ]
