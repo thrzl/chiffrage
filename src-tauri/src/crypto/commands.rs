@@ -1,6 +1,6 @@
-use crate::crypto::hybrid::{HybridIdentity, HybridRecipient};
 use crate::crypto::{self, WildcardIdentity, WildcardRecipient};
 use crate::AppState;
+use age_xwing::{HybridIdentity, HybridRecipient};
 use futures_util::future::join_all;
 use rand::seq::IndexedRandom;
 use secrecy::zeroize::Zeroizing;

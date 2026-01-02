@@ -6,12 +6,12 @@ mod commands;
 use age::secrecy::zeroize::Zeroize;
 use age::x25519::{Identity, Recipient};
 pub use commands::*;
-use region::{LockGuard, Protection, alloc, lock};
+use region::{alloc, lock, LockGuard, Protection};
 
-use argon2::{Argon2, password_hash::rand_core::RngCore};
+use argon2::{password_hash::rand_core::RngCore, Argon2};
 use chacha20poly1305::{
-    AeadCore, KeyInit, XChaCha20Poly1305, XNonce,
     aead::{AeadMut, OsRng},
+    AeadCore, KeyInit, XChaCha20Poly1305, XNonce,
 };
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -23,7 +23,7 @@ use std::collections::BTreeMap;
 use std::{fs, path::PathBuf, str::FromStr, time::SystemTime};
 
 use crate::crypto::WildcardIdentity;
-use crate::crypto::hybrid::HybridIdentity;
+use age_xwing::HybridIdentity;
 
 #[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 pub enum KeyType {

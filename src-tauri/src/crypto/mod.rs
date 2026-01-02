@@ -1,9 +1,9 @@
 // higher-level age functions to be called from the frontend
 
 pub mod commands;
-pub mod hybrid;
 use age::Decryptor;
 use age::{Identity, Recipient};
+use age_xwing::{HybridIdentity, HybridRecipient};
 pub use commands::*;
 use futures_util::{AsyncReadExt as FuturesReadExt, AsyncWriteExt as FuturesWriteExt};
 use secrecy::SecretString;
@@ -11,9 +11,6 @@ use std::path::PathBuf;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
-
-use crate::crypto::hybrid::HybridIdentity;
-use crate::crypto::hybrid::HybridRecipient;
 
 /// an enum representing the x25519, hybrid, and scrypt age recipient types. directly implements `age::Recipient`.
 pub enum WildcardRecipient {
