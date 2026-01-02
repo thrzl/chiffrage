@@ -98,15 +98,12 @@
             }
         }
         if (currentTab === "file" && keyFile) {
-            try {
-                await commands.validateKeyFile(keyFile);
-            } catch (error) {
-                if (error) {
-                    return {
-                        title: "invalid key file",
-                        description: error as string,
-                    };
-                }
+            let validation = await commands.validateKeyFile(keyFile);
+            if (validation.status === "error") {
+                return {
+                    title: "invalid key file",
+                    description: validation.error,
+                };
             }
         }
     });
