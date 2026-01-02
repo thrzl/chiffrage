@@ -51,6 +51,7 @@ hpke-rs-libcrux = "0.5.0"
 hmac = "0.12.1"
 parking_lot = "0.12.5"
 rand = "0.9.2"
+age-xwing = { git = "https://github.com/thrzl/age-xwing", version = "0.1.0" }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
