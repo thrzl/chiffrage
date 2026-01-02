@@ -26,14 +26,24 @@
         if (!name.replaceAll(" ", "")) return toast.error("no name set");
         if (!keyFile) return toast.error("no file selected");
 
+        let keyFileCheck = await commands.checkKeyfileType(keyFile);
         if (
-            (await commands.checkKeyfileType(keyFile)) &&
+            keyFileCheck.status === "ok" &&
+            keyFileCheck.data &&
             !(await commands.vaultUnlocked())
         ) {
             let authComplete = await commands.authenticate();
-            if (!authComplete) return toast.error("authentication failed");
+            if (
+                authComplete.status === "error" ||
+                authComplete.data === "authenticationCancel"
+            )
+                return toast.error("authentication failed");
         }
-        await commands.importKey(name.trim(), keyFile);
+        let keyImport = await commands.importKey(name.trim(), keyFile);
+        if (keyImport.status === "error") {
+            toast.error("key import failed", { description: keyImport.error });
+            return;
+        }
         toast.success("imported key");
         emit("update-keys");
         open = false;
@@ -63,9 +73,17 @@
             !(await commands.vaultUnlocked())
         ) {
             let authComplete = await commands.authenticate();
-            if (!authComplete) return toast.error("authentication failed");
+            if (
+                authComplete.status === "error" ||
+                authComplete.data === "authenticationCancel"
+            )
+                return toast.error("authentication failed");
         }
-        await commands.importKeyText(name.trim(), keyContent);
+        let keyImport = await commands.importKeyText(name.trim(), keyContent);
+        if (keyImport.status === "error") {
+            toast.error("key import failed", { description: keyImport.error });
+            return;
+        }
         toast.success("imported key");
         emit("update-keys");
         keys = (await commands.fetchKeys()).map((key) => key.name);
