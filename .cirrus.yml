@@ -1,0 +1,122 @@
+only_if: $CIRRUS_TAG != ''
+
+task:
+  name: "macOS ARM build"
+  macos_instance:
+    image: ghcr.io/cirruslabs/macos-ventura-xcode:latest
+  matrix:
+    - env:
+      TARGET: aarch64-apple-darwin
+      ARCH: arm64
+    - env:
+      TARGET: x86_64-apple-darwin
+      ARCH: amd64
+
+  install_script:
+    - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    - source $HOME/.cargo/env
+    - rustup target add $TARGET
+    - curl -fsSL https://bun.sh/install | bash
+    - export BUN_INSTALL="$HOME/.bun"
+    - export PATH="$BUN_INSTALL/bin:$PATH"
+
+  deps_script:
+    - bun install
+
+  build_script:
+    - export VERSION=${CIRRUS_TAG#v}
+    - bun tauri build --target $TARGET --config "{\"version\":\"$VERSION\"}"
+
+  zip_script:
+    - cd target/$TARGET/release/bundle/macos
+    - for app in *.app; do ditto -c -k --sequesterRsrc --keepParent "$app" "${app%.app}-$ARCH.app.zip"; done
+
+  sign_script:
+    - curl -LO https://github.com/sigstore/cosign/releases/latest/download/cosign-darwin-$ARCH
+    - chmod +x cosign-darwin-$ARCH
+    - ./cosign-darwin-arm64 sign-blob --bundle bundle.sig target/$TARGET/release/bundle/**/*.{dmg,zip}
+
+  artifacts:
+    path: "target/**/release/bundle/**/*.{dmg,zip,sig}"
+
+linux_task:
+  container:
+    image: rust:latest
+
+  install_deps_script:
+    - apt-get update
+    - apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+    - curl -fsSL https://bun.sh/install | bash
+
+  cargo_cache:
+    folder: $CARGO_HOME/registry
+    fingerprint_script: cat src-tauri/Cargo.lock
+
+  target_cache:
+    folder: target
+    fingerprint_script: cat src-tauri/Cargo.lock
+    populate_script: cargo fetch --manifest-path src-tauri/Cargo.toml
+
+  deps_script:
+    - export PATH="$HOME/.bun/bin:$PATH"
+    - bun install
+
+  build_script:
+    - export VERSION=${CIRRUS_TAG#v}
+    - bun tauri build --config "{\"version\":\"$VERSION\"}"
+
+  before_cache_script:
+    - cargo clean -p chiffrage
+
+  sign_script:
+    - curl -LO https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64
+    - chmod +x cosign-linux-amd64
+    - ./cosign-linux-amd64 sign-blob --bundle bundle.sig target/release/bundle/**/*.{deb,rpm,AppImage}
+
+  artifacts:
+    path: "target/release/bundle/**/*.{deb,rpm,AppImage,sig}"
+
+windows_task:
+  windows_container:
+    image: cirrusci/windowsservercore:2019
+
+  env:
+    CIRRUS_SHELL: powershell
+
+  install_script:
+    - irm bun.sh/install.ps1 | iex
+    - rustup-init -y
+    - $env:PATH += ";$env:USERPROFILE\.cargo\bin"
+
+  deps_script:
+    - bun install
+
+  build_script:
+    - $VERSION = $env:CIRRUS_TAG -replace '^v', ''
+    - bun tauri build --config "{`"version`":`"$VERSION`"}"
+
+  sign_script:
+    - Invoke-WebRequest -Uri https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe -OutFile cosign.exe
+    - .\cosign.exe sign-blob --bundle bundle.sig target\release\bundle\**\*.{exe,msi}
+
+  artifacts:
+    path: "target/release/bundle/**/*.{exe,msi,sig}"
+
+upload_task:
+  depends_on:
+    - macos_arm
+    - macos_x64
+    - linux
+    - windows
+
+  container:
+    image: alpine:latest
+
+  env:
+    GITHUB_TOKEN: ENCRYPTED[!273a6e7191ba70b9f52641cb47d545be223c14e721639427f424c3ad88e4cbaf8c26615afaac7c7e249e5b778ab071f2!]
+
+  install_script:
+    - apk add github-cli
+
+  upload_script:
+    - gh release create $CIRRUS_TAG artifacts/**/* --generate-notes -d
