@@ -6,11 +6,11 @@ task:
     image: ghcr.io/cirruslabs/macos-ventura-xcode:latest
   matrix:
     - env:
-      TARGET: aarch64-apple-darwin
-      ARCH: arm64
+        TARGET: aarch64-apple-darwin
+        ARCH: arm64
     - env:
-      TARGET: x86_64-apple-darwin
-      ARCH: amd64
+        TARGET: x86_64-apple-darwin
+        ARCH: amd64
 
   install_script:
     - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
