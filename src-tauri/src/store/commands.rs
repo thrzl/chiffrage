@@ -166,7 +166,7 @@ pub async fn export_key(
 #[specta::specta]
 pub async fn check_keyfile_type(path: String) -> Result<bool, String> {
     let mut key_file = File::open(path).await.map_err(|e| e.to_string())?;
-    let mut key_content = String::new();
+    let mut key_content = String::default();
     if let Err(error) = key_file.read_to_string(&mut key_content).await {
         return Err(error.to_string());
     };
@@ -187,7 +187,7 @@ pub async fn regenerate_public_identities(state: tauri::State<'_, AppState>) -> 
         .map(|(name, key)| {
             let key_content = vault
                 .decrypt_secret(&key.contents.private.as_ref().unwrap())
-                .map_err(|e| e.to_string())?;
+                .expect("decrypting should not fail");
             let identity = if key_content
                 .expose_secret()
                 .starts_with("AGE-SECRET-KEY-PQ-")
@@ -264,7 +264,7 @@ pub async fn import_key(
         return Err("no name set".to_string());
     }
     let mut key_file = File::open(path).await.map_err(|e| e.to_string())?;
-    let mut key_content = String::new();
+    let mut key_content = String::default();
 
     // theres genuinely no case in which a key file should be greater than 10 kb
     // this is extremely generous
