@@ -216,7 +216,6 @@ where
             .map_err(|e| e.to_string())?;
         Box::new(age::armor::ArmoredReader::from_async_reader(&contents[..]))
     } else {
-        drop(contents);
         Box::new(BufReader::new(file).compat())
     };
 
