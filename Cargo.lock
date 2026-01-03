@@ -72,7 +72,7 @@ dependencies = [
 [[package]]
 name = "age-xwing"
 version = "0.1.0"
-source = "git+https://github.com/thrzl/age-xwing#2a6ede77608d49df0fda3ffb657d108d80ca47ff"
+source = "git+https://github.com/thrzl/age-xwing?tag=0.1.0#acba5663fd9e94e3371bb27cc3799adf2ae6a8c3"
 dependencies = [
  "age",
  "age-core",
