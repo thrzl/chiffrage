@@ -243,7 +243,7 @@ pub async fn encrypt_file(
                 let _ = reader.send(FileOperationProgress {
                     // its okay if it doesnt send i'd rather the files just encrypt
                     read_bytes: total_read_bytes.load(Ordering::SeqCst),
-                    total_bytes: total_bytes,
+                    total_bytes,
                     current_file: path.file_name().unwrap().to_str().unwrap().to_string(),
                 });
                 progress_interval.tick().await;
@@ -263,7 +263,7 @@ pub async fn encrypt_file(
         let _ = reader_ptr.clone().send(FileOperationProgress {
             // its okay if it doesnt send i'd rather the files just encrypt
             read_bytes: *file_sizes.get(&file).unwrap(),
-            total_bytes: total_bytes,
+            total_bytes,
             current_file: path.file_name().unwrap().to_str().unwrap().to_string(),
         });
         output_paths.push(output_path)
@@ -340,7 +340,7 @@ pub async fn decrypt_file(
                 let _ = reader.send(FileOperationProgress {
                     // its okay if it doesnt send i'd rather the files just encrypt
                     read_bytes: total_read_bytes.load(Ordering::SeqCst),
-                    total_bytes: total_bytes,
+                    total_bytes,
                     current_file: path.file_name().unwrap().to_str().unwrap().to_string(),
                 });
             }
@@ -357,14 +357,14 @@ pub async fn decrypt_file(
         let reader = reader_ptr.clone();
         let _ = reader.send(FileOperationProgress {
             read_bytes: *file_sizes.get(&file).unwrap(),
-            total_bytes: total_bytes,
+            total_bytes,
             current_file: path.file_name().unwrap().to_str().unwrap().to_string(),
         }); // ensure that it "completes" on the frontend
         output_paths.push(output_path)
     }
     let _ = reader_ptr.send(FileOperationProgress {
         read_bytes: total_bytes,
-        total_bytes: total_bytes,
+        total_bytes,
         current_file: "".to_string(),
     }); // ensure that it "completes" on the frontend
     reveal_items_in_dir(output_paths).map_err(|e| e.to_string())?;
