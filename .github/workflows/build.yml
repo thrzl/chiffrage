@@ -90,7 +90,7 @@ jobs:
       - name: zip mac .app bundles
         if: matrix.platform == 'macos-latest' # This must match the platform value defined above.
         run: |
-          find src-tauri/target -name "*.app" -type d | while read app; do
+          find target -name "*.app" -type d | while read app; do
             base="${app%.app}"
             ditto -c -k --sequesterRsrc --keepParent "$app" "${base}-${{ matrix.arch }}.app.zip"
           done
@@ -100,14 +100,14 @@ jobs:
         with:
           name: chiffrage-artifacts-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
-            src-tauri/target/**/release/bundle/dmg/*.dmg
-            src-tauri/target/**/release/bundle/macos/*.app.zip
-            src-tauri/target/release/chiffrage.exe
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/msi/*.msi
-            src-tauri/target/release/bundle/rpm/*.rpm
-            src-tauri/target/release/bundle/deb/*.deb
-            src-tauri/target/release/bundle/appimage/*.AppImage
+            target/**/release/bundle/dmg/*.dmg
+            target/**/release/bundle/macos/*.app.zip
+            target/release/chiffrage.exe
+            target/release/bundle/nsis/*.exe
+            target/release/bundle/msi/*.msi
+            target/release/bundle/rpm/*.rpm
+            target/release/bundle/deb/*.deb
+            target/release/bundle/appimage/*.AppImage
 
   release:
     needs: build
