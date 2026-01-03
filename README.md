@@ -18,13 +18,22 @@
         <a href="#"><strong>explore the docs »</strong></a> 
     <br />
     -->
-    <br />
+    <!-- <br /> -->
     <!-- until i get a demo together too (i guess)
     <a href="https://github.com/thrzl/chiffrage">view demo</a>
     ·-->
     <a href="https://github.com/thrzl/chiffrage/issues">report bug</a>
     ·
     <a href="https://github.com/thrzl/chiffrage/issues">request feature</a>
+    <br/><br/><sup><b>download for...</b></sup><br/>
+    <a href="https://latest.thrzl.xyz/thrzl/chiffrage?q=setup.exe">windows <sup>.exe</sup></a>
+    ·
+    <a href="https://latest.thrzl.xyz/thrzl/chiffrage?q=aarch64.dmg">macOS <sup>.dmg (ARM/M-series)</sup></a>
+    ·
+    <a href="https://latest.thrzl.xyz/thrzl/chiffrage?q=x64.dmg">macOS <sup>.dmg (x64)</sup></a>
+    ·
+    <a href="https://latest.thrzl.xyz/thrzl/chiffrage?q=.AppImage">linux <sup>.AppImage</sup></a>
+    <br/><sub><i>note: these download links go to https://latest.thrzl.xyz, which simply redirects to the latest appropriate github release asset. feel free to verify hashes. more formats (.msi, .rpm, .deb, .app) are available on the release page.</i></sub>
   </p>
 </p>
 
