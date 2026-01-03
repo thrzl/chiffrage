@@ -187,7 +187,7 @@ pub async fn regenerate_public_identities(state: tauri::State<'_, AppState>) -> 
         .map(|(name, key)| {
             let key_content = vault
                 .decrypt_secret(&key.contents.private.as_ref().unwrap())
-                .map_err(|e| e.to_string())?;
+                .expect("decrypting should not fail");
             let identity = if key_content
                 .expose_secret()
                 .starts_with("AGE-SECRET-KEY-PQ-")
