@@ -119,7 +119,7 @@ pub fn run() {
             let vault_path = app_data_dir.join("vault.cb");
             let first_open = !vault_path.exists();
             if first_open && !app_data_dir.exists() {
-                std::fs::create_dir(app_data_dir).expect("failed to create app data directory")
+                std::fs::create_dir_all(app_data_dir).expect("failed to create app data directory")
             }
             app.manage(AppState {
                 vault: Arc::new(Mutex::new(if first_open {
