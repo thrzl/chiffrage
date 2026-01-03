@@ -98,14 +98,14 @@ where
     // im the greatest rust programmer ever
     F: FnMut(usize) + Send,
 {
-    let file = File::open(file_path).await.expect("failed to open file");
+    let file = File::open(file_path).await.map_err(|e| e.to_string())?;
     let mut reader = BufReader::new(file);
 
     let mut encrypted_output = file_path.clone();
     encrypted_output.add_extension("age");
     let output = File::create(&encrypted_output)
         .await
-        .expect("failed to get handle on output file");
+        .map_err(|e| e.to_string())?;
     let format = if armor {
         age::armor::Format::AsciiArmor
     } else {
@@ -117,7 +117,7 @@ where
     let encryptor = age::Encryptor::with_recipients(
         recipients.iter().map(|recipient| recipient as _), // bro wtf
     )
-    .expect("encryptor initialization failed");
+    .map_err(|e| e.to_string())?;
 
     let mut writer = encryptor
         .wrap_async_output(file_writer)
@@ -178,7 +178,7 @@ pub async fn encrypt_armored_text(
     let encryptor = age::Encryptor::with_recipients(
         recipients.iter().map(|recipient| recipient as _), // bro wtf
     )
-    .expect("encryptor initialization failed");
+    .map_err(|e| e.to_string())?;
     let mut writer = age::armor::ArmoredWriter::wrap_async_output(
         &mut encrypted,
         age::armor::Format::AsciiArmor,
@@ -204,7 +204,7 @@ pub async fn decrypt_file<F>(
 where
     F: FnMut(usize) + Send,
 {
-    let mut file = File::open(file_path).await.expect("failed to open file");
+    let mut file = File::open(file_path).await.map_err(|e| e.to_string())?;
     let file_size = file.metadata().await.map_err(|e| e.to_string())?.len() as usize;
     if armor && file_size > MEGABYTE * 100 {
         return Err("armored files over 100 MB are not supported".to_string());

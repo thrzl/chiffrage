@@ -113,7 +113,7 @@ pub async fn export_key(
 ) -> Result<(), String> {
     let key_content = {
         let raw_key_content = state.with_vault(|vault| {
-            let key_meta = vault.get_key(&key).expect("could not load key");
+            let key_meta = vault.get_key(&key).expect("key should exist");
             let key_contents = key_meta.contents.clone();
             SecretString::from(
                 vault
@@ -152,12 +152,12 @@ pub async fn export_key(
         }
     };
 
-    let mut key_file = File::create(path).await.expect("failed to open key file");
+    let mut key_file = File::create(path).await.map_err(|e| e.to_string())?;
     key_file
         .write_all(key_content.expose_secret().as_bytes())
         .await
-        .expect("failed to write file");
-    key_file.flush().await.expect("failed to flush file buffer");
+        .map_err(|e| e.to_string())?;
+    key_file.flush().await.map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -165,7 +165,7 @@ pub async fn export_key(
 #[tauri::command]
 #[specta::specta]
 pub async fn check_keyfile_type(path: String) -> Result<bool, String> {
-    let mut key_file = File::open(path).await.expect("failed to open key file");
+    let mut key_file = File::open(path).await.map_err(|e| e.to_string())?;
     let mut key_content = String::new();
     if let Err(error) = key_file.read_to_string(&mut key_content).await {
         return Err(error.to_string());
@@ -187,7 +187,7 @@ pub async fn regenerate_public_identities(state: tauri::State<'_, AppState>) -> 
         .map(|(name, key)| {
             let key_content = vault
                 .decrypt_secret(&key.contents.private.as_ref().unwrap())
-                .expect("decrypting should not fail");
+                .map_err(|e| e.to_string())?;
             let identity = if key_content
                 .expose_secret()
                 .starts_with("AGE-SECRET-KEY-PQ-")
@@ -242,7 +242,7 @@ pub async fn import_key_text(
             vault.new_key(
                 name,
                 Recipient::from_str(key_content.clone().as_str())
-                    .expect("failed to parse public key")
+                    .map_err(|e| e.to_string())?
                     .to_string(),
                 None,
             )
@@ -263,7 +263,7 @@ pub async fn import_key(
     if name.len() == 0 {
         return Err("no name set".to_string());
     }
-    let mut key_file = File::open(path).await.expect("failed to open key file");
+    let mut key_file = File::open(path).await.map_err(|e| e.to_string())?;
     let mut key_content = String::new();
 
     // theres genuinely no case in which a key file should be greater than 10 kb
@@ -275,7 +275,7 @@ pub async fn import_key(
     key_file
         .read_to_string(&mut key_content)
         .await
-        .expect("failed to read key file");
+        .map_err(|e| e.to_string())?;
 
     return import_key_text(name, key_content, state).await;
 }
