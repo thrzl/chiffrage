@@ -95,8 +95,7 @@ windows_task:
 
   build_script:
     - $VERSION = $env:CIRRUS_TAG -replace '^v', ''
-    - $config = @{ version = $VERSION } | ConvertTo-Json -Compress
-    - bun tauri build --config $config
+    - bun tauri build --config "{`"version`": `"$VERSION`"}"
 
   sign_script:
     - Invoke-WebRequest -Uri https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe -OutFile cosign.exe
