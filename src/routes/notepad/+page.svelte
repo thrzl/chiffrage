@@ -170,7 +170,7 @@
         <Label for="output" class="mt-2">input</Label>
         <Textarea
             id="input"
-            class="resize-none mt-2"
+            class="resize-none mt-2 h-24"
             placeholder="your input..."
             bind:value={input}
             oninput={(event) => {
@@ -193,7 +193,7 @@
                 bind:value={output}
                 placeholder="your output"
                 readonly
-                class="resize-none"
+                class="resize-none h-24"
                 wrap="hard"
             />
             <InputGroup.Addon align="inline-end" class="h-full">
