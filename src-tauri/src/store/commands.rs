@@ -1,8 +1,8 @@
-use crate::crypto::WildcardIdentity;
+use crate::crypto::{WildcardIdentity, WildcardRecipient};
 use crate::store::{KeyMetadata, Vault, VaultStatusUpdate};
 use crate::AppState;
 use age::x25519::{Identity, Recipient};
-use age_xwing::HybridIdentity;
+use age_xwing::{HybridIdentity, HybridRecipient};
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
 use serde::Deserialize;
@@ -238,15 +238,12 @@ pub async fn import_key_text(
             )
         })?
     } else {
-        state.with_vault(|vault| {
-            vault.new_key(
-                name,
-                Recipient::from_str(key_content.clone().as_str())
-                    .map_err(|e| e.to_string())?
-                    .to_string(),
-                None,
-            )
-        })?
+        let recipient = if key_content.starts_with("age1pq1") {
+            WildcardRecipient::Hybrid(HybridRecipient::from_string(&key_content)?)
+        } else {
+            WildcardRecipient::X25519(Recipient::from_str(&key_content)?)
+        };
+        state.with_vault(|vault| vault.new_key(name, recipient.to_string()?, None))?
     }?;
     state.with_vault(|vault| vault.put_key(key))??;
     state.save_vault().await?;
