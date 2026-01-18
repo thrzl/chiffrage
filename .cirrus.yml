@@ -90,7 +90,6 @@ windows_task:
   install_script:
     - choco install -y bun
     - choco install -y rustup.install
-    - rustup-init -y
 
   deps_script:
     - bun install
