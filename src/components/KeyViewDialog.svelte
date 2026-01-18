@@ -25,6 +25,7 @@
     } from "$lib/bindings";
     import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
     import Label from "$lib/components/ui/label/label.svelte";
+    import { onMount, tick } from "svelte";
     let webviewWindow = getCurrentWebviewWindow();
     let { key = $bindable() }: { key: KeyMetadata | undefined } = $props();
     let hasKey = $derived(key !== undefined);
@@ -113,6 +114,16 @@
             toast.error(res.error);
         }
     }
+    let publicKeyElement = $state<HTMLTextAreaElement | null>(null);
+    $effect(() => {
+        if (key) {
+            $inspect(publicKeyElement).with(console.log);
+            requestAnimationFrame(async () => {
+                await tick();
+                publicKeyElement!.scrollTop = 0;
+            });
+        }
+    });
 </script>
 
 <Dialog.Root
@@ -150,8 +161,9 @@
                         id="public-key"
                         value={publicKeyContent}
                         readonly
-                        class="resize-none font-mono"
+                        class="resize-none font-mono h-12"
                         wrap="hard"
+                        bind:ref={publicKeyElement}
                     />
                     <InputGroup.Addon align="inline-end" class="h-full">
                         <Button

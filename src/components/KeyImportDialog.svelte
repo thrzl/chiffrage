@@ -182,7 +182,7 @@
                                 </p>
                                 <Textarea
                                     bind:value={keyContent}
-                                    class="resize-none"
+                                    class="resize-none h-12"
                                     wrap="hard"
                                 />
                             </div>

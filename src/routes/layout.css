@@ -15,3 +15,7 @@
 button {
     cursor: pointer;
 }
+
+textarea {
+    word-break: break-all;
+}
