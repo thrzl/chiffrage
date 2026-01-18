@@ -4,7 +4,6 @@ macos_task:
   name: "macOS"
   macos_instance:
     image: ghcr.io/cirruslabs/macos-ventura-xcode:latest
-  env:
   matrix:
     - env:
         TARGET: aarch64-apple-darwin
@@ -37,7 +36,7 @@ macos_task:
   sign_script:
     - curl -LO https://github.com/sigstore/cosign/releases/latest/download/cosign-darwin-$ARCH
     - chmod +x cosign-darwin-$ARCH
-    - ./cosign-darwin-arm64 sign-blob --bundle bundle.sig target/$TARGET/release/bundle/**/*.{dmg,zip}
+    - ./cosign-darwin-$ARCH sign-blob --bundle bundle.sig target/$TARGET/release/bundle/**/*.{dmg,zip}
 
   artifacts:
     path: "target/**/release/bundle/**/*.{dmg,zip,sig}"
