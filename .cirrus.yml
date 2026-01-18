@@ -1,9 +1,10 @@
 only_if: $CIRRUS_TAG != ''
 
-task:
-  name: "macOS ARM build"
+macos_task:
+  name: "macOS"
   macos_instance:
     image: ghcr.io/cirruslabs/macos-ventura-xcode:latest
+  env:
   matrix:
     - env:
         TARGET: aarch64-apple-darwin
@@ -21,11 +22,13 @@ task:
     - export PATH="$BUN_INSTALL/bin:$PATH"
 
   deps_script:
-    - bun install
+    - $HOME/.bun/bin/bun install
 
   build_script:
     - export VERSION=${CIRRUS_TAG#v}
-    - bun tauri build --target $TARGET --config "{\"version\":\"$VERSION\"}"
+    - source $HOME/.cargo/env
+    - export PATH=$HOME/.cargo/bin:$HOME/.bun/bin:$PATH
+    - $HOME/.bun/bin/bun tauri build --target $TARGET --config "{\"version\":\"$VERSION\"}"
 
   zip_script:
     - cd target/$TARGET/release/bundle/macos
@@ -40,6 +43,7 @@ task:
     path: "target/**/release/bundle/**/*.{dmg,zip,sig}"
 
 linux_task:
+  name: linux
   container:
     image: rust:latest
 
@@ -50,20 +54,19 @@ linux_task:
 
   cargo_cache:
     folder: $CARGO_HOME/registry
-    fingerprint_script: cat src-tauri/Cargo.lock
+    fingerprint_script: cat Cargo.lock
 
   target_cache:
     folder: target
-    fingerprint_script: cat src-tauri/Cargo.lock
-    populate_script: cargo fetch --manifest-path src-tauri/Cargo.toml
+    fingerprint_script: cat Cargo.lock
+    populate_script: cargo fetch --manifest-path Cargo.toml
 
   deps_script:
-    - export PATH="$HOME/.bun/bin:$PATH"
-    - bun install
+    - $HOME/.bun/bin/bun install
 
   build_script:
     - export VERSION=${CIRRUS_TAG#v}
-    - bun tauri build --config "{\"version\":\"$VERSION\"}"
+    - $HOME/.bun/bin/bun tauri build --config "{\"version\":\"$VERSION\"}"
 
   before_cache_script:
     - cargo clean -p chiffrage
@@ -77,6 +80,7 @@ linux_task:
     path: "target/release/bundle/**/*.{deb,rpm,AppImage,sig}"
 
 windows_task:
+  name: windows
   windows_container:
     image: cirrusci/windowsservercore:2019
 
@@ -85,14 +89,17 @@ windows_task:
 
   install_script:
     - irm bun.sh/install.ps1 | iex
-    - rustup-init -y
+    - Invoke-WebRequest https://win.rustup.rs -OutFile rustup-init.exe
+    - .\rustup-init.exe -y
     - $env:PATH += ";$env:USERPROFILE\.cargo\bin"
 
   deps_script:
+    - $env:PATH += ";$env:USERPROFILE\.cargo\bin"
     - bun install
 
   build_script:
     - $VERSION = $env:CIRRUS_TAG -replace '^v', ''
+    - $env:PATH += ";$env:USERPROFILE\.cargo\bin"
     - bun tauri build --config "{`"version`":`"$VERSION`"}"
 
   sign_script:
@@ -104,8 +111,7 @@ windows_task:
 
 upload_task:
   depends_on:
-    - macos_arm
-    - macos_x64
+    - macOS
     - linux
     - windows
 
