@@ -68,10 +68,7 @@
         //     .replace(/^age/, "")
         //     .replace(/^AGE-SECRET-KEY-/, "");
 
-        if (
-            keyContent.startsWith("AGE-SECRET-KEY") &&
-            !(await commands.vaultUnlocked())
-        ) {
+        if (!(await commands.vaultUnlocked())) {
             let authComplete = await commands.authenticate();
             if (
                 authComplete.status === "error" ||
