@@ -15,7 +15,6 @@
 
     let password = $state("");
     let chosenKeys: string[] = $state([]);
-    let chosenKey = $derived(chosenKeys[0]);
     let cryptoMethod: "Scrypt" | "X25519" = $state("X25519");
     let input: string = $state("");
     let output: string = $state("");
@@ -62,13 +61,16 @@
         if (encryptRes.status === "error") {
             let errorText = encryptRes.error.toLowerCase() + ".";
             toast.error("encryption error", { description: errorText });
-            return;
+        } else {
+            output = encryptRes.data;
         }
-        output = encryptRes.data;
         processing = false;
     }
-    let keyFetch = $state(await commands.fetchKeys());
-    let keys = keyFetch.filter((key) => key.key_type === "Private");
+    let keys = $state(await commands.fetchKeys());
+    let privateKeys = $derived(
+        keys.filter((key) => key.key_type === "Private"),
+    );
+    let publicKeys = $derived(keys.filter((key) => key.key_type === "Public"));
     let keyMap = $derived(Object.fromEntries(keys.map((key) => [key.id, key])));
 </script>
 
@@ -85,24 +87,56 @@
                 class="flex flex-row gap-2 justify-items-center justify-center mx-auto w-full"
             >
                 <Tabs.Content value="X25519" class="grow w-45">
-                    {#if decryptPossible}
-                        <Select.Root
-                            type="single"
-                            name="target key"
-                            bind:value={chosenKey}
-                        >
-                            <Select.Trigger class="w-full mb-2">
-                                <p>
-                                    {#if chosenKey}<span class="font-bold"
-                                            >{keyMap[chosenKey].name}</span
-                                        >{:else}choose identity...{/if}
-                                </p>
-                            </Select.Trigger>
-                            <Select.Content>
+                    <Select.Root
+                        type="multiple"
+                        name="target key"
+                        bind:value={chosenKeys}
+                        onValueChange={(value) => {
+                            if (decryptPossible) {
+                                chosenKeys = [value.reverse()[0]]; // set chosenkeys to just be this
+                            }
+                        }}
+                    >
+                        <Select.Trigger class="w-full mb-2">
+                            <p>
+                                {#if chosenKeys.length > 0}<span
+                                        class="font-bold"
+                                        >{andList(
+                                            chosenKeys.map(
+                                                (key) => keyMap[key].name,
+                                            ),
+                                        )}</span
+                                    >{:else}choose identity...{/if}
+                            </p>
+                        </Select.Trigger>
+                        <Select.Content>
+                            <Select.Group>
+                                <Select.Label>private keys</Select.Label>
+                                {#if privateKeys.length > 0}
+                                    {#each privateKeys as key}
+                                        <Select.Item
+                                            value={key.id}
+                                            label={key.name}
+                                        >
+                                            {key.name}
+                                        </Select.Item>
+                                    {/each}
+                                {/if}
+                                {#if keys.length === 0}
+                                    <Select.Item
+                                        value={"#"}
+                                        label={"no key"}
+                                        disabled
+                                    >
+                                        {"no private keys"}
+                                    </Select.Item>
+                                {/if}
+                            </Select.Group>
+                            {#if !decryptPossible}
                                 <Select.Group>
-                                    <Select.Label>private keys</Select.Label>
-                                    {#if keys.length > 0}
-                                        {#each keys as key}
+                                    <Select.Label>public keys</Select.Label>
+                                    {#if publicKeys.length > 0}
+                                        {#each publicKeys as key}
                                             <Select.Item
                                                 value={key.id}
                                                 label={key.name}
@@ -110,63 +144,19 @@
                                                 {key.name}
                                             </Select.Item>
                                         {/each}
-                                    {/if}
-                                    {#if keys.length === 0}
+                                    {:else}
                                         <Select.Item
                                             value={"#"}
                                             label={"no key"}
                                             disabled
                                         >
-                                            {"no private keys"}
+                                            {"no public keys"}
                                         </Select.Item>
                                     {/if}
                                 </Select.Group>
-                            </Select.Content>
-                        </Select.Root>
-                    {:else}
-                        <Select.Root
-                            type="multiple"
-                            name="target key"
-                            bind:value={chosenKeys}
-                        >
-                            <Select.Trigger class="w-full mb-2">
-                                <p>
-                                    {@html chosenKeys.length > 0
-                                        ? andList(
-                                              chosenKeys.map(
-                                                  (id) =>
-                                                      `<span class="font-bold">${keyMap[id].name}</span>`,
-                                              ),
-                                          )
-                                        : "choose recipients..."}
-                                </p>
-                            </Select.Trigger>
-                            <Select.Content>
-                                <Select.Group>
-                                    <Select.Label>private keys</Select.Label>
-                                    {#if keys.length > 0}
-                                        {#each keys as key}
-                                            <Select.Item
-                                                value={key.id}
-                                                label={key.name}
-                                            >
-                                                {key.name}
-                                            </Select.Item>
-                                        {/each}
-                                    {/if}
-                                    {#if keys.length === 0}
-                                        <Select.Item
-                                            value={"#"}
-                                            label={"no key"}
-                                            disabled
-                                        >
-                                            {"no private keys"}
-                                        </Select.Item>
-                                    {/if}
-                                </Select.Group>
-                            </Select.Content>
-                        </Select.Root>
-                    {/if}
+                            {/if}
+                        </Select.Content>
+                    </Select.Root>
                 </Tabs.Content>
                 <Tabs.Content value="Scrypt" class="grow w-45">
                     <PasswordBox
@@ -183,6 +173,18 @@
             class="resize-none mt-2"
             placeholder="your input..."
             bind:value={input}
+            oninput={(event) => {
+                if (
+                    event.currentTarget.value.startsWith(
+                        "-----BEGIN AGE ENCRYPTED FILE-----",
+                    )
+                ) {
+                    let firstPrivateKey = chosenKeys.find(
+                        (key) => keyMap[key].key_type === "Private",
+                    );
+                    chosenKeys = firstPrivateKey ? [firstPrivateKey] : [];
+                }
+            }}
         />
         <Label for="output" class="mt-4">output</Label>
         <InputGroup.Root class="mt-2 bg-card!">
@@ -210,9 +212,9 @@
                 onclick={decryptPossible ? decryptText : encryptText}
                 disabled={processing ||
                     (cryptoMethod === "X25519"
-                        ? !chosenKey
+                        ? chosenKeys.length
                         : password.length) === 0 ||
-                    !input}
+                    input.length === 0}
                 class="mt-2 grow"
                 >{#if processing}<Spinner />
                     {decryptPossible ? "decrypt" : "encrypt"}ing...{:else}{input
