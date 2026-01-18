@@ -86,20 +86,18 @@ windows_task:
 
   env:
     CIRRUS_SHELL: powershell
+    PATH: $env:PATH;$env:USERPROFILE\.bun\bin;$env:USERPROFILE\.cargo\bin
 
   install_script:
     - irm bun.sh/install.ps1 | iex
     - Invoke-WebRequest https://win.rustup.rs -OutFile rustup-init.exe
     - .\rustup-init.exe -y
-    - $env:PATH += ";$env:USERPROFILE\.cargo\bin"
 
   deps_script:
-    - $env:PATH += ";$env:USERPROFILE\.cargo\bin"
     - bun install
 
   build_script:
     - $VERSION = $env:CIRRUS_TAG -replace '^v', ''
-    - $env:PATH += ";$env:USERPROFILE\.cargo\bin"
     - bun tauri build --config "{`"version`":`"$VERSION`"}"
 
   sign_script:
