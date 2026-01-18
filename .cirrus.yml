@@ -88,8 +88,7 @@ windows_task:
 
   install_script:
     - choco install -y bun
-    - choco install -y rustup.install
-    - rustup default stable
+    - choco install -y rust-ms
 
   deps_script:
     - bun install
