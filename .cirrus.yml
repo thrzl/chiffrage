@@ -94,9 +94,11 @@ windows_task:
     - .\rustup-init.exe -y
 
   deps_script:
+    - $env:PATH += ";$env:USERPROFILE\.cargo\bin;$env:USERPROFILE\.bun\bin"
     - bun install
 
   build_script:
+    - $env:PATH += ";$env:USERPROFILE\.cargo\bin;$env:USERPROFILE\.bun\bin"
     - $VERSION = $env:CIRRUS_TAG -replace '^v', ''
     - bun tauri build --config "{`"version`":`"$VERSION`"}"
 
