@@ -82,6 +82,7 @@ windows_task:
   name: windows
   windows_container:
     image: cirrusci/windowsservercore:2019
+    memory: 8G
 
   env:
     CIRRUS_SHELL: powershell
