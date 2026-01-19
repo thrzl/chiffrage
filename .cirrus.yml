@@ -38,7 +38,7 @@ macos_task:
     - chmod +x cosign-darwin-$ARCH
     - ./cosign-darwin-$ARCH sign-blob --identity-token $CIRRUS_OIDC_TOKEN --bundle bundle.sig target/$TARGET/release/bundle/**/*.{dmg,zip}
 
-  build_artifacts:
+  artifacts:
     path: "target/**/release/bundle/**/*.{dmg,zip}"
 
   signature_artifacts:
