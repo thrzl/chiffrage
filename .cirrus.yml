@@ -48,7 +48,7 @@ linux_task:
 
   install_deps_script:
     - apt-get update
-    - apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+    - apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
     - curl -fsSL https://bun.sh/install | bash
 
   cargo_cache:
