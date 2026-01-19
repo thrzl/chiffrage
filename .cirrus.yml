@@ -23,6 +23,15 @@ macos_task:
     - export BUN_INSTALL="$HOME/.bun"
     - export PATH="$BUN_INSTALL/bin:$PATH"
 
+  cargo_cache:
+    folder: $CARGO_HOME/registry
+    fingerprint_script: cat Cargo.lock
+
+  target_cache:
+    folder: target
+    fingerprint_script: cat Cargo.lock
+    populate_script: $HOME/.cargo/bin/cargo fetch --manifest-path Cargo.toml
+
   deps_script:
     - $HOME/.bun/bin/bun install
 
