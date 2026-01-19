@@ -39,7 +39,7 @@ macos_task:
   sign_script:
     - curl -LO https://github.com/sigstore/cosign/releases/latest/download/cosign-darwin-$ARCH
     - chmod +x cosign-darwin-$ARCH
-    - ./cosign-darwin-$ARCH sign-blob --identity-token $CIRRUS_OIDC_TOKEN --bundle bundle.sig target/$TARGET/release/bundle/**/*.{dmg,zip}
+    - ./cosign-darwin-$ARCH sign-blob --identity-token $CIRRUS_OIDC_TOKEN --oidc-issuer "https://oidc.cirrus-ci.com" --bundle bundle.sig target/$TARGET/release/bundle/**/*.{dmg,zip}
 
   artifacts:
     path: "target/**/release/bundle/**/*.{dmg,zip}"
@@ -79,7 +79,7 @@ linux_task:
   sign_script:
     - curl -LO https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64
     - chmod +x cosign-linux-amd64
-    - ./cosign-linux-amd64 sign-blob --identity-token $CIRRUS_OIDC_TOKEN --bundle bundle.sig target/release/bundle/**/*.{deb,rpm,AppImage}
+    - ./cosign-linux-amd64 sign-blob --identity-token $CIRRUS_OIDC_TOKEN --oidc-issuer "https://oidc.cirrus-ci.com" --bundle bundle.sig target/release/bundle/**/*.{deb,rpm,AppImage}
 
   artifacts:
     path: "target/release/bundle/**/*.{deb,rpm,AppImage}"
@@ -109,8 +109,8 @@ windows_task:
 
   sign_script:
     - Invoke-WebRequest -Uri https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe -OutFile cosign.exe
-    - .\cosign.exe sign-blob --identity-token $CIRRUS_OIDC_TOKEN --bundle bundle.sig target\release\bundle\**\*.exe
-    - .\cosign.exe sign-blob --identity-token $CIRRUS_OIDC_TOKEN --bundle bundle.sig target\release\bundle\**\*.msi
+    - .\cosign.exe sign-blob --identity-token $CIRRUS_OIDC_TOKEN --oidc-issuer "https://oidc.cirrus-ci.com" --bundle bundle.sig target\release\bundle\**\*.exe
+    - .\cosign.exe sign-blob --identity-token $CIRRUS_OIDC_TOKEN --oidc-issuer "https://oidc.cirrus-ci.com" --bundle bundle.sig target\release\bundle\**\*.msi
 
   artifacts:
     path: "target/release/bundle/**/*.{exe,msi}"
