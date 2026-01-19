@@ -39,7 +39,7 @@ macos_task:
   before_cache_script:
     - rm -rf target/release/bundle
     - rm -f target/release/chiffrage
-    - cargo clean --release -p chiffrage
+    - $HOME/.cargo/bin/cargo clean --release -p chiffrage
 
   zip_script:
     - cd target/$TARGET/release/bundle/macos
