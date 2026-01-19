@@ -1,5 +1,8 @@
 only_if: $CIRRUS_TAG != ''
 
+env:
+  CIRRUS_OIDC_TOKEN_AUDIENCE: "sigstore"
+
 macos_task:
   name: "macOS"
   macos_instance:
