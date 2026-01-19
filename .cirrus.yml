@@ -23,14 +23,9 @@ macos_task:
     - export BUN_INSTALL="$HOME/.bun"
     - export PATH="$BUN_INSTALL/bin:$PATH"
 
-  cargo_cache:
-    folder: $CARGO_HOME/registry
-    fingerprint_script: cat Cargo.lock
-
   target_cache:
     folder: target
     fingerprint_script: cat Cargo.lock
-    populate_script: $HOME/.cargo/bin/cargo fetch --manifest-path Cargo.toml
 
   deps_script:
     - $HOME/.bun/bin/bun install
@@ -40,6 +35,11 @@ macos_task:
     - source $HOME/.cargo/env
     - export PATH=$HOME/.cargo/bin:$HOME/.bun/bin:$PATH
     - $HOME/.bun/bin/bun tauri build --target $TARGET --config "{\"version\":\"$VERSION\"}"
+
+  before_cache_script:
+    - rm -rf target/release/bundle
+    - rm -f target/release/chiffrage
+    - cargo clean --release -p chiffrage
 
   zip_script:
     - cd target/$TARGET/release/bundle/macos
