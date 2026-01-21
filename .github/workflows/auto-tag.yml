@@ -63,3 +63,17 @@ jobs:
                 sha: context.sha
               });
             })
+
+  build:
+    needs: autorelease
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    if: needs.autorelease.outputs.version
+    permissions:
+      contents: write
+      actions: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    with:
+      tagName: "v${{ needs.autorelease.outputs.version }}"
